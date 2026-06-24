@@ -193,6 +193,37 @@ try {
     headers: secretHeaders,
     body: JSON.stringify({
       comprobante_pago_recibido: true,
+      payment_proof_note: "comprobante prematuro QA",
+      needs_human: true,
+      next_expected: "humano"
+    })
+  });
+
+  const prematureProofReview = await fetch(`${baseUrl}/bot/conversations/${conversation.id}/orders/review`, {
+    method: "POST",
+    headers: secretHeaders
+  });
+  assert.equal(
+    prematureProofReview.status,
+    404,
+    "Premature payment proof should not enter review before payment proof step"
+  );
+
+  await request(`/bot/conversations/${conversation.id}/state`, {
+    method: "PATCH",
+    headers: secretHeaders,
+    body: JSON.stringify({
+      pedido_confirmado_por_cliente: true,
+      comprobante_pago_pendiente: true,
+      next_expected: "comprobante_pago"
+    })
+  });
+
+  await request(`/bot/conversations/${conversation.id}/state`, {
+    method: "PATCH",
+    headers: secretHeaders,
+    body: JSON.stringify({
+      comprobante_pago_recibido: true,
       payment_proof_note: "comprobante QA",
       needs_human: true,
       next_expected: "humano"

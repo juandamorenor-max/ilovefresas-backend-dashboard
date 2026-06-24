@@ -108,12 +108,13 @@ export class BotIntegrationService {
       conversation.customerPhone
     );
 
-    this.applyDraftPatch(conversation.draftOrder, patch);
-    this.captureMessages(conversation, patch);
-    this.captureMemory(conversation, patch);
+    const safePatch = this.sanitizePrematurePaymentProofPatch(conversation, patch);
+    this.applyDraftPatch(conversation.draftOrder, safePatch);
+    this.captureMessages(conversation, safePatch);
+    this.captureMemory(conversation, safePatch);
 
     conversation.draftOrder = this.orderService.refreshDraft(conversation.draftOrder);
-    conversation.state = this.nextConversationState(conversation, patch);
+    conversation.state = this.nextConversationState(conversation, safePatch);
     conversation.updatedAt = nowIso();
 
     persistRuntimeStore();
@@ -276,6 +277,43 @@ export class BotIntegrationService {
     if (patch.needs_human === true || patch.needs_human === "true") {
       draft.blockingIssue = "Requiere revision humana segun Flowise.";
     }
+  }
+
+  private sanitizePrematurePaymentProofPatch(
+    conversation: Conversation,
+    patch: BotConversationStatePatch
+  ): BotConversationStatePatch {
+    const wantsToMarkProof =
+      patch.comprobante_pago_recibido === true || patch.comprobante_pago_recibido === "true";
+    if (!wantsToMarkProof) {
+      return patch;
+    }
+
+    if (this.canAcceptPaymentProof(conversation)) {
+      return patch;
+    }
+
+    return {
+      ...patch,
+      comprobante_pago_recibido: false,
+      payment_proof_note: undefined,
+      needs_human: patch.needs_human,
+      next_expected:
+        patch.next_expected === "humano"
+          ? this.toNextExpected(conversation)
+          : patch.next_expected
+    };
+  }
+
+  private canAcceptPaymentProof(conversation: Conversation) {
+    const draft = conversation.draftOrder;
+    return Boolean(
+      conversation.state === "awaiting_payment_proof" &&
+        draft?.items.length &&
+        draft.paymentMethod &&
+        this.requiresPaymentProof(draft.paymentMethod) &&
+        draft.pricing.total > 0
+    );
   }
 
   private parseItems(value: BotConversationStatePatch["items"]): FlowisePedidoItem[] {

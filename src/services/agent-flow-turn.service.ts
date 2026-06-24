@@ -95,6 +95,31 @@ export class AgentFlowTurnService {
       };
     }
 
+    if (this.isPaymentProof(text) && conversation.conversationState.next_expected !== "comprobante_pago") {
+      const responseText = this.buildPrematurePaymentProofReply(
+        String(conversation.conversationState.next_expected ?? "")
+      );
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          next_expected: String(conversation.conversationState.next_expected ?? "pedido")
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_premature_payment_proof",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
+
     if (
       conversation.conversationState.next_expected === "confirmacion" &&
       this.isCustomerConfirmation(text) &&
@@ -439,15 +464,19 @@ export class AgentFlowTurnService {
   }
 
   private buildUnexpectedAttachmentReply(nextExpected: string) {
+    return "Recibi la imagen, pero todavia no puedo recibir comprobantes. Primero cerramos el pedido, te doy el total y despues te pido el comprobante.";
+  }
+
+  private buildPrematurePaymentProofReply(nextExpected: string) {
     if (nextExpected === "confirmacion") {
-      return "Recibi la imagen, pero antes necesito que confirmes si el resumen del pedido esta correcto.";
+      return "Todavia no puedo recibir comprobantes. Primero confirmame si el resumen esta correcto; despues te doy el total y te pido el comprobante.";
     }
 
     if (nextExpected === "datos") {
-      return "Recibi la imagen, pero antes necesito completar los datos del pedido. Me compartes nombre, direccion, barrio, referencia y metodo de pago?";
+      return "Todavia no puedo recibir comprobantes. Primero terminamos los datos del pedido, luego te muestro el total y ahi si te pido el comprobante.";
     }
 
-    return "Recibi la imagen. Si es un comprobante, te lo voy a pedir despues de confirmar el pedido y el metodo de pago. Por ahora cuentame que quieres pedir.";
+    return "Todavia no puedo recibir comprobantes. Primero armamos y cerramos el pedido; despues te doy el total y te pido el comprobante.";
   }
 
   private normalize(text: string) {

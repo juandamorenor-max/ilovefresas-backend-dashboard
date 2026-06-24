@@ -65,6 +65,21 @@ assert(
   "unexpected image response should redirect to order flow"
 );
 
+const prematureTextProofTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "premature-text-proof-test",
+  text: "ya envie el comprobante nequi"
+});
+assert(
+  prematureTextProofTurn.source === "backend_premature_payment_proof",
+  "text proof before payment proof step should be handled by backend before Flowise"
+);
+assert(!prematureTextProofTurn.orderId, "premature text proof should not create review order");
+assert(
+  String(prematureTextProofTurn.responseText).toLowerCase().includes("todavia no puedo recibir comprobantes"),
+  "premature text proof response should explain proof is only after total"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;
@@ -420,12 +435,12 @@ const invalidWhatsAppAttachment = await conversationService.handleIncomingAttach
   mimeType: "image/jpeg"
 });
 assert(
-  invalidWhatsAppAttachment.reply.toLowerCase().includes("no alcanzo a validar"),
-  "WhatsApp image without proof signals should be rejected"
+  invalidWhatsAppAttachment.reply.toLowerCase().includes("todavia no puedo recibir comprobantes"),
+  "WhatsApp image before payment proof step should be rejected"
 );
 
-const validWhatsAppAttachment = await conversationService.handleIncomingAttachment({
-  from: "whatsapp-valid-proof",
+const prematureWhatsAppProofAttachment = await conversationService.handleIncomingAttachment({
+  from: "whatsapp-premature-proof",
   to: "business",
   attachmentType: "image",
   caption: "comprobante Nequi exitoso por 21000 referencia 12345",
@@ -433,8 +448,8 @@ const validWhatsAppAttachment = await conversationService.handleIncomingAttachme
   mimeType: "image/jpeg"
 });
 assert(
-  validWhatsAppAttachment.reply.includes("Comprobante recibido"),
-  "WhatsApp image with proof caption should be accepted"
+  prematureWhatsAppProofAttachment.reply.toLowerCase().includes("todavia no puedo recibir comprobantes"),
+  "WhatsApp image with proof caption should still be rejected before order total"
 );
 
 console.log("bot-integration smoke OK");

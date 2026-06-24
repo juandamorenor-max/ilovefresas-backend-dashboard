@@ -362,6 +362,15 @@ export class ConversationService {
       : `[${attachmentLabel} recibida]`;
 
     this.saveMessage(business.id, conversation.id, payload.from, "customer", customerMessage);
+    if (conversation.state !== "awaiting_payment_proof") {
+      const reply =
+        "Recibi la imagen, pero todavia no puedo recibir comprobantes. " +
+        "Primero cerramos el pedido, te doy el total y despues te pido el comprobante.";
+      this.saveMessage(business.id, conversation.id, payload.from, "bot", reply);
+      persistRuntimeStore();
+      return this.buildTurnResult(conversation, reply, "stateful");
+    }
+
     const proofValidation = await this.paymentProofValidationService.validate({
       channel: "whatsapp",
       text: payload.caption ?? "",
