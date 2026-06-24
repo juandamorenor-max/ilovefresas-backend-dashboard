@@ -7753,8 +7753,8 @@ export class ConversationService {
       {
         type: "document" as const,
         pathOrUrl: env.MENU_PDF_PATH,
-        filename: "Menu I Love Fresas.pdf",
-        caption: "Menu actual de I Love Fresas"
+        filename: "Menu 2026.pdf",
+        caption: "Menu 2026 I Love Fresas 🍓"
       }
     ];
   }

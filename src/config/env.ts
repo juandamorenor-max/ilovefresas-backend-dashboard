@@ -54,7 +54,7 @@ const envSchema = z.object({
   TELEGRAM_ADMIN_BOT_TOKEN: z.string().optional(),
   TELEGRAM_ADMIN_CHAT_ID: z.string().optional(),
   TELEGRAM_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1500),
-  MENU_PDF_PATH: z.string().optional(),
+  MENU_PDF_PATH: z.string().default("assets/menu/Menu 2026.pdf"),
   SPEC_ASSETS_DIR: z.string().default("assets/specifications"),
   RUNTIME_STORE_PATH: z.string().optional(),
   DATABASE_URL: z.string().optional()

@@ -3,6 +3,7 @@ import { HttpError } from "../utils/http.js";
 import { logger } from "../utils/logger.js";
 import { BotIntegrationService } from "./bot-integration.service.js";
 import { PaymentProofValidationService } from "./payment-proof-validation.service.js";
+import { TelegramService } from "./telegram.service.js";
 
 type BotChannel = "telegram" | "whatsapp";
 
@@ -33,7 +34,8 @@ const fallbackReply =
 export class AgentFlowTurnService {
   constructor(
     private readonly botIntegrationService = new BotIntegrationService(),
-    private readonly paymentProofValidationService = new PaymentProofValidationService()
+    private readonly paymentProofValidationService = new PaymentProofValidationService(),
+    private readonly telegramService = new TelegramService()
   ) {}
 
   async handleTurn(input: BotTurnInput) {
@@ -201,6 +203,33 @@ export class AgentFlowTurnService {
         state: updatedConversation?.state ?? conversation.state,
         orderId: order?.id ?? updatedConversation?.activeOrderId ?? null,
         reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
+      };
+    }
+
+    if (this.isMenuPdfRequest(text)) {
+      const responseText = "Claro 😊 Te envio el Menu 2026 por aqui 🍓";
+      const menuAttachment = this.buildMenuAttachment();
+      const menuPdfSent = await this.sendMenuPdfIfPossible(input.channel, input.chatId, menuAttachment);
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          next_expected: String(conversation.conversationState.next_expected ?? "pedido")
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_menu_pdf",
+        menuPdfSent,
+        attachments: menuAttachment ? [menuAttachment] : [],
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
       };
     }
 
@@ -477,6 +506,58 @@ export class AgentFlowTurnService {
     }
 
     return "Todavia no puedo recibir comprobantes. Primero armamos y cerramos el pedido; despues te doy el total y te pido el comprobante 😊";
+  }
+
+  private isMenuPdfRequest(text: string) {
+    const normalized = this.normalize(text);
+    if (!normalized) {
+      return false;
+    }
+
+    return (
+      /\b(menu|carta|catalogo|pdf)\b/.test(normalized) ||
+      /\b(que venden|que productos tienen|que opciones tienen|muestrame las opciones)\b/.test(normalized)
+    );
+  }
+
+  private buildMenuAttachment() {
+    if (!env.MENU_PDF_PATH) {
+      return null;
+    }
+
+    return {
+      type: "document" as const,
+      pathOrUrl: env.MENU_PDF_PATH,
+      filename: "Menu 2026.pdf",
+      caption: "Menu 2026 I Love Fresas 🍓"
+    };
+  }
+
+  private async sendMenuPdfIfPossible(
+    channel: BotChannel,
+    chatId: string,
+    attachment: ReturnType<AgentFlowTurnService["buildMenuAttachment"]>
+  ) {
+    if (channel !== "telegram" || !attachment || !env.TELEGRAM_CLIENT_BOT_TOKEN) {
+      return false;
+    }
+
+    try {
+      await this.telegramService.sendDocument(
+        env.TELEGRAM_CLIENT_BOT_TOKEN,
+        chatId,
+        attachment.pathOrUrl,
+        attachment.caption
+      );
+      return true;
+    } catch (error) {
+      logger.warn("Menu PDF send failed", {
+        channel,
+        chatId,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+      return false;
+    }
   }
 
   private normalize(text: string) {

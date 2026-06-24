@@ -31,6 +31,25 @@ assert(
 );
 
 const agentFlowTurnService = new AgentFlowTurnService(service);
+const menuPdfTurn = await agentFlowTurnService.handleTurn({
+  channel: "whatsapp",
+  chatId: "menu-pdf-test",
+  text: "menu"
+});
+assert(
+  menuPdfTurn.source === "backend_menu_pdf",
+  "menu request should be handled by backend before Flowise"
+);
+assert(
+  String(menuPdfTurn.responseText).includes("Menu 2026"),
+  "menu request should mention Menu 2026"
+);
+assert(
+  Array.isArray(menuPdfTurn.attachments) &&
+    menuPdfTurn.attachments[0]?.filename === "Menu 2026.pdf",
+  "menu request should include Menu 2026 PDF attachment metadata"
+);
+
 const unavailableTurn = await agentFlowTurnService.handleTurn({
   channel: "telegram",
   chatId: "availability-test",
