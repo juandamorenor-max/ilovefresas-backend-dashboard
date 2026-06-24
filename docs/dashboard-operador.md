@@ -56,9 +56,46 @@ El dashboard consume estos endpoints:
 - `GET /admin/dashboard/conversations`
 - `GET /admin/dashboard/conversations/:id`
 - `GET /admin/dashboard/products`
+- `GET /admin/dashboard/modifiers`
 - `GET /admin/dashboard/business-status`
+- `PATCH /admin/products/:id`
+- `PATCH /admin/products/:id/availability`
+- `PATCH /admin/modifiers/:id`
+- `PATCH /admin/modifiers/:id/availability`
+- `GET /bot/catalog/available` con header `x-bot-secret` para n8n/backend
 
-El dashboard hace polling cada 5 segundos. Si aparece un pedido nuevo, actualiza la lista y reproduce sonido si esta activado.
+El dashboard hace polling simple cada pocos segundos. Si aparece un pedido, chat o cambio de catalogo,
+la vista se actualiza desde el backend.
+
+## Catalogo, disponibilidad y precios
+
+En V1 el dashboard es la superficie operativa para apagar/reactivar productos, toppings y adiciones.
+Cuando un operario apaga un producto o marca un producto como agotado:
+
+- desaparece de `productos` en `/bot/catalog/available`;
+- aparece en `agotados.productos`;
+- el bot no debe agregarlo al pedido;
+- si el cliente lo pide por chat, el backend responde que esta agotado antes de llamar a Flowise.
+
+Cuando un operario apaga un topping o adicion:
+
+- desaparece de las opciones disponibles para el bot;
+- aparece en `agotados.modificadores`;
+- si el cliente lo pide por chat, el backend responde que esta agotado antes de llamar a Flowise.
+
+Cuando Admin cambia el precio de un producto o modificador:
+
+- el dashboard lo muestra desde `/admin/dashboard/products` o `/admin/dashboard/modifiers`;
+- el pedido creado por el bot usa ese precio actual al calcular subtotal y total;
+- Flowise no decide precios.
+
+Prueba repetible:
+
+```bash
+npm run test:dashboard-operational
+```
+
+Ese smoke levanta Express localmente, cambia disponibilidad/precio por endpoints del dashboard y valida por endpoints del bot que el chat responde `agotado` y que la orden usa el precio actualizado.
 
 ## Flujo recomendado del operador
 
@@ -72,9 +109,9 @@ El dashboard hace polling cada 5 segundos. Si aparece un pedido nuevo, actualiza
 
 ## Limitaciones de esta beta
 
-- Los datos siguen en memoria; reiniciar el backend borra pedidos y conversaciones.
+- Los datos siguen en memoria; reiniciar el backend borra pedidos, conversaciones y cambios de catalogo hechos desde dashboard. Para produccion real falta conectar Postgres u otra persistencia.
 - No hay login/autenticacion real; el selector Operario/Admin es demo visual.
-- La edicion rapida guarda direccion, pago y nota. No reestructura items complejos del pedido.
-- El boton de aviso de despacho marca el pedido como avisado en notas internas; todavia no envia mensaje real al cliente.
+- La edicion rapida guarda direccion, pago, nota, disponibilidad y catalogo basico. No reestructura items complejos del pedido.
+- Confirmar/notificar y avisar despacho pasan por backend; requieren que el canal del cliente tenga credenciales configuradas.
 - No hay SSE/WebSocket; el dashboard usa polling simple.
-- El dashboard conserva vistas de contabilidad/configuracion con datos parcialmente visuales para no romper el prototipo.
+- V1 no incluye contabilidad, metricas beta, cierre de caja ni configuraciones grandes.

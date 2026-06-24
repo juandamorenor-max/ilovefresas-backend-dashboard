@@ -31,6 +31,7 @@
     "qa:manual-failures": "npm run build && node dist/qa/manual-failures-index.js",
     "qa:openai-structural-mini": "npm run build && node dist/qa/openai-structural-mini.js",
     "test:bot-integration": "npm run build && node dist/qa/bot-integration-smoke.js",
+    "test:dashboard-operational": "npm run build && node dist/qa/dashboard-operational-smoke.js",
     "test:catalog": "npm run build && node dist/catalog/catalog.test.js",
     "test:orchestrator": "npm run build && node dist/orchestrator/orchestrator.test.js",
     "start": "node dist/server.js",

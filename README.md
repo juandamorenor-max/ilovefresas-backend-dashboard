@@ -146,16 +146,36 @@ Para usarlo crea dos bots con BotFather: uno para clientes y otro para admin. Pr
 - `GET /admin/dashboard/conversations`
 - `GET /admin/dashboard/conversations/:id`
 - `GET /admin/dashboard/products`
+- `GET /admin/dashboard/modifiers`
 - `GET /admin/dashboard/business-status`
 - `GET /admin/products`
 - `POST /admin/products`
 - `PATCH /admin/products/:id`
 - `PATCH /admin/products/:id/availability`
+- `GET /admin/modifiers`
+- `POST /admin/modifiers`
+- `PATCH /admin/modifiers/:id`
+- `PATCH /admin/modifiers/:id/availability`
 - `GET /admin/business-status`
 - `PATCH /admin/business-status`
 - `GET /admin/special-closures`
 - `POST /admin/special-closures`
 - `DELETE /admin/special-closures/:id`
+
+### Bot integration
+
+- `GET /bot/catalog/available` con `x-bot-secret`
+- `POST /bot/turn` con `x-bot-secret`
+- `GET /bot/conversations/:channel/:chatId/active` con `x-bot-secret`
+- `POST /bot/conversations/:channel/:chatId/new` con `x-bot-secret`
+- `PATCH /bot/conversations/:conversationId/state` con `x-bot-secret`
+- `POST /bot/conversations/:conversationId/orders/review` con `x-bot-secret`
+
+Para validar que dashboard, catalogo y bot estan conectados:
+
+```bash
+npm run test:dashboard-operational
+```
 
 ## Ejemplo de webhook entrante
 
