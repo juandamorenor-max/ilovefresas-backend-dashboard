@@ -47,6 +47,24 @@ assert(
 
 traditionalProduct.isOutOfStock = originalTraditionalStock;
 
+const unexpectedAttachmentTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "unexpected-attachment-test",
+  text: "",
+  hasAttachment: true,
+  attachmentType: "image",
+  attachmentFileId: "telegram-photo-before-order"
+});
+assert(
+  unexpectedAttachmentTurn.source === "backend_unexpected_attachment",
+  "image outside payment proof step should be handled by backend before Flowise"
+);
+assert(!unexpectedAttachmentTurn.orderId, "unexpected image should not create review order");
+assert(
+  String(unexpectedAttachmentTurn.responseText).toLowerCase().includes("pedido"),
+  "unexpected image response should redirect to order flow"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;

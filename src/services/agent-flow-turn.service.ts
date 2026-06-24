@@ -68,6 +68,33 @@ export class AgentFlowTurnService {
       };
     }
 
+    if (hasAttachment && conversation.conversationState.next_expected !== "comprobante_pago") {
+      const responseText = this.buildUnexpectedAttachmentReply(
+        String(conversation.conversationState.next_expected ?? "")
+      );
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage:
+            text ||
+            `[${input.attachmentType === "image" ? "imagen" : "archivo"} recibido desde ${input.channel}]`,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          next_expected: String(conversation.conversationState.next_expected ?? "pedido")
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_unexpected_attachment",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
+
     if (
       conversation.conversationState.next_expected === "confirmacion" &&
       this.isCustomerConfirmation(text) &&
@@ -409,6 +436,18 @@ export class AgentFlowTurnService {
       `Validacion: ${proofValidation.source}, confianza ${proofValidation.confidence.toFixed(2)}.`,
       proofValidation.reason
     ].filter(Boolean).join(" ");
+  }
+
+  private buildUnexpectedAttachmentReply(nextExpected: string) {
+    if (nextExpected === "confirmacion") {
+      return "Recibi la imagen, pero antes necesito que confirmes si el resumen del pedido esta correcto.";
+    }
+
+    if (nextExpected === "datos") {
+      return "Recibi la imagen, pero antes necesito completar los datos del pedido. Me compartes nombre, direccion, barrio, referencia y metodo de pago?";
+    }
+
+    return "Recibi la imagen. Si es un comprobante, te lo voy a pedir despues de confirmar el pedido y el metodo de pago. Por ahora cuentame que quieres pedir.";
   }
 
   private normalize(text: string) {
