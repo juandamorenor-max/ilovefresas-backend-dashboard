@@ -67,6 +67,19 @@ try {
   assert.equal(restored.isActive, true);
   assert.equal(restored.isOutOfStock, true);
 
+  const health = await request("/health/integration") as {
+    storage: {
+      configured: boolean;
+      mode: string;
+      exists: boolean;
+      writable: boolean;
+    };
+  };
+  assert.equal(health.storage.configured, true);
+  assert.equal(health.storage.mode, "snapshot-json");
+  assert.equal(health.storage.exists, true);
+  assert.equal(health.storage.writable, true);
+
   restored.basePrice = original.basePrice;
   restored.isActive = original.isActive;
   restored.isOutOfStock = original.isOutOfStock;

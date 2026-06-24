@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { env } from "../config/env.js";
+import { getRuntimeStoreStatus } from "../data/runtime-store.js";
 
 export class HealthController {
   getStatus(_request: Request, response: Response) {
@@ -14,7 +15,7 @@ export class HealthController {
     response.json({
       ok: true,
       service: "chatbot-i-love-fresas-v2",
-      storage: "memory-demo-store",
+      storage: getRuntimeStoreStatus(),
       flowise: {
         configured: Boolean(env.FLOWISE_CHATFLOW_ID),
         apiUrl: env.FLOWISE_API_URL,

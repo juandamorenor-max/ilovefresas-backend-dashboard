@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { env } from "../config/env.js";
 import { demoStore } from "./demoStore.js";
@@ -66,6 +66,43 @@ export function persistRuntimeStore() {
 
   writeFileSync(storePath, JSON.stringify(snapshot, null, 2), "utf8");
   return true;
+}
+
+export function getRuntimeStoreStatus() {
+  const storePath = runtimeStorePath();
+  if (!storePath) {
+    return {
+      configured: false,
+      mode: "memory",
+      path: null,
+      exists: false,
+      writable: false
+    };
+  }
+
+  try {
+    mkdirSync(path.dirname(storePath), { recursive: true });
+    const probePath = `${storePath}.healthcheck`;
+    writeFileSync(probePath, new Date().toISOString(), "utf8");
+    rmSync(probePath, { force: true });
+
+    return {
+      configured: true,
+      mode: "snapshot-json",
+      path: storePath,
+      exists: existsSync(storePath),
+      writable: true
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      mode: "snapshot-json",
+      path: storePath,
+      exists: existsSync(storePath),
+      writable: false,
+      error: error instanceof Error ? error.message : "unknown"
+    };
+  }
 }
 
 function runtimeStorePath() {

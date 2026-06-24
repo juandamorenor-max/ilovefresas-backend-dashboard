@@ -109,6 +109,14 @@ RUNTIME_STORE_PATH=/data/ilovefresas-runtime-store.json
 En Railway, lo ideal es montar un Volume en `/data` y usar esa ruta. Si no hay volumen, puedes usar una ruta
 dentro del contenedor para pruebas, pero un redeploy puede perder esos datos.
 
+Puedes verificarlo en produccion con:
+
+```text
+GET /health/integration
+```
+
+El campo `storage` debe mostrar `configured=true`, `mode=snapshot-json` y `writable=true`.
+
 El snapshot guarda:
 
 - catalogo, productos, toppings, adiciones y disponibilidad;
