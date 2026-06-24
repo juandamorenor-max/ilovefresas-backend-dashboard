@@ -7,6 +7,7 @@ const state = {
   conversations: [],
   products: [],
   modifiers: [],
+  paymentMethods: [],
   botCatalog: null,
   businessStatus: {},
   integrationStatus: null,
@@ -82,6 +83,32 @@ const demoData = {
       isOutOfStock: false
     }
   ],
+  paymentMethods: [
+    {
+      id: "pm_nequi",
+      name: "Nequi",
+      accountLabel: "Nequi",
+      accountValue: "3000000000",
+      requiresProof: true,
+      isActive: true
+    },
+    {
+      id: "pm_bancolombia",
+      name: "Bancolombia",
+      accountLabel: "Cuenta Bancolombia",
+      accountValue: "72600000000",
+      requiresProof: true,
+      isActive: true
+    },
+    {
+      id: "pm_bre_b",
+      name: "Bre-B",
+      accountLabel: "Llave Bre-B",
+      accountValue: "@test",
+      requiresProof: true,
+      isActive: true
+    }
+  ],
   modifiers: [
     { id: "demo_modifier_1", name: "Oreo", price: 2500, isActive: true },
     { id: "demo_modifier_2", name: "Arequipe", price: 2000, isActive: true }
@@ -107,7 +134,7 @@ const titles = {
   orders: ["Pedidos", "Flujo operativo de cocina y despacho"],
   detail: ["Detalle del pedido", "Validacion y acciones del operario"],
   availability: ["Disponibilidad", "Productos y adiciones que el bot puede ofrecer"],
-  catalog: ["Catalogo", "Edicion de productos y toppings"]
+  catalog: ["Catalogo y pagos", "Edicion de productos, toppings y datos de transferencia"]
 };
 
 const statusLabels = {
@@ -136,6 +163,7 @@ const adminApi = {
   listProducts: () => apiFetch("/admin/dashboard/products"),
   listModifiers: () => apiFetch("/admin/dashboard/modifiers"),
   getBotCatalog: () => apiFetch("/admin/dashboard/bot-catalog"),
+  listPaymentMethods: () => apiFetch("/admin/dashboard/payment-methods"),
   getBusinessStatus: () => apiFetch("/admin/dashboard/business-status"),
   getIntegrationStatus: () => apiFetch("/health/integration"),
   updateOrder: (order, patch) => apiFetch(`/admin/dashboard/orders/${encodeURIComponent(order.id)}`, {
@@ -187,6 +215,10 @@ const adminApi = {
     body: JSON.stringify(payload)
   }),
   updateModifier: (modifier, patch) => apiFetch(`/admin/modifiers/${encodeURIComponent(modifier.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch)
+  }),
+  updatePaymentMethod: (method, patch) => apiFetch(`/admin/payment-methods/${encodeURIComponent(method.id)}`, {
     method: "PATCH",
     body: JSON.stringify(patch)
   })
@@ -292,6 +324,7 @@ function loadDemoData() {
   state.conversations = structuredClone(demoData.conversations);
   state.products = structuredClone(demoData.products);
   state.modifiers = structuredClone(demoData.modifiers);
+  state.paymentMethods = structuredClone(demoData.paymentMethods);
   state.botCatalog = structuredClone(demoData.botCatalog);
   state.businessStatus = structuredClone(demoData.businessStatus);
   state.integrationStatus = structuredClone(demoData.integrationStatus);
@@ -304,6 +337,7 @@ function clearData() {
   state.conversations = [];
   state.products = [];
   state.modifiers = [];
+  state.paymentMethods = [];
   state.botCatalog = null;
   state.businessStatus = {};
   state.integrationStatus = null;
@@ -317,12 +351,13 @@ async function refreshData({ quiet = true } = {}) {
     return;
   }
   try {
-    const [orders, conversations, products, modifiers, botCatalog, businessStatus, integrationStatus] = await Promise.all([
+    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus] = await Promise.all([
       adminApi.listOrders(),
       adminApi.listConversations(),
       adminApi.listProducts(),
       adminApi.listModifiers(),
       adminApi.getBotCatalog(),
+      adminApi.listPaymentMethods(),
       adminApi.getBusinessStatus(),
       adminApi.getIntegrationStatus()
     ]);
@@ -331,6 +366,7 @@ async function refreshData({ quiet = true } = {}) {
     state.products = Array.isArray(products) ? products.map(adaptProduct) : [];
     state.modifiers = Array.isArray(modifiers) ? modifiers.map(adaptModifier) : [];
     state.botCatalog = botCatalog || null;
+    state.paymentMethods = Array.isArray(paymentMethods) ? paymentMethods : [];
     state.businessStatus = businessStatus || {};
     state.integrationStatus = integrationStatus || null;
     state.selectedOrderId = state.orders.some((order) => order.id === state.selectedOrderId)
@@ -743,6 +779,32 @@ function renderCatalog() {
       </article>
     `).join("")
     : emptyState("No hay toppings o adiciones cargadas.");
+  renderPaymentMethods();
+}
+
+function renderPaymentMethods() {
+  const methods = state.paymentMethods.filter((method) =>
+    ["pm_nequi", "pm_bancolombia", "pm_bre_b"].includes(method.id)
+  );
+  $("paymentMethods").innerHTML = methods.length
+    ? methods.map((method) => `
+      <article class="payment-row" data-payment-row="${escapeAttr(method.id)}">
+        <div>
+          <strong>${escapeHtml(method.name)}</strong>
+          <span>${method.isActive ? "Activo" : "Inactivo"} - ${method.requiresProof ? "requiere comprobante" : "sin comprobante"}</span>
+        </div>
+        <label>
+          Etiqueta
+          <input data-payment-field="accountLabel" value="${escapeAttr(method.accountLabel || "")}" placeholder="Etiqueta visible">
+        </label>
+        <label>
+          Numero o llave
+          <input data-payment-field="accountValue" value="${escapeAttr(method.accountValue || "")}" placeholder="Numero, cuenta o llave">
+        </label>
+        <button class="secondary-btn" data-save-payment="${escapeAttr(method.id)}">Guardar</button>
+      </article>
+    `).join("")
+    : emptyState("No hay metodos de pago configurados.");
 }
 
 function emptyState(text) {
@@ -1020,6 +1082,27 @@ async function editModifier(id) {
   }
 }
 
+async function savePaymentMethod(methodId) {
+  const method = state.paymentMethods.find((entry) => entry.id === methodId);
+  const row = document.querySelector(`[data-payment-row="${CSS.escape(methodId)}"]`);
+  if (!method || !row) return;
+
+  const patch = {
+    accountLabel: row.querySelector('[data-payment-field="accountLabel"]')?.value.trim() || null,
+    accountValue: row.querySelector('[data-payment-field="accountValue"]')?.value.trim() || null
+  };
+
+  try {
+    const updated = isDemoMode() ? { ...method, ...patch } : await adminApi.updatePaymentMethod(method, patch);
+    state.paymentMethods = state.paymentMethods.map((entry) => entry.id === methodId ? updated : entry);
+    renderCatalog();
+    showToast("Datos de pago actualizados.");
+  } catch (error) {
+    console.error(error);
+    showToast("No pude guardar los datos de pago.");
+  }
+}
+
 function bindEvents() {
   $("enterBtn").addEventListener("click", enterDashboard);
   $("refreshBtn").addEventListener("click", () => refreshData({ quiet: false }));
@@ -1086,6 +1169,12 @@ function bindEvents() {
     const modifierButton = event.target.closest("[data-edit-modifier]");
     if (modifierButton) {
       await editModifier(modifierButton.dataset.editModifier);
+      return;
+    }
+
+    const paymentButton = event.target.closest("[data-save-payment]");
+    if (paymentButton) {
+      await savePaymentMethod(paymentButton.dataset.savePayment);
     }
   });
 

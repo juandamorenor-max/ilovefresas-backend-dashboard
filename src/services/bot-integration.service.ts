@@ -4,6 +4,7 @@ import type { Conversation, Message, ModifierOption, OrderDraft, OrderItem, Prod
 import { createId, nowIso } from "../utils/id.js";
 import { CatalogService } from "./catalog.service.js";
 import { OrderService } from "./order.service.js";
+import { normalizePaymentMethodSetting, paymentMethodMatches } from "./payment-method-settings.js";
 
 type BotChannel = "telegram" | "whatsapp";
 
@@ -177,41 +178,19 @@ export class BotIntegrationService {
     }
 
     const total = draft.pricing.total;
-    const normalized = draft.paymentMethod.trim().toLowerCase();
-    if (normalized.includes("nequi")) {
-      return [
-        "Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia por Nequi:",
-        "",
-        "Nequi: 3000000000",
-        `Total: ${total}`,
-        "",
-        "Cuando la hagas, enviame el comprobante por aqui."
-      ].join("\n");
+    const method = this.findPaymentMethodSetting(draft.paymentMethod);
+    if (!method?.requiresProof || !method.accountLabel || !method.accountValue) {
+      return null;
     }
 
-    if (normalized.includes("bancolombia")) {
-      return [
-        "Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia a Bancolombia:",
-        "",
-        "Cuenta Bancolombia: 72600000000",
-        `Total: ${total}`,
-        "",
-        "Cuando la hagas, enviame el comprobante por aqui."
-      ].join("\n");
-    }
-
-    if (normalized.includes("bre")) {
-      return [
-        "Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia por Bre-B:",
-        "",
-        "Llave Bre-B: @test",
-        `Total: ${total}`,
-        "",
-        "Cuando la hagas, enviame el comprobante por aqui."
-      ].join("\n");
-    }
-
-    return null;
+    return [
+      `Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia por ${method.name}:`,
+      "",
+      `${method.accountLabel}: ${method.accountValue}`,
+      `Total: ${total}`,
+      "",
+      "Cuando la hagas, enviame el comprobante por aqui."
+    ].join("\n");
   }
 
   private findActiveConversation(channel: BotChannel, chatId: string) {
@@ -519,12 +498,13 @@ export class BotIntegrationService {
       return false;
     }
 
-    const normalized = paymentMethod.trim().toLowerCase();
-    return (
-      normalized.includes("nequi") ||
-      normalized.includes("bancolombia") ||
-      normalized.includes("bre")
-    );
+    return Boolean(this.findPaymentMethodSetting(paymentMethod)?.requiresProof);
+  }
+
+  private findPaymentMethodSetting(paymentMethod: string) {
+    return demoStore.businesses[0].paymentMethodSettings
+      .map(normalizePaymentMethodSetting)
+      .find((method) => method.isActive && paymentMethodMatches(method, paymentMethod));
   }
 
   private normalizeFulfillment(value: string) {

@@ -222,6 +222,63 @@ try {
   assert.equal(dashboardOrder.paymentProofReceived, true);
   assert.equal(dashboardOrder.paymentStatusLabel, "Comprobante recibido, pendiente de verificacion");
 
+  const paymentMethods = await request("/admin/dashboard/payment-methods") as Array<{
+    id: string;
+    accountLabel: string | null;
+    accountValue: string | null;
+  }>;
+  const nequiMethod = paymentMethods.find((method) => method.id === "pm_nequi");
+  assert(nequiMethod, "Nequi payment method should exist");
+  const originalNequi = {
+    accountLabel: nequiMethod.accountLabel,
+    accountValue: nequiMethod.accountValue
+  };
+  await request("/admin/payment-methods/pm_nequi", {
+    method: "PATCH",
+    body: JSON.stringify({
+      accountLabel: "Nequi pruebas",
+      accountValue: "3111111111"
+    })
+  });
+
+  const dynamicPaymentConversation = await request("/bot/conversations/telegram/dashboard-payment-method-test/new", {
+    method: "POST",
+    headers: secretHeaders
+  }) as { id: string };
+  await request(`/bot/conversations/${dynamicPaymentConversation.id}/state`, {
+    method: "PATCH",
+    headers: secretHeaders,
+    body: JSON.stringify({
+      items: [
+        {
+          producto: "Fresas con crema tradicional",
+          cantidad: 1
+        }
+      ],
+      nombre: "Pago Dinamico",
+      direccion: "Cra 39A #41-99",
+      barrio: "Cabecera del Llano",
+      referencia: "Porteria",
+      metodo_pago: "Nequi",
+      modalidad_entrega: "domicilio"
+    })
+  });
+  const dynamicPaymentTurn = await request("/bot/turn", {
+    method: "POST",
+    headers: secretHeaders,
+    body: JSON.stringify({
+      channel: "telegram",
+      chatId: "dashboard-payment-method-test",
+      text: "si"
+    })
+  }) as { responseText: string; orderId: string | null };
+  assert(dynamicPaymentTurn.responseText.includes("Nequi pruebas: 3111111111"));
+  assert.equal(dynamicPaymentTurn.orderId, null);
+  await request("/admin/payment-methods/pm_nequi", {
+    method: "PATCH",
+    body: JSON.stringify(originalNequi)
+  });
+
   await request(`/admin/products/${traditional.id}`, {
     method: "PATCH",
     body: JSON.stringify({ basePrice: originalProduct.basePrice })

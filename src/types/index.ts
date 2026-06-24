@@ -59,6 +59,8 @@ export interface PaymentMethodSetting {
   name: string;
   aliases: string[];
   instructions: string;
+  accountLabel: string | null;
+  accountValue: string | null;
   isActive: boolean;
   requiresProof: boolean;
   requiresAmount: boolean;

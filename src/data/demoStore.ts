@@ -118,6 +118,8 @@ export const demoStore: {
           name: "Nequi",
           aliases: ["nequi", "neqi", "neky"],
           instructions: "Solicitar comprobante antes de despachar.",
+          accountLabel: "Nequi",
+          accountValue: "3000000000",
           isActive: true,
           requiresProof: true,
           requiresAmount: false
@@ -127,6 +129,19 @@ export const demoStore: {
           name: "Bancolombia",
           aliases: ["bancolombia", "banco", "bancol", "transferencia bancolombia"],
           instructions: "Validar comprobante de transferencia.",
+          accountLabel: "Cuenta Bancolombia",
+          accountValue: "72600000000",
+          isActive: true,
+          requiresProof: true,
+          requiresAmount: false
+        },
+        {
+          id: "pm_bre_b",
+          name: "Bre-B",
+          aliases: ["breb", "bre-b", "llave breb", "llave bre-b"],
+          instructions: "Validar comprobante de transferencia por llave.",
+          accountLabel: "Llave Bre-B",
+          accountValue: "@test",
           isActive: true,
           requiresProof: true,
           requiresAmount: false
@@ -136,6 +151,8 @@ export const demoStore: {
           name: "Contra entrega",
           aliases: ["efectivo", "cash", "contra entrega", "contraentrega"],
           instructions: "Preguntar con cuanto paga para preparar cambio.",
+          accountLabel: null,
+          accountValue: null,
           isActive: true,
           requiresProof: false,
           requiresAmount: true
@@ -145,6 +162,8 @@ export const demoStore: {
           name: "Daviplata",
           aliases: ["daviplata", "davi plata", "daviplata"],
           instructions: "Validar comprobante si se habilita.",
+          accountLabel: null,
+          accountValue: null,
           isActive: false,
           requiresProof: true,
           requiresAmount: false

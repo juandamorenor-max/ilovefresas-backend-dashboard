@@ -550,6 +550,32 @@ textarea {
   color: var(--muted);
 }
 
+.payment-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.payment-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, .8fr) minmax(180px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.payment-row label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.payment-row input {
+  width: 100%;
+}
+
 .totals {
   border-top: 1px solid var(--line);
   margin-top: 18px;
@@ -639,6 +665,10 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .payment-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -663,7 +693,8 @@ textarea {
   .metrics,
   .system-status,
   .orders-board,
-  .nav {
+  .nav,
+  .payment-row {
     grid-template-columns: 1fr;
   }
 

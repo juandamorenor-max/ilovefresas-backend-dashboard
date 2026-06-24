@@ -2,6 +2,7 @@ import { demoStore } from "../data/demoStore.js";
 import { persistRuntimeStore } from "../data/runtime-store.js";
 import { createId, nowIso } from "../utils/id.js";
 import type { Business, BusinessHour, PaymentMethodSetting, SpecialClosure } from "../types/index.js";
+import { corePaymentMethodSettings, normalizePaymentMethodSetting } from "./payment-method-settings.js";
 
 export class AdminService {
   getBusinessStatus() {
@@ -66,6 +67,14 @@ export class AdminService {
       method.instructions = payload.instructions.trim();
     }
 
+    if (typeof payload.accountLabel === "string" || payload.accountLabel === null) {
+      method.accountLabel = typeof payload.accountLabel === "string" ? payload.accountLabel.trim() || null : null;
+    }
+
+    if (typeof payload.accountValue === "string" || payload.accountValue === null) {
+      method.accountValue = typeof payload.accountValue === "string" ? payload.accountValue.trim() || null : null;
+    }
+
     if (typeof payload.isActive === "boolean") {
       method.isActive = payload.isActive;
     }
@@ -85,9 +94,22 @@ export class AdminService {
   }
 
   private syncActivePaymentMethodNames(business: Business) {
+    const before = JSON.stringify(business.paymentMethodSettings);
+    const now = nowIso();
+    for (const coreMethod of corePaymentMethodSettings()) {
+      if (!business.paymentMethodSettings.some((method) => method.id === coreMethod.id)) {
+        business.paymentMethodSettings.push(coreMethod);
+        business.updatedAt = now;
+      }
+    }
+    business.paymentMethodSettings = business.paymentMethodSettings.map(normalizePaymentMethodSetting);
     business.paymentMethods = business.paymentMethodSettings
       .filter((method) => method.isActive)
       .map((method) => method.name);
+    if (JSON.stringify(business.paymentMethodSettings) !== before) {
+      business.updatedAt = now;
+      persistRuntimeStore();
+    }
     return business;
   }
 
