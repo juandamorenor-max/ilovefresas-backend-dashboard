@@ -236,14 +236,15 @@ export class AdminController {
     const business = this.businessService.getDefaultBusiness();
     const created = this.catalogService.createProduct({
       businessId: business.id,
-      name: request.body.name,
-      aliases: request.body.aliases ?? [],
-      category: request.body.category,
-      description: request.body.description ?? "",
-      basePrice: Number(request.body.basePrice),
-      modifierGroupIds: request.body.modifierGroupIds ?? [],
-      defaultComponents: request.body.defaultComponents ?? [],
-      removableComponents: request.body.removableComponents ?? [],
+      name: this.requiredText(request.body.name, "name"),
+      aliases: this.stringArray(request.body.aliases),
+      category: this.requiredText(request.body.category, "category"),
+      description: this.optionalText(request.body.description),
+      basePrice: this.positiveInteger(request.body.basePrice, "basePrice"),
+      modifierGroupIds: this.stringArray(request.body.modifierGroupIds),
+      defaultComponents: this.stringArray(request.body.defaultComponents),
+      removableComponents: this.stringArray(request.body.removableComponents),
+      requiredOptions: Array.isArray(request.body.requiredOptions) ? request.body.requiredOptions : [],
       allowsFreeTextCustomizations: Boolean(request.body.allowsFreeTextCustomizations ?? true)
     });
 
@@ -251,7 +252,10 @@ export class AdminController {
   }
 
   updateProduct(request: Request, response: Response) {
-    const updated = this.catalogService.updateProduct(this.getParam(request, "id"), request.body);
+    const updated = this.catalogService.updateProduct(
+      this.getParam(request, "id"),
+      this.productPatch(request.body)
+    );
     if (!updated) {
       throw new HttpError(404, "Product not found");
     }
@@ -261,8 +265,8 @@ export class AdminController {
 
   updateProductAvailability(request: Request, response: Response) {
     const updated = this.catalogService.updateProductAvailability(this.getParam(request, "id"), {
-      isActive: Boolean(request.body.isActive),
-      isOutOfStock: Boolean(request.body.isOutOfStock)
+      isActive: this.requiredBoolean(request.body.isActive, "isActive"),
+      isOutOfStock: this.requiredBoolean(request.body.isOutOfStock, "isOutOfStock")
     });
 
     if (!updated) {
@@ -276,18 +280,23 @@ export class AdminController {
     const business = this.businessService.getDefaultBusiness();
     const created = this.catalogService.createModifierOption({
       businessId: business.id,
-      modifierGroupId: request.body.modifierGroupId ?? "mg_toppings",
-      name: request.body.name,
-      aliases: request.body.aliases ?? [],
-      priceDelta: Number(request.body.priceDelta),
-      isActive: Boolean(request.body.isActive ?? true)
+      modifierGroupId: this.optionalText(request.body.modifierGroupId) || "mg_toppings",
+      name: this.requiredText(request.body.name, "name"),
+      aliases: this.stringArray(request.body.aliases),
+      priceDelta: this.positiveInteger(request.body.priceDelta, "priceDelta"),
+      isActive: request.body.isActive === undefined
+        ? true
+        : this.requiredBoolean(request.body.isActive, "isActive")
     });
 
     response.status(201).json(created);
   }
 
   updateModifierOption(request: Request, response: Response) {
-    const updated = this.catalogService.updateModifierOption(this.getParam(request, "id"), request.body);
+    const updated = this.catalogService.updateModifierOption(
+      this.getParam(request, "id"),
+      this.modifierPatch(request.body)
+    );
     if (!updated) {
       throw new HttpError(404, "Modifier option not found");
     }
@@ -297,7 +306,7 @@ export class AdminController {
 
   updateModifierOptionAvailability(request: Request, response: Response) {
     const updated = this.catalogService.updateModifierOptionAvailability(this.getParam(request, "id"), {
-      isActive: Boolean(request.body.isActive)
+      isActive: this.requiredBoolean(request.body.isActive, "isActive")
     });
 
     if (!updated) {
@@ -367,5 +376,71 @@ export class AdminController {
 
   private getParam(request: Request, key: string) {
     return String(request.params[key] ?? "");
+  }
+
+  private requiredText(value: unknown, field: string) {
+    if (typeof value !== "string" || !value.trim()) {
+      throw new HttpError(400, `${field} is required`);
+    }
+
+    return value.trim();
+  }
+
+  private optionalText(value: unknown) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  private positiveInteger(value: unknown, field: string) {
+    const numberValue = Number(value);
+    if (!Number.isInteger(numberValue) || numberValue <= 0) {
+      throw new HttpError(400, `${field} must be a positive integer`);
+    }
+
+    return numberValue;
+  }
+
+  private requiredBoolean(value: unknown, field: string) {
+    if (typeof value !== "boolean") {
+      throw new HttpError(400, `${field} must be boolean`);
+    }
+
+    return value;
+  }
+
+  private stringArray(value: unknown) {
+    if (value === undefined) {
+      return [];
+    }
+
+    if (!Array.isArray(value)) {
+      throw new HttpError(400, "Expected array value");
+    }
+
+    return value.map((entry) => String(entry).trim()).filter(Boolean);
+  }
+
+  private productPatch(body: Record<string, unknown>) {
+    const patch: Record<string, unknown> = {};
+    if (body.name !== undefined) patch.name = this.requiredText(body.name, "name");
+    if (body.category !== undefined) patch.category = this.requiredText(body.category, "category");
+    if (body.description !== undefined) patch.description = this.optionalText(body.description);
+    if (body.basePrice !== undefined) patch.basePrice = this.positiveInteger(body.basePrice, "basePrice");
+    if (body.aliases !== undefined) patch.aliases = this.stringArray(body.aliases);
+    if (body.modifierGroupIds !== undefined) patch.modifierGroupIds = this.stringArray(body.modifierGroupIds);
+    if (body.defaultComponents !== undefined) patch.defaultComponents = this.stringArray(body.defaultComponents);
+    if (body.removableComponents !== undefined) patch.removableComponents = this.stringArray(body.removableComponents);
+    if (body.isActive !== undefined) patch.isActive = this.requiredBoolean(body.isActive, "isActive");
+    if (body.isOutOfStock !== undefined) patch.isOutOfStock = this.requiredBoolean(body.isOutOfStock, "isOutOfStock");
+    return patch;
+  }
+
+  private modifierPatch(body: Record<string, unknown>) {
+    const patch: Record<string, unknown> = {};
+    if (body.name !== undefined) patch.name = this.requiredText(body.name, "name");
+    if (body.aliases !== undefined) patch.aliases = this.stringArray(body.aliases);
+    if (body.priceDelta !== undefined) patch.priceDelta = this.positiveInteger(body.priceDelta, "priceDelta");
+    if (body.modifierGroupId !== undefined) patch.modifierGroupId = this.requiredText(body.modifierGroupId, "modifierGroupId");
+    if (body.isActive !== undefined) patch.isActive = this.requiredBoolean(body.isActive, "isActive");
+    return patch;
   }
 }

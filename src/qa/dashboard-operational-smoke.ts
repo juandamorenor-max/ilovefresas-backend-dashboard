@@ -34,6 +34,18 @@ async function request(path: string, options: RequestInit = {}) {
   return body;
 }
 
+async function expectStatus(path: string, expectedStatus: number, options: RequestInit = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      ...(options.body ? { "content-type": "application/json" } : {}),
+      ...(options.headers ?? {})
+    }
+  });
+  const text = await response.text();
+  assert.equal(response.status, expectedStatus, `${options.method ?? "GET"} ${path} expected ${expectedStatus}, got ${response.status}: ${text}`);
+}
+
 try {
   demoStore.conversations = [];
   demoStore.messages = [];
@@ -50,6 +62,19 @@ try {
     isOutOfStock: traditional.isOutOfStock
   };
   const originalOreo = { isActive: oreo.isActive };
+
+  await expectStatus(`/admin/products/${traditional.id}/availability`, 400, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive: "false", isOutOfStock: false })
+  });
+  await expectStatus(`/admin/products/${traditional.id}`, 400, {
+    method: "PATCH",
+    body: JSON.stringify({ basePrice: 0 })
+  });
+  await expectStatus(`/admin/modifiers/${oreo.id}/availability`, 400, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive: "false" })
+  });
 
   await request(`/admin/products/${traditional.id}/availability`, {
     method: "PATCH",
