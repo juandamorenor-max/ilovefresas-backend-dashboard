@@ -48,6 +48,7 @@ import {
   type PostDispatchIntent
 } from "./post-dispatch-intent.service.js";
 import { PricingService } from "./pricing.service.js";
+import { PaymentProofValidationService } from "./payment-proof-validation.service.js";
 
 type TargetItemResolution =
   | { status: "resolved"; item: OrderItem }
@@ -213,7 +214,8 @@ export class ConversationService {
     private readonly adminNotificationService = new AdminNotificationService(),
     private readonly conversationTraceService = new ConversationTraceService(),
     private readonly aiPatchValidatorService = new AIPatchValidatorService(),
-    private readonly multiAgentOrderEngineService = new MultiAgentOrderEngineService()
+    private readonly multiAgentOrderEngineService = new MultiAgentOrderEngineService(),
+    private readonly paymentProofValidationService = new PaymentProofValidationService()
   ) {}
 
   getOrCreateConversation(businessId: string, customerPhone: string) {
@@ -360,7 +362,27 @@ export class ConversationService {
       : `[${attachmentLabel} recibida]`;
 
     this.saveMessage(business.id, conversation.id, payload.from, "customer", customerMessage);
-    this.markPaymentProofReceived(conversation);
+    const proofValidation = await this.paymentProofValidationService.validate({
+      channel: "whatsapp",
+      text: payload.caption ?? "",
+      caption: payload.caption,
+      attachmentType: payload.attachmentType,
+      attachmentFileId: payload.fileId,
+      mimeType: payload.mimeType,
+      expectedPaymentMethod: conversation.draftOrder?.paymentMethod ?? null,
+      expectedTotal: conversation.draftOrder?.pricing.total ?? null
+    });
+
+    if (!proofValidation.isLikelyPaymentProof) {
+      const reply =
+        "Recibi la imagen, pero no alcanzo a validar que sea un comprobante de pago. " +
+        "Enviame una captura donde se vea el valor, estado exitoso y referencia.";
+      this.saveMessage(business.id, conversation.id, payload.from, "bot", reply);
+      persistRuntimeStore();
+      return this.buildTurnResult(conversation, reply, "stateful");
+    }
+
+    this.markPaymentProofReceived(conversation, proofValidation);
 
     const reply =
       "✅ Comprobante recibido, muchas gracias 🍓\n\n" +
@@ -371,8 +393,16 @@ export class ConversationService {
     return this.buildTurnResult(conversation, reply, "stateful");
   }
 
-  private markPaymentProofReceived(conversation: Conversation) {
-    const note = "Comprobante recibido por imagen/archivo. Operario debe revisarlo antes de despachar.";
+  private markPaymentProofReceived(
+    conversation: Conversation,
+    proofValidation?: Awaited<ReturnType<PaymentProofValidationService["validate"]>>
+  ) {
+    const note = [
+      "Comprobante recibido por imagen/archivo. Operario debe revisarlo antes de despachar.",
+      proofValidation
+        ? `Validacion: ${proofValidation.source}, confianza ${proofValidation.confidence.toFixed(2)}. ${proofValidation.reason}`
+        : null
+    ].filter(Boolean).join(" ");
     const activeOrder = conversation.activeOrderId
       ? this.orderService.findOrder(conversation.activeOrderId)
       : null;

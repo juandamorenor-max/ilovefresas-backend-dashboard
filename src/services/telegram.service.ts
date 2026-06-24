@@ -48,6 +48,13 @@ interface TelegramApiResponse<T> {
   description?: string;
 }
 
+interface TelegramFile {
+  file_id: string;
+  file_unique_id: string;
+  file_size?: number;
+  file_path?: string;
+}
+
 export class TelegramService {
   async sendMessage(
     botToken: string,
@@ -124,6 +131,30 @@ export class TelegramService {
     return this.request<boolean>(botToken, "deleteWebhook", {
       drop_pending_updates: false
     });
+  }
+
+  async downloadFileById(botToken: string, fileId: string) {
+    const file = await this.request<TelegramFile>(botToken, "getFile", {
+      file_id: fileId
+    });
+    if (!file.file_path) {
+      throw new Error("Telegram file_path missing");
+    }
+
+    const response = await fetch(
+      `https://api.telegram.org/file/bot${botToken}/${file.file_path}`
+    );
+    if (!response.ok) {
+      logger.error("Telegram file download failed", {
+        status: response.status
+      });
+      throw new Error("Telegram file download failed");
+    }
+
+    return {
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      mimeType: response.headers.get("content-type") ?? this.mimeTypeFromPath(file.file_path)
+    };
   }
 
   private async request<T>(botToken: string, method: string, payload: Record<string, unknown>) {
@@ -234,5 +265,14 @@ export class TelegramService {
     }
 
     return "image/png";
+  }
+
+  private mimeTypeFromPath(filePath: string) {
+    const lower = filePath.toLowerCase();
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".pdf")) return "application/pdf";
+    return "application/octet-stream";
   }
 }

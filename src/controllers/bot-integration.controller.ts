@@ -67,7 +67,9 @@ export class BotIntegrationController {
         text: String(request.body.text ?? request.body.caption ?? ""),
         hasAttachment: this.hasAttachment(request.body),
         attachmentType: this.getAttachmentType(request.body),
-        attachmentFileId: this.getAttachmentFileId(request.body)
+        attachmentFileId: this.getAttachmentFileId(request.body),
+        caption: this.getCaption(request.body),
+        mimeType: this.getMimeType(request.body)
       })
     );
   }
@@ -133,6 +135,26 @@ export class BotIntegrationController {
     if (document && typeof document === "object" && "file_id" in document) {
       return String(document.file_id ?? "");
     }
+    return null;
+  }
+
+  private getCaption(body: Record<string, unknown>) {
+    if (typeof body.caption === "string") return body.caption;
+    if (typeof body.text === "string") return body.text;
+    const document = body.document;
+    if (document && typeof document === "object" && "caption" in document) {
+      return String(document.caption ?? "");
+    }
+    return null;
+  }
+
+  private getMimeType(body: Record<string, unknown>) {
+    if (typeof body.mimeType === "string") return body.mimeType;
+    const document = body.document;
+    if (document && typeof document === "object" && "mime_type" in document) {
+      return String(document.mime_type ?? "");
+    }
+    if (Array.isArray(body.photo)) return "image/jpeg";
     return null;
   }
 }

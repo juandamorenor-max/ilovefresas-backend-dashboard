@@ -37,6 +37,7 @@ const envSchema = z.object({
   CONVERSATION_MEMORY_MESSAGE_LIMIT: z.coerce.number().int().positive().default(24),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
+  OPENAI_VISION_MODEL: z.string().default("gpt-4o-mini"),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default("gemini-3.5-flash"),
   FLOWISE_API_URL: z.string().url().default("http://localhost:3001"),

@@ -193,6 +193,21 @@ export class BotIntegrationService {
     ].join("\n");
   }
 
+  getPaymentProofContext(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    const method = draft?.paymentMethod
+      ? this.findPaymentMethodSetting(draft.paymentMethod)
+      : null;
+
+    return {
+      expectedPaymentMethod: draft?.paymentMethod ?? null,
+      expectedTotal: draft?.pricing.total ?? null,
+      accountLabel: method?.accountLabel ?? null,
+      accountValue: method?.accountValue ?? null
+    };
+  }
+
   private findActiveConversation(channel: BotChannel, chatId: string) {
     const customerPhone = this.customerPhone(channel, chatId);
     return (

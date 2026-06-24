@@ -2,6 +2,7 @@ import { env } from "../config/env.js";
 import { HttpError } from "../utils/http.js";
 import { logger } from "../utils/logger.js";
 import { BotIntegrationService } from "./bot-integration.service.js";
+import { PaymentProofValidationService } from "./payment-proof-validation.service.js";
 
 type BotChannel = "telegram" | "whatsapp";
 
@@ -12,6 +13,8 @@ interface BotTurnInput {
   hasAttachment?: boolean;
   attachmentType?: "image" | "document" | null;
   attachmentFileId?: string | null;
+  caption?: string | null;
+  mimeType?: string | null;
 }
 
 interface FlowisePredictionResponse {
@@ -28,7 +31,10 @@ const fallbackReply =
   "Perdon, tuve un problema conectando el asistente. Te paso con el equipo para ayudarte.";
 
 export class AgentFlowTurnService {
-  constructor(private readonly botIntegrationService = new BotIntegrationService()) {}
+  constructor(
+    private readonly botIntegrationService = new BotIntegrationService(),
+    private readonly paymentProofValidationService = new PaymentProofValidationService()
+  ) {}
 
   async handleTurn(input: BotTurnInput) {
     const text = input.text.trim();
@@ -94,9 +100,22 @@ export class AgentFlowTurnService {
     }
 
     if (conversation.conversationState.next_expected === "comprobante_pago") {
-      const paymentProofReceived = hasAttachment || !text || this.isPaymentProof(text);
+      const proofContext = this.botIntegrationService.getPaymentProofContext(conversation.id);
+      const proofValidation = await this.paymentProofValidationService.validate({
+        channel: input.channel,
+        text,
+        caption: input.caption,
+        attachmentType: input.attachmentType,
+        attachmentFileId: input.attachmentFileId,
+        mimeType: input.mimeType,
+        expectedPaymentMethod: proofContext.expectedPaymentMethod,
+        expectedTotal: proofContext.expectedTotal
+      });
+      const paymentProofReceived = proofValidation.isLikelyPaymentProof;
       const responseText = paymentProofReceived
         ? "Comprobante recibido! Un operario te va a confirmar cuando tu pedido este enviado!"
+        : hasAttachment
+          ? "Recibi la imagen, pero no alcanzo a validar que sea un comprobante de pago. Enviame una captura donde se vea el valor, estado exitoso y referencia."
         : this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
           "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
       const updatedConversation = this.botIntegrationService.updateConversationState(
@@ -107,7 +126,7 @@ export class AgentFlowTurnService {
           mensaje_cliente: responseText,
           comprobante_pago_recibido: paymentProofReceived,
           payment_proof_note: paymentProofReceived
-            ? text || `Comprobante recibido por ${input.attachmentType ?? "archivo"} desde ${input.channel}.`
+            ? this.buildPaymentProofNote(input, proofValidation)
             : undefined,
           next_expected: paymentProofReceived ? "humano" : "comprobante_pago",
           needs_human: paymentProofReceived
@@ -126,6 +145,7 @@ export class AgentFlowTurnService {
         source: paymentProofReceived
           ? "backend_payment_proof_received"
           : "backend_waiting_payment_proof",
+        paymentProofValidation: proofValidation,
         state: updatedConversation?.state ?? conversation.state,
         orderId: order?.id ?? updatedConversation?.activeOrderId ?? null,
         reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
@@ -378,6 +398,17 @@ export class AgentFlowTurnService {
       "te envio el pago",
       "adjunto"
     ].some((phrase) => normalized.includes(phrase));
+  }
+
+  private buildPaymentProofNote(
+    input: BotTurnInput,
+    proofValidation: Awaited<ReturnType<PaymentProofValidationService["validate"]>>
+  ) {
+    return [
+      input.text.trim() || input.caption?.trim() || `Comprobante recibido por ${input.attachmentType ?? "archivo"} desde ${input.channel}.`,
+      `Validacion: ${proofValidation.source}, confianza ${proofValidation.confidence.toFixed(2)}.`,
+      proofValidation.reason
+    ].filter(Boolean).join(" ");
   }
 
   private normalize(text: string) {

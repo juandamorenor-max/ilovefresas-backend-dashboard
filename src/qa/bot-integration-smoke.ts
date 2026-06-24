@@ -1,6 +1,7 @@
 import { demoStore } from "../data/demoStore.js";
 import { BotIntegrationService } from "../services/bot-integration.service.js";
 import { AgentFlowTurnService } from "../services/agent-flow-turn.service.js";
+import { ConversationService } from "../services/conversation.service.js";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -203,7 +204,7 @@ assert(!offTopicTurn.orderId, "off-topic message should not create review order"
 const proofTurn = await agentFlowTurnService.handleTurn({
   channel: "telegram",
   chatId: turnChatId,
-  text: "adjunto comprobante"
+  text: "comprobante Nequi exitoso por 21000 referencia 12345"
 });
 assert(
   proofTurn.source === "backend_payment_proof_received",
@@ -236,7 +237,8 @@ service.updateConversationState(imageProofConversation.id, {
 const imageProofTurn = await agentFlowTurnService.handleTurn({
   channel: "telegram",
   chatId: imageProofChatId,
-  text: "",
+  text: "comprobante Nequi exitoso por 21000 referencia 12345",
+  caption: "comprobante Nequi exitoso por 21000 referencia 12345",
   hasAttachment: true,
   attachmentType: "image",
   attachmentFileId: "telegram-photo-qa"
@@ -249,6 +251,41 @@ assert(imageProofTurn.orderId, "image proof should create review order");
 assert(
   String(imageProofTurn.responseText).includes("Comprobante recibido"),
   "image proof response should acknowledge proof"
+);
+
+const invalidImageProofChatId = "payment-invalid-image-proof-test";
+const invalidImageProofConversation = service.startNewConversation("telegram", invalidImageProofChatId);
+service.updateConversationState(invalidImageProofConversation.id, {
+  items: [
+    {
+      producto: "Fresas con crema tradicional",
+      cantidad: 1
+    }
+  ],
+  nombre: "Invalid Image Proof Test",
+  direccion: "Cra 39A #41-99",
+  barrio: "Cabecera del Llano",
+  referencia: "Porteria",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio",
+  comprobante_pago_pendiente: true,
+  next_expected: "comprobante_pago"
+});
+const invalidImageProofTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: invalidImageProofChatId,
+  text: "",
+  hasAttachment: true,
+  attachmentType: "image"
+});
+assert(
+  invalidImageProofTurn.source === "backend_waiting_payment_proof",
+  "image without proof signals should stay waiting for payment proof"
+);
+assert(!invalidImageProofTurn.orderId, "invalid image proof should not create review order");
+assert(
+  String(invalidImageProofTurn.responseText).toLowerCase().includes("validar"),
+  "invalid image proof response should explain validation failure"
 );
 
 const emptyTelegramProofChatId = "payment-empty-telegram-proof-test";
@@ -275,10 +312,14 @@ const emptyTelegramProofTurn = await agentFlowTurnService.handleTurn({
   text: ""
 });
 assert(
-  emptyTelegramProofTurn.source === "backend_payment_proof_received",
-  "empty Telegram message while waiting proof should be treated as proof to avoid image loop"
+  emptyTelegramProofTurn.source === "backend_waiting_payment_proof",
+  "empty Telegram message while waiting proof should not be treated as proof"
 );
-assert(emptyTelegramProofTurn.orderId, "empty Telegram proof should create review order");
+assert(!emptyTelegramProofTurn.orderId, "empty Telegram message should not create review order");
+assert(
+  String(emptyTelegramProofTurn.responseText).toLowerCase().includes("comprobante"),
+  "empty Telegram proof response should keep asking for proof"
+);
 
 async function assertPaymentMethodInstructions(
   paymentMethod: string,
@@ -351,5 +392,31 @@ traditionalProduct.basePrice = originalTraditionalPrice;
 const second = service.startNewConversation("telegram", "531515729");
 assert(second.id !== first.id, "/newchat should create a different conversation");
 assert(second.conversationState.items === "[]", "/newchat should reset items");
+
+const conversationService = new ConversationService();
+const invalidWhatsAppAttachment = await conversationService.handleIncomingAttachment({
+  from: "whatsapp-invalid-proof",
+  to: "business",
+  attachmentType: "image",
+  fileId: "wa-media-invalid",
+  mimeType: "image/jpeg"
+});
+assert(
+  invalidWhatsAppAttachment.reply.toLowerCase().includes("no alcanzo a validar"),
+  "WhatsApp image without proof signals should be rejected"
+);
+
+const validWhatsAppAttachment = await conversationService.handleIncomingAttachment({
+  from: "whatsapp-valid-proof",
+  to: "business",
+  attachmentType: "image",
+  caption: "comprobante Nequi exitoso por 21000 referencia 12345",
+  fileId: "wa-media-valid",
+  mimeType: "image/jpeg"
+});
+assert(
+  validWhatsAppAttachment.reply.includes("Comprobante recibido"),
+  "WhatsApp image with proof caption should be accepted"
+);
 
 console.log("bot-integration smoke OK");
