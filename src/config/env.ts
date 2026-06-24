@@ -20,6 +20,12 @@ const envBooleanDefault = (defaultValue: boolean) =>
         : ["true", "1", "yes", "on"].includes(value)
     );
 
+const stringDefaultWhenBlank = (defaultValue: string) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || defaultValue);
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -54,7 +60,7 @@ const envSchema = z.object({
   TELEGRAM_ADMIN_BOT_TOKEN: z.string().optional(),
   TELEGRAM_ADMIN_CHAT_ID: z.string().optional(),
   TELEGRAM_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1500),
-  MENU_PDF_PATH: z.string().default("assets/menu/Menu 2026.pdf"),
+  MENU_PDF_PATH: stringDefaultWhenBlank("assets/menu/Menu 2026.pdf"),
   SPEC_ASSETS_DIR: z.string().default("assets/specifications"),
   RUNTIME_STORE_PATH: z.string().optional(),
   DATABASE_URL: z.string().optional()
