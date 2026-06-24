@@ -11,6 +11,7 @@ interface BotTurnInput {
   channel: BotChannel;
   chatId: string;
   text: string;
+  appBaseUrl?: string;
   hasAttachment?: boolean;
   attachmentType?: "image" | "document" | null;
   attachmentFileId?: string | null;
@@ -208,7 +209,7 @@ export class AgentFlowTurnService {
 
     if (this.isMenuPdfRequest(text)) {
       const responseText = "Claro 😊 Te envio el Menu 2026 por aqui 🍓";
-      const menuAttachment = this.buildMenuAttachment();
+      const menuAttachment = this.buildMenuAttachment(input.appBaseUrl);
       const menuPdfSent = await this.sendMenuPdfIfPossible(input.channel, input.chatId, menuAttachment);
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
@@ -520,17 +521,22 @@ export class AgentFlowTurnService {
     );
   }
 
-  private buildMenuAttachment() {
+  private buildMenuAttachment(appBaseUrl?: string) {
     if (!env.MENU_PDF_PATH) {
       return null;
     }
 
     return {
       type: "document" as const,
-      pathOrUrl: env.MENU_PDF_PATH,
+      pathOrUrl: this.publicMenuPdfUrl(appBaseUrl),
       filename: "Menu 2026.pdf",
       caption: "Menu 2026 I Love Fresas 🍓"
     };
+  }
+
+  private publicMenuPdfUrl(appBaseUrl?: string) {
+    const baseUrl = appBaseUrl?.trim() || env.APP_BASE_URL;
+    return `${baseUrl.replace(/\/+$/, "")}/bot/menu/pdf`;
   }
 
   private async sendMenuPdfIfPossible(

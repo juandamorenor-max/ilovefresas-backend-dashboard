@@ -1,4 +1,6 @@
 import type { Request, Response } from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { env } from "../config/env.js";
 import { HttpError } from "../utils/http.js";
 import { AgentFlowTurnService } from "../services/agent-flow-turn.service.js";
@@ -13,6 +15,20 @@ export class BotIntegrationController {
   getAvailableCatalog(request: Request, response: Response) {
     this.assertBotSecret(request);
     response.json(this.service.getAvailableCatalog());
+  }
+
+  getMenuPdf(_request: Request, response: Response) {
+    const menuPath = path.resolve(env.MENU_PDF_PATH);
+    if (!existsSync(menuPath)) {
+      throw new HttpError(404, "Menu PDF not found");
+    }
+
+    response.sendFile(menuPath, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'inline; filename="Menu 2026.pdf"'
+      }
+    });
   }
 
   getOrCreateActiveConversation(request: Request, response: Response) {
@@ -65,6 +81,7 @@ export class BotIntegrationController {
         channel: this.getBodyChannel(request),
         chatId: String(request.body.chatId ?? ""),
         text: String(request.body.text ?? request.body.caption ?? ""),
+        appBaseUrl: this.getRequestBaseUrl(request),
         hasAttachment: this.hasAttachment(request.body),
         attachmentType: this.getAttachmentType(request.body),
         attachmentFileId: this.getAttachmentFileId(request.body),
@@ -104,6 +121,14 @@ export class BotIntegrationController {
     if (request.header("x-bot-secret") !== env.BOT_INTEGRATION_SECRET) {
       throw new HttpError(401, "Invalid bot integration secret");
     }
+  }
+
+  private getRequestBaseUrl(request: Request) {
+    const forwardedProto = request.header("x-forwarded-proto")?.split(",")[0]?.trim();
+    const forwardedHost = request.header("x-forwarded-host")?.split(",")[0]?.trim();
+    const proto = forwardedProto || request.protocol;
+    const host = forwardedHost || request.get("host");
+    return host ? `${proto}://${host}` : env.APP_BASE_URL;
   }
 
   private hasAttachment(body: Record<string, unknown>) {

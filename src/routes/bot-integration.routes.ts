@@ -5,6 +5,7 @@ const controller = new BotIntegrationController();
 
 export const botIntegrationRouter = Router();
 
+botIntegrationRouter.get("/bot/menu/pdf", controller.getMenuPdf.bind(controller));
 botIntegrationRouter.get("/bot/catalog/available", controller.getAvailableCatalog.bind(controller));
 botIntegrationRouter.post("/bot/turn", controller.handleTurn.bind(controller));
 botIntegrationRouter.get(
