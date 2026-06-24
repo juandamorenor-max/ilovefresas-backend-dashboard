@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { persistRuntimeStore } from "../data/runtime-store.js";
 import { createId, nowIso } from "../utils/id.js";
 import type { Conversation, Order, OrderDraft, OrderItem } from "../types/index.js";
 import { PricingService } from "./pricing.service.js";
@@ -75,6 +76,7 @@ export class OrderService {
     };
 
     demoStore.orders.push(order);
+    persistRuntimeStore();
     return order;
   }
 
@@ -111,6 +113,7 @@ export class OrderService {
     order.internalNotes = [generatedNotes, internalNote].filter(Boolean).join(" ") || null;
     order.updatedAt = nowIso();
 
+    persistRuntimeStore();
     return order;
   }
 
@@ -125,6 +128,7 @@ export class OrderService {
       order.internalNotes = internalNotes;
     }
     order.updatedAt = nowIso();
+    persistRuntimeStore();
     return order;
   }
 

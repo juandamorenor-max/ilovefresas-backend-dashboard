@@ -6,10 +6,13 @@ import { botIntegrationRouter } from "./routes/bot-integration.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { localTestRouter } from "./routes/local-test.routes.js";
 import { whatsappRouter } from "./routes/whatsapp.routes.js";
+import { loadRuntimeStore } from "./data/runtime-store.js";
 import { HttpError } from "./utils/http.js";
 import { logger } from "./utils/logger.js";
 
 export function createApp() {
+  loadRuntimeStore();
+
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));

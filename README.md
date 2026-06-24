@@ -177,6 +177,22 @@ Para validar que dashboard, catalogo y bot estan conectados:
 npm run test:dashboard-operational
 ```
 
+## Persistencia operativa V1
+
+Para que cambios hechos desde dashboard sobrevivan reinicios, configura una ruta de snapshot:
+
+```text
+RUNTIME_STORE_PATH=/data/ilovefresas-runtime-store.json
+```
+
+En Railway, monta un Volume en `/data` para que esa ruta sobreviva redeploys. Sin `RUNTIME_STORE_PATH`, el sistema usa memoria de proceso.
+
+Prueba:
+
+```bash
+npm run test:runtime-store
+```
+
 ## Ejemplo de webhook entrante
 
 ```json

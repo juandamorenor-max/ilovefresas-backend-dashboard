@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { persistRuntimeStore } from "../data/runtime-store.js";
 import { createId } from "../utils/id.js";
 import { resolveBarranquillaZone } from "../data/geo/barranquilla-zone-resolver.js";
 import type {
@@ -271,6 +272,7 @@ export class CatalogService {
       ...payload
     };
     demoStore.products.push(product);
+    persistRuntimeStore();
     return product;
   }
 
@@ -281,6 +283,7 @@ export class CatalogService {
     }
 
     Object.assign(product, payload, { updatedAt: new Date().toISOString() });
+    persistRuntimeStore();
     return product;
   }
 
@@ -304,6 +307,7 @@ export class CatalogService {
       group.updatedAt = timestamp;
     }
 
+    persistRuntimeStore();
     return modifier;
   }
 
@@ -314,6 +318,7 @@ export class CatalogService {
     }
 
     Object.assign(modifier, payload, { updatedAt: new Date().toISOString() });
+    persistRuntimeStore();
     return modifier;
   }
 

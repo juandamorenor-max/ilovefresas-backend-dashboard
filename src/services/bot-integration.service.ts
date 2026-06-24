@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { persistRuntimeStore } from "../data/runtime-store.js";
 import type { Conversation, Message, ModifierOption, OrderDraft, OrderItem, Product } from "../types/index.js";
 import { createId, nowIso } from "../utils/id.js";
 import { CatalogService } from "./catalog.service.js";
@@ -142,6 +143,7 @@ export class BotIntegrationService {
     conversation.state = this.nextConversationState(conversation, patch);
     conversation.updatedAt = nowIso();
 
+    persistRuntimeStore();
     return this.toBotConversation(conversation);
   }
 
@@ -186,6 +188,7 @@ export class BotIntegrationService {
     conversation.state = "completed";
     conversation.updatedAt = nowIso();
 
+    persistRuntimeStore();
     return order;
   }
 
@@ -227,6 +230,7 @@ export class BotIntegrationService {
     };
 
     demoStore.conversations.push(conversation);
+    persistRuntimeStore();
     return conversation;
   }
 
@@ -340,6 +344,7 @@ export class BotIntegrationService {
     demoStore.messages.push(message);
     conversation.memory.recentMessages.push({ role, text: messageText, createdAt: timestamp });
     conversation.memory.recentMessages = conversation.memory.recentMessages.slice(-24);
+    persistRuntimeStore();
   }
 
   private nextConversationState(conversation: Conversation, patch: BotConversationStatePatch) {

@@ -97,6 +97,32 @@ npm run test:dashboard-operational
 
 Ese smoke levanta Express localmente, cambia disponibilidad/precio por endpoints del dashboard y valida por endpoints del bot que el chat responde `agotado` y que la orden usa el precio actualizado.
 
+## Persistencia operativa V1
+
+Por defecto, si no configuras persistencia, el backend usa memoria de proceso. Para que cambios de dashboard
+como precios, agotados, pedidos y conversaciones sobrevivan reinicios del proceso, configura:
+
+```text
+RUNTIME_STORE_PATH=/data/ilovefresas-runtime-store.json
+```
+
+En Railway, lo ideal es montar un Volume en `/data` y usar esa ruta. Si no hay volumen, puedes usar una ruta
+dentro del contenedor para pruebas, pero un redeploy puede perder esos datos.
+
+El snapshot guarda:
+
+- catalogo, productos, toppings, adiciones y disponibilidad;
+- pedidos, conversaciones y mensajes;
+- estado del negocio, horarios, medios de pago y cierres especiales.
+
+Prueba repetible:
+
+```bash
+npm run test:runtime-store
+```
+
+Ese smoke cambia un producto por HTTP, verifica que se escriba el snapshot y simula una recarga desde disco.
+
 ## Flujo recomendado del operador
 
 1. Abrir el pedido pendiente.
@@ -109,7 +135,8 @@ Ese smoke levanta Express localmente, cambia disponibilidad/precio por endpoints
 
 ## Limitaciones de esta beta
 
-- Los datos siguen en memoria; reiniciar el backend borra pedidos, conversaciones y cambios de catalogo hechos desde dashboard. Para produccion real falta conectar Postgres u otra persistencia.
+- Sin `RUNTIME_STORE_PATH`, los datos siguen en memoria; reiniciar el backend borra pedidos, conversaciones y cambios de catalogo hechos desde dashboard.
+- Con `RUNTIME_STORE_PATH`, se usa snapshot JSON operativo. Para produccion robusta multi-instancia falta Postgres.
 - No hay login/autenticacion real; el selector Operario/Admin es demo visual.
 - La edicion rapida guarda direccion, pago, nota, disponibilidad y catalogo basico. No reestructura items complejos del pedido.
 - Confirmar/notificar y avisar despacho pasan por backend; requieren que el canal del cliente tenga credenciales configuradas.

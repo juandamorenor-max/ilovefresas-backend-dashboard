@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { persistRuntimeStore } from "../data/runtime-store.js";
 import { resolveBarranquillaZone } from "../data/geo/barranquilla-zone-resolver.js";
 import { env } from "../config/env.js";
 import { existsSync } from "node:fs";
@@ -267,6 +268,7 @@ export class ConversationService {
       (message) => !conversationsToDelete.includes(message.conversationId)
     );
 
+    persistRuntimeStore();
     return { reset: true, customerPhone };
   }
 
@@ -317,6 +319,7 @@ export class ConversationService {
     if (this.isNewChatCommand(payload.text)) {
       const reply = this.startNewConversation(payload.from);
       const conversation = this.getOrCreateConversation(business.id, payload.from);
+      persistRuntimeStore();
       return this.buildTurnResult(conversation, reply, "stateful");
     }
 
@@ -331,6 +334,7 @@ export class ConversationService {
       if (freshResult.reply.trim()) {
         this.saveMessage(business.id, freshConversation.id, payload.from, "bot", freshResult.reply);
       }
+      persistRuntimeStore();
       return freshResult;
     }
 
@@ -341,6 +345,7 @@ export class ConversationService {
     if (result.reply.trim()) {
       this.saveMessage(business.id, conversation.id, payload.from, "bot", result.reply);
     }
+    persistRuntimeStore();
     return result;
   }
 
@@ -362,6 +367,7 @@ export class ConversationService {
       "Un operario lo va a revisar y te avisaremos apenas tu pedido salga a despacho 🛵";
     this.saveMessage(business.id, conversation.id, payload.from, "bot", reply);
 
+    persistRuntimeStore();
     return this.buildTurnResult(conversation, reply, "stateful");
   }
 

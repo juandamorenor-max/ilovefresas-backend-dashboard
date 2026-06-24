@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { persistRuntimeStore } from "../data/runtime-store.js";
 import { createId, nowIso } from "../utils/id.js";
 import type { Business, BusinessHour, PaymentMethodSetting, SpecialClosure } from "../types/index.js";
 
@@ -19,6 +20,7 @@ export class AdminService {
     const business = demoStore.businesses[0];
     business.status = { ...business.status, ...payload };
     business.updatedAt = nowIso();
+    persistRuntimeStore();
     return business.status;
   }
 
@@ -41,6 +43,7 @@ export class AdminService {
     }
 
     hour.updatedAt = nowIso();
+    persistRuntimeStore();
     return hour;
   }
 
@@ -77,6 +80,7 @@ export class AdminService {
 
     business.updatedAt = nowIso();
     this.syncActivePaymentMethodNames(business);
+    persistRuntimeStore();
     return method;
   }
 
@@ -101,6 +105,7 @@ export class AdminService {
     };
 
     demoStore.specialClosures.push(closure);
+    persistRuntimeStore();
     return closure;
   }
 
@@ -111,6 +116,7 @@ export class AdminService {
     }
 
     demoStore.specialClosures.splice(index, 1);
+    persistRuntimeStore();
     return true;
   }
 }

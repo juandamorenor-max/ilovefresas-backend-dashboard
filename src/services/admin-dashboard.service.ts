@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { persistRuntimeStore } from "../data/runtime-store.js";
 import type { Conversation, Message, Order, OrderItem } from "../types/index.js";
 import { env } from "../config/env.js";
 import { createId, nowIso } from "../utils/id.js";
@@ -75,6 +76,7 @@ export class AdminDashboardService {
     }
 
     order.updatedAt = new Date().toISOString();
+    persistRuntimeStore();
     return this.toDashboardOrder(order);
   }
 
@@ -93,6 +95,7 @@ export class AdminDashboardService {
     if (backendStatus === "completed") {
       this.closeConversationForCompletedOrder(order);
     }
+    persistRuntimeStore();
     return this.toDashboardOrder(order);
   }
 
@@ -132,6 +135,7 @@ export class AdminDashboardService {
     await this.sendCustomerMessage(order.customerPhone, customerMessage);
     this.saveBotMessageForOrder(order, customerMessage);
 
+    persistRuntimeStore();
     return this.toDashboardOrder(order);
   }
 
@@ -153,6 +157,7 @@ export class AdminDashboardService {
         : `${order.internalNotes} ${notice}`
       : notice;
     order.updatedAt = new Date().toISOString();
+    persistRuntimeStore();
     return this.toDashboardOrder(order);
   }
 
@@ -169,6 +174,7 @@ export class AdminDashboardService {
 
     await this.sendCustomerMessage(conversation.customerPhone, message);
     this.saveBotMessageForConversation(conversation, message);
+    persistRuntimeStore();
     return this.toDashboardConversation(conversation);
   }
 
@@ -195,6 +201,7 @@ export class AdminDashboardService {
     }
 
     conversation.updatedAt = nowIso();
+    persistRuntimeStore();
     return this.toDashboardConversation(conversation);
   }
 
@@ -210,6 +217,7 @@ export class AdminDashboardService {
     }
 
     business.updatedAt = nowIso();
+    persistRuntimeStore();
     return business.status;
   }
 
@@ -318,6 +326,7 @@ export class AdminDashboardService {
     conversation.memory.recentMessages.push({ role: "bot", text, createdAt: timestamp });
     conversation.memory.recentMessages = conversation.memory.recentMessages.slice(-24);
     conversation.updatedAt = timestamp;
+    persistRuntimeStore();
   }
 
   listDashboardConversations() {
@@ -575,6 +584,7 @@ export class AdminDashboardService {
       suggestedAction: null
     });
     conversation.updatedAt = timestamp;
+    persistRuntimeStore();
   }
 
   private findLatestConversationForCustomer(customerPhone: string) {

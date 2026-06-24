@@ -55,6 +55,7 @@ const envSchema = z.object({
   TELEGRAM_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1500),
   MENU_PDF_PATH: z.string().optional(),
   SPEC_ASSETS_DIR: z.string().default("assets/specifications"),
+  RUNTIME_STORE_PATH: z.string().optional(),
   DATABASE_URL: z.string().optional()
 });
 
