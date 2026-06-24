@@ -65,8 +65,44 @@ export class BotIntegrationService {
         .map((modifier) => this.toCatalogModifier(modifier, "topping")),
       adiciones: activeModifiers
         .filter((modifier) => ADDITION_IDS.has(modifier.id))
-        .map((modifier) => this.toCatalogModifier(modifier, "adicion"))
+        .map((modifier) => this.toCatalogModifier(modifier, "adicion")),
+      agotados: {
+        productos: this.catalogService
+          .listUnavailableProducts()
+          .map((product) => this.toCatalogProduct(product)),
+        modificadores: this.catalogService
+          .listUnavailableModifierOptions()
+          .map((modifier) =>
+            this.toCatalogModifier(modifier, ADDITION_IDS.has(modifier.id) ? "adicion" : "topping")
+          )
+      }
     };
+  }
+
+  findUnavailableCatalogMatches(text: string) {
+    return {
+      products: this.catalogService.findUnavailableProductsMentioned(text),
+      modifiers: this.catalogService.findUnavailableModifierOptionsMentioned(text)
+    };
+  }
+
+  buildUnavailableCatalogReply(matches: {
+    products: Product[];
+    modifiers: ModifierOption[];
+  }) {
+    const productNames = matches.products.map((product) => product.name);
+    const modifierNames = matches.modifiers.map((modifier) => modifier.name);
+    const unavailableNames = [...productNames, ...modifierNames];
+    const alternatives = this.availableAlternativesFor(matches.products[0] ?? null);
+
+    return [
+      unavailableNames.length === 1
+        ? `${unavailableNames[0]} esta agotado en este momento.`
+        : `${unavailableNames.join(", ")} estan agotados en este momento.`,
+      alternatives.length
+        ? `Te puedo ofrecer: ${alternatives.join(", ")}.`
+        : "Si quieres, te comparto las opciones disponibles del menu."
+    ].join(" ");
   }
 
   getOrCreateActiveConversation(channel: BotChannel, chatId: string) {
@@ -422,7 +458,11 @@ export class BotIntegrationService {
       price: product.basePrice,
       isActive: product.isActive,
       isOutOfStock: product.isOutOfStock,
-      availabilityStatus: product.isOutOfStock ? "out_of_stock" : "available"
+      availabilityStatus: !product.isActive
+        ? "hidden"
+        : product.isOutOfStock
+          ? "out_of_stock"
+          : "available"
     };
   }
 
@@ -434,5 +474,21 @@ export class BotIntegrationService {
       isActive: modifier.isActive,
       kind
     };
+  }
+
+  private availableAlternativesFor(product: Product | null) {
+    if (!product) {
+      return [];
+    }
+
+    return this.catalogService
+      .listActiveProducts()
+      .filter((candidate) => candidate.category === product.category && candidate.id !== product.id)
+      .slice(0, 4)
+      .map((candidate) => `${candidate.name} (${this.money(candidate.basePrice)})`);
+  }
+
+  private money(value: number) {
+    return `$${value.toLocaleString("es-CO")}`;
   }
 }

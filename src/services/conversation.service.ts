@@ -3721,6 +3721,7 @@ export class ConversationService {
         ? extractedProduct
         : null);
     const unavailableProducts = this.catalogService.findUnavailableProductsMentioned(text);
+    const unavailableModifiers = this.catalogService.findUnavailableModifierOptionsMentioned(text);
 
     const quantityResult = this.resolveQuantity(text, extractedItem?.quantity ?? null);
     if (!quantityResult.ok) {
@@ -3741,9 +3742,9 @@ export class ConversationService {
       Boolean(this.extractFreeTextProductName(text)) ||
       this.isAdditionalProductRequest(text);
 
-    if (!product && unavailableProducts.length > 0) {
+    if ((!product && unavailableProducts.length > 0) || unavailableModifiers.length > 0) {
       this.setConversationDraftState(conversation, draft, "collecting_items");
-      return "Ese producto no esta disponible en este momento. Si quieres, te comparto opciones del menu.";
+      return this.buildUnavailableCatalogResponse(unavailableProducts, unavailableModifiers);
     }
 
     if (product && this.isUnsupportedPromotionOrderRequest(text)) {
@@ -7242,6 +7243,26 @@ export class ConversationService {
     ]
       .filter(Boolean)
       .join("\n");
+  }
+
+  private buildUnavailableCatalogResponse(products: Product[], modifiers: ModifierOption[]) {
+    const names = [...products.map((product) => product.name), ...modifiers.map((modifier) => modifier.name)];
+    const alternatives = products[0]
+      ? this.catalogService
+        .listActiveProducts()
+        .filter((candidate) => candidate.category === products[0]!.category && candidate.id !== products[0]!.id)
+        .slice(0, 4)
+        .map((candidate) => `${candidate.name} (${formatCurrency(candidate.basePrice)})`)
+      : [];
+
+    return [
+      names.length === 1
+        ? `${names[0]} esta agotado en este momento.`
+        : `${names.join(", ")} estan agotados en este momento.`,
+      alternatives.length
+        ? `Te puedo ofrecer: ${alternatives.join(", ")}.`
+        : "Si quieres, te comparto las opciones disponibles del menu."
+    ].join(" ");
   }
 
   private isCatalogOptionQuestion(text: string) {

@@ -52,6 +52,30 @@ export class AgentFlowTurnService {
       input.channel,
       input.chatId
     );
+    const unavailableMatches = this.botIntegrationService.findUnavailableCatalogMatches(text);
+    if (unavailableMatches.products.length > 0 || unavailableMatches.modifiers.length > 0) {
+      const responseText = this.botIntegrationService.buildUnavailableCatalogReply(unavailableMatches);
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          next_expected: "pedido"
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_catalog_availability",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
+
     const catalogoDisponible = this.botIntegrationService.getAvailableCatalog();
     const sessionId = this.sessionId(input.channel, input.chatId, conversation.id);
     const rawFlowiseResponse = await this.callFlowise({

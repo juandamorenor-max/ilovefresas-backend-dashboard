@@ -20,6 +20,10 @@ export class CatalogService {
     return demoStore.products.filter((product) => !product.isActive || product.isOutOfStock);
   }
 
+  listUnavailableModifierOptions() {
+    return demoStore.modifierOptions.filter((option) => !option.isActive);
+  }
+
   listDeliveryZones() {
     return demoStore.deliveryZones.filter((zone) => zone.isActive);
   }
@@ -125,8 +129,16 @@ export class CatalogService {
   }
 
   findModifierOptionsMentioned(text: string): ModifierOption[] {
+    return this.findModifierOptionsMentionedIn(this.listModifierOptions(), text);
+  }
+
+  findUnavailableModifierOptionsMentioned(text: string): ModifierOption[] {
+    return this.findModifierOptionsMentionedIn(this.listUnavailableModifierOptions(), text);
+  }
+
+  private findModifierOptionsMentionedIn(modifiers: ModifierOption[], text: string): ModifierOption[] {
     const lowerText = this.normalizeForMatching(text);
-    const matches = this.listModifierOptions().flatMap((modifier) => {
+    const matches = modifiers.flatMap((modifier) => {
       const candidates = [modifier.name, ...modifier.aliases].map((candidate) =>
         this.normalizeForMatching(candidate)
       );
