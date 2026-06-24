@@ -252,6 +252,43 @@ textarea {
   margin-bottom: 16px;
 }
 
+.system-panel {
+  margin-bottom: 16px;
+}
+
+.system-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.system-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.system-item span,
+.system-item small {
+  color: var(--muted);
+}
+
+.system-item strong {
+  font-size: 18px;
+}
+
+.system-item.ok {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.system-item.warn {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
 .metric {
   text-align: left;
   background: var(--panel);
@@ -569,6 +606,7 @@ textarea {
   }
 
   .metrics,
+  .system-status,
   .orders-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -595,6 +633,7 @@ textarea {
   }
 
   .metrics,
+  .system-status,
   .orders-board,
   .nav {
     grid-template-columns: 1fr;

@@ -8,6 +8,7 @@ const state = {
   products: [],
   modifiers: [],
   businessStatus: {},
+  integrationStatus: null,
   selectedOrderId: null,
   selectedConversationId: null,
   search: "",
@@ -84,7 +85,13 @@ const demoData = {
     { id: "demo_modifier_1", name: "Oreo", price: 2500, isActive: true },
     { id: "demo_modifier_2", name: "Arequipe", price: 2000, isActive: true }
   ],
-  businessStatus: { botPausedUntil: null }
+  businessStatus: { botPausedUntil: null },
+  integrationStatus: {
+    storage: { configured: true, mode: "demo", writable: true },
+    flowise: { configured: false },
+    botIntegration: { secretEnabled: true },
+    timestamp: new Date().toISOString()
+  }
 };
 
 const titles = {
@@ -122,6 +129,7 @@ const adminApi = {
   listProducts: () => apiFetch("/admin/dashboard/products"),
   listModifiers: () => apiFetch("/admin/dashboard/modifiers"),
   getBusinessStatus: () => apiFetch("/admin/dashboard/business-status"),
+  getIntegrationStatus: () => apiFetch("/health/integration"),
   updateOrder: (order, patch) => apiFetch(`/admin/dashboard/orders/${encodeURIComponent(order.id)}`, {
     method: "PATCH",
     body: JSON.stringify(patch)
@@ -277,6 +285,7 @@ function loadDemoData() {
   state.products = structuredClone(demoData.products);
   state.modifiers = structuredClone(demoData.modifiers);
   state.businessStatus = structuredClone(demoData.businessStatus);
+  state.integrationStatus = structuredClone(demoData.integrationStatus);
   state.selectedOrderId = state.orders[0]?.id ?? null;
   state.selectedConversationId = state.conversations[0]?.id ?? null;
 }
@@ -287,6 +296,7 @@ function clearData() {
   state.products = [];
   state.modifiers = [];
   state.businessStatus = {};
+  state.integrationStatus = null;
   state.selectedOrderId = null;
   state.selectedConversationId = null;
 }
@@ -297,18 +307,20 @@ async function refreshData({ quiet = true } = {}) {
     return;
   }
   try {
-    const [orders, conversations, products, modifiers, businessStatus] = await Promise.all([
+    const [orders, conversations, products, modifiers, businessStatus, integrationStatus] = await Promise.all([
       adminApi.listOrders(),
       adminApi.listConversations(),
       adminApi.listProducts(),
       adminApi.listModifiers(),
-      adminApi.getBusinessStatus()
+      adminApi.getBusinessStatus(),
+      adminApi.getIntegrationStatus()
     ]);
     state.orders = Array.isArray(orders) ? orders : [];
     state.conversations = Array.isArray(conversations) ? conversations : [];
     state.products = Array.isArray(products) ? products.map(adaptProduct) : [];
     state.modifiers = Array.isArray(modifiers) ? modifiers.map(adaptModifier) : [];
     state.businessStatus = businessStatus || {};
+    state.integrationStatus = integrationStatus || null;
     state.selectedOrderId = state.orders.some((order) => order.id === state.selectedOrderId)
       ? state.selectedOrderId
       : state.orders[0]?.id ?? null;
@@ -429,6 +441,7 @@ function renderOperation() {
   $("metricPreparing").textContent = stats.byStatus.preparing;
   $("metricDispatched").textContent = stats.byStatus.dispatched;
   $("metricHumanChats").textContent = stats.humanChats;
+  renderSystemStatus();
 
   const actionOrders = state.orders.filter((order) =>
     order.status === "pending" || order.urgent || (order.risk && order.risk !== "Bajo")
@@ -443,6 +456,63 @@ function renderOperation() {
   $("kitchenQueue").innerHTML = kitchenOrders.length
     ? kitchenOrders.map(orderCard).join("")
     : emptyState("La cocina no tiene pedidos en cola.");
+}
+
+function renderSystemStatus() {
+  const integration = state.integrationStatus;
+  if (!integration) {
+    $("systemUpdatedAt").textContent = "Sin sincronizar";
+    $("systemStatus").innerHTML = emptyState("No se pudo leer el estado de integracion.");
+    return;
+  }
+
+  const storage = integration.storage || {};
+  const flowise = integration.flowise || {};
+  const botIntegration = integration.botIntegration || {};
+  $("systemUpdatedAt").textContent = integration.timestamp
+    ? `Actualizado ${new Date(integration.timestamp).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}`
+    : "Actualizado";
+
+  const storageOk = storage.mode === "snapshot-json" && storage.configured && storage.writable;
+  const storageLabel = storage.mode === "demo"
+    ? "Demo"
+    : storageOk
+      ? "Persistente"
+      : "Memoria";
+  const storageDetail = storageOk
+    ? `Snapshot activo${storage.path ? ` en ${storage.path}` : ""}`
+    : storage.mode === "demo"
+      ? "Datos falsos separados"
+      : "Configura RUNTIME_STORE_PATH y Volume en Railway";
+
+  const items = [
+    {
+      label: "Datos",
+      value: storageLabel,
+      detail: storageDetail,
+      status: storageOk || storage.mode === "demo" ? "ok" : "warn"
+    },
+    {
+      label: "Flowise",
+      value: flowise.configured ? "Conectado" : "Sin flow id",
+      detail: flowise.configured ? "Agentflow configurado" : "El bridge no puede llamar Flowise",
+      status: flowise.configured ? "ok" : "warn"
+    },
+    {
+      label: "Bot API",
+      value: botIntegration.secretEnabled ? "Protegida" : "Sin secreto",
+      detail: botIntegration.secretEnabled ? "x-bot-secret activo" : "Configura BOT_INTEGRATION_SECRET",
+      status: botIntegration.secretEnabled ? "ok" : "warn"
+    }
+  ];
+
+  $("systemStatus").innerHTML = items.map((item) => `
+    <article class="system-item ${item.status}">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${escapeHtml(item.value)}</strong>
+      <small>${escapeHtml(item.detail)}</small>
+    </article>
+  `).join("");
 }
 
 function renderOrders() {
