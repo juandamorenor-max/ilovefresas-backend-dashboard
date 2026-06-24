@@ -141,6 +141,72 @@ assert(order.pricing.deliveryFee === 5000, "default delivery fee should be 5000"
 assert(order.pricing.total === 23000, "total should include item, topping and delivery fee");
 assert(order.paymentProofReceived, "created review order should keep payment proof flag");
 
+const turnChatId = "payment-turn-test";
+const turnConversation = service.startNewConversation("telegram", turnChatId);
+service.updateConversationState(turnConversation.id, {
+  items: [
+    {
+      producto: "Fresas con crema tradicional",
+      cantidad: 1
+    }
+  ],
+  nombre: "Turn Test",
+  direccion: "Cra 39A #41-99",
+  barrio: "Cabecera del Llano",
+  referencia: "Porteria",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio"
+});
+
+const confirmedTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: turnChatId,
+  text: "si"
+});
+assert(
+  confirmedTurn.source === "backend_payment_instructions",
+  "customer confirmation should be handled by backend payment instructions"
+);
+assert(
+  String(confirmedTurn.responseText).includes("Nequi: 3000000000"),
+  "payment instructions should include Nequi number"
+);
+assert(
+  String(confirmedTurn.responseText).includes("Total: 21000"),
+  "payment instructions should include total"
+);
+assert(!confirmedTurn.orderId, "payment instructions should not create order yet");
+
+const offTopicTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: turnChatId,
+  text: "que dia es hoy?"
+});
+assert(
+  offTopicTurn.source === "backend_waiting_payment_proof",
+  "off-topic message while waiting proof should be handled before Flowise"
+);
+assert(
+  String(offTopicTurn.responseText).toLowerCase().includes("comprobante"),
+  "off-topic response should redirect to payment proof"
+);
+assert(!offTopicTurn.orderId, "off-topic message should not create review order");
+
+const proofTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: turnChatId,
+  text: "adjunto comprobante"
+});
+assert(
+  proofTurn.source === "backend_payment_proof_received",
+  "payment proof should be handled by backend before Flowise"
+);
+assert(proofTurn.orderId, "payment proof should create review order");
+assert(
+  String(proofTurn.responseText).includes("dejo tu pedido en revision"),
+  "payment proof response should mention review"
+);
+
 const originalTraditionalPrice = traditionalProduct.basePrice;
 traditionalProduct.basePrice = 17000;
 const priceConversation = service.startNewConversation("telegram", "price-test");
