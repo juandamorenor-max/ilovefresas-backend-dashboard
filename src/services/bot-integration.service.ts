@@ -38,18 +38,6 @@ interface BotConversationStatePatch {
 }
 
 const CLOSED_STATES = new Set(["post_order_closed", "completed", "cancelled"]);
-const ADDITION_IDS = new Set([
-  "mo_helado",
-  "mo_queso",
-  "mo_nutella",
-  "mo_chocorramo",
-  "mo_dulce_mora",
-  "mo_adicional_crema",
-  "mo_barquillo",
-  "mo_cerezas",
-  "mo_arandanos"
-]);
-
 export class BotIntegrationService {
   constructor(
     private readonly catalogService = new CatalogService(),
@@ -57,27 +45,7 @@ export class BotIntegrationService {
   ) {}
 
   getAvailableCatalog() {
-    const activeModifiers = this.catalogService.listModifierOptions();
-
-    return {
-      productos: this.catalogService.listActiveProducts().map((product) => this.toCatalogProduct(product)),
-      toppings: activeModifiers
-        .filter((modifier) => !ADDITION_IDS.has(modifier.id))
-        .map((modifier) => this.toCatalogModifier(modifier, "topping")),
-      adiciones: activeModifiers
-        .filter((modifier) => ADDITION_IDS.has(modifier.id))
-        .map((modifier) => this.toCatalogModifier(modifier, "adicion")),
-      agotados: {
-        productos: this.catalogService
-          .listUnavailableProducts()
-          .map((product) => this.toCatalogProduct(product)),
-        modificadores: this.catalogService
-          .listUnavailableModifierOptions()
-          .map((modifier) =>
-            this.toCatalogModifier(modifier, ADDITION_IDS.has(modifier.id) ? "adicion" : "topping")
-          )
-      }
-    };
+    return this.catalogService.getBotAvailableCatalog();
   }
 
   findUnavailableCatalogMatches(text: string) {
@@ -453,32 +421,6 @@ export class BotIntegrationService {
 
   private customerPhone(channel: BotChannel, chatId: string) {
     return `${channel}:${chatId}`;
-  }
-
-  private toCatalogProduct(product: Product) {
-    return {
-      id: product.id,
-      name: product.name,
-      category: product.category,
-      price: product.basePrice,
-      isActive: product.isActive,
-      isOutOfStock: product.isOutOfStock,
-      availabilityStatus: !product.isActive
-        ? "hidden"
-        : product.isOutOfStock
-          ? "out_of_stock"
-          : "available"
-    };
-  }
-
-  private toCatalogModifier(modifier: ModifierOption, kind: "topping" | "adicion") {
-    return {
-      id: modifier.id,
-      name: modifier.name,
-      price: modifier.priceDelta,
-      isActive: modifier.isActive,
-      kind
-    };
   }
 
   private availableAlternativesFor(product: Product | null) {

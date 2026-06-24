@@ -7,6 +7,7 @@ const state = {
   conversations: [],
   products: [],
   modifiers: [],
+  botCatalog: null,
   businessStatus: {},
   integrationStatus: null,
   selectedOrderId: null,
@@ -85,6 +86,12 @@ const demoData = {
     { id: "demo_modifier_1", name: "Oreo", price: 2500, isActive: true },
     { id: "demo_modifier_2", name: "Arequipe", price: 2000, isActive: true }
   ],
+  botCatalog: {
+    productos: [{ id: "demo_product_1", name: "Fresas con crema tradicional", price: 16000 }],
+    toppings: [{ id: "demo_modifier_1", name: "Oreo", price: 2500 }],
+    adiciones: [{ id: "demo_modifier_2", name: "Arequipe", price: 2000 }],
+    agotados: { productos: [], modificadores: [] }
+  },
   businessStatus: { botPausedUntil: null },
   integrationStatus: {
     storage: { configured: true, mode: "demo", writable: true },
@@ -128,6 +135,7 @@ const adminApi = {
   listConversations: () => apiFetch("/admin/dashboard/conversations"),
   listProducts: () => apiFetch("/admin/dashboard/products"),
   listModifiers: () => apiFetch("/admin/dashboard/modifiers"),
+  getBotCatalog: () => apiFetch("/admin/dashboard/bot-catalog"),
   getBusinessStatus: () => apiFetch("/admin/dashboard/business-status"),
   getIntegrationStatus: () => apiFetch("/health/integration"),
   updateOrder: (order, patch) => apiFetch(`/admin/dashboard/orders/${encodeURIComponent(order.id)}`, {
@@ -284,6 +292,7 @@ function loadDemoData() {
   state.conversations = structuredClone(demoData.conversations);
   state.products = structuredClone(demoData.products);
   state.modifiers = structuredClone(demoData.modifiers);
+  state.botCatalog = structuredClone(demoData.botCatalog);
   state.businessStatus = structuredClone(demoData.businessStatus);
   state.integrationStatus = structuredClone(demoData.integrationStatus);
   state.selectedOrderId = state.orders[0]?.id ?? null;
@@ -295,6 +304,7 @@ function clearData() {
   state.conversations = [];
   state.products = [];
   state.modifiers = [];
+  state.botCatalog = null;
   state.businessStatus = {};
   state.integrationStatus = null;
   state.selectedOrderId = null;
@@ -307,11 +317,12 @@ async function refreshData({ quiet = true } = {}) {
     return;
   }
   try {
-    const [orders, conversations, products, modifiers, businessStatus, integrationStatus] = await Promise.all([
+    const [orders, conversations, products, modifiers, botCatalog, businessStatus, integrationStatus] = await Promise.all([
       adminApi.listOrders(),
       adminApi.listConversations(),
       adminApi.listProducts(),
       adminApi.listModifiers(),
+      adminApi.getBotCatalog(),
       adminApi.getBusinessStatus(),
       adminApi.getIntegrationStatus()
     ]);
@@ -319,6 +330,7 @@ async function refreshData({ quiet = true } = {}) {
     state.conversations = Array.isArray(conversations) ? conversations : [];
     state.products = Array.isArray(products) ? products.map(adaptProduct) : [];
     state.modifiers = Array.isArray(modifiers) ? modifiers.map(adaptModifier) : [];
+    state.botCatalog = botCatalog || null;
     state.businessStatus = businessStatus || {};
     state.integrationStatus = integrationStatus || null;
     state.selectedOrderId = state.orders.some((order) => order.id === state.selectedOrderId)
@@ -639,6 +651,7 @@ function renderConversations() {
 }
 
 function renderAvailability() {
+  renderBotCatalogPreview();
   const query = normalize(state.availabilitySearch);
   const products = state.products.filter((product) => !query || normalize(product.name).includes(query) || normalize(product.category).includes(query));
   const modifiers = state.modifiers.filter((modifier) => !query || normalize(modifier.name).includes(query));
@@ -648,6 +661,32 @@ function renderAvailability() {
   $("availabilityModifiers").innerHTML = modifiers.length
     ? modifiers.map((modifier) => availabilityRow(modifier, "modifier")).join("")
     : emptyState("No hay toppings o adiciones para mostrar.");
+}
+
+function renderBotCatalogPreview() {
+  const catalog = state.botCatalog;
+  if (!catalog) {
+    $("botCatalogSummary").textContent = "Sin sincronizar";
+    $("botCatalogPreview").innerHTML = emptyState("No se pudo leer la vista del bot.");
+    return;
+  }
+
+  const availableProducts = catalog.productos || [];
+  const availableModifiers = [...(catalog.toppings || []), ...(catalog.adiciones || [])];
+  const unavailableProducts = catalog.agotados?.productos || [];
+  const unavailableModifiers = catalog.agotados?.modificadores || [];
+  $("botCatalogSummary").textContent =
+    `${availableProducts.length} productos, ${availableModifiers.length} toppings/adiciones, ${unavailableProducts.length + unavailableModifiers.length} agotados`;
+
+  const available = [...availableProducts, ...availableModifiers].slice(0, 8);
+  const unavailable = [...unavailableProducts, ...unavailableModifiers].slice(0, 8);
+  $("botCatalogPreview").innerHTML = [
+    `<div><b>Disponibles para chat</b><span>${available.map((item) => {
+      const price = Number(item.price);
+      return `${escapeHtml(item.name)} ${Number.isFinite(price) && price > 0 ? `(${money(price)})` : ""}`;
+    }).join(", ") || "Ninguno"}</span></div>`,
+    `<div><b>Marcados como agotados</b><span>${unavailable.map((item) => escapeHtml(item.name)).join(", ") || "Ninguno"}</span></div>`
+  ].join("");
 }
 
 function availabilityRow(item, type) {

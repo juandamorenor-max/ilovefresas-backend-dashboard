@@ -38,6 +38,7 @@ adminRouter.patch(
 );
 adminRouter.get("/admin/dashboard/products", controller.listProducts.bind(controller));
 adminRouter.get("/admin/dashboard/modifiers", controller.listModifierOptions.bind(controller));
+adminRouter.get("/admin/dashboard/bot-catalog", controller.getBotAvailableCatalog.bind(controller));
 adminRouter.get("/admin/dashboard/business-status", controller.getBusinessStatus.bind(controller));
 adminRouter.get("/admin/dashboard/business-hours", controller.listBusinessHours.bind(controller));
 adminRouter.get("/admin/dashboard/payment-methods", controller.listPaymentMethods.bind(controller));

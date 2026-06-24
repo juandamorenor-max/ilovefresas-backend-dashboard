@@ -87,6 +87,10 @@ try {
     productos: Array<{ id: string }>;
     agotados: { productos: Array<{ id: string }> };
   };
+  const adminBotCatalog = await request("/admin/dashboard/bot-catalog") as {
+    productos: Array<{ id: string }>;
+    agotados: { productos: Array<{ id: string }> };
+  };
   assert(
     !availableCatalog.productos.some((product) => product.id === traditional.id),
     "Dashboard-disabled product must disappear from available bot catalog"
@@ -94,6 +98,11 @@ try {
   assert(
     availableCatalog.agotados.productos.some((product) => product.id === traditional.id),
     "Dashboard-disabled product must be listed as agotado for bot guardrails"
+  );
+  assert.deepEqual(
+    adminBotCatalog,
+    availableCatalog,
+    "Admin bot catalog preview must match the catalog consumed by the bot"
   );
 
   const unavailableProductTurn = await request("/bot/turn", {

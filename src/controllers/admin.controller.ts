@@ -232,6 +232,10 @@ export class AdminController {
     response.json(this.catalogService.listModifierOptionsForAdmin());
   }
 
+  getBotAvailableCatalog(_request: Request, response: Response) {
+    response.json(this.catalogService.getBotAvailableCatalog());
+  }
+
   createProduct(request: Request, response: Response) {
     const business = this.businessService.getDefaultBusiness();
     const created = this.catalogService.createProduct({

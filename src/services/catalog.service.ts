@@ -8,6 +8,18 @@ import type {
   Product
 } from "../types/index.js";
 
+const ADDITION_IDS = new Set([
+  "mo_helado",
+  "mo_queso",
+  "mo_nutella",
+  "mo_chocorramo",
+  "mo_dulce_mora",
+  "mo_adicional_crema",
+  "mo_barquillo",
+  "mo_cerezas",
+  "mo_arandanos"
+]);
+
 export class CatalogService {
   listProducts() {
     return demoStore.products;
@@ -35,6 +47,26 @@ export class CatalogService {
 
   listModifierOptionsForAdmin() {
     return demoStore.modifierOptions;
+  }
+
+  getBotAvailableCatalog() {
+    const activeModifiers = this.listModifierOptions();
+
+    return {
+      productos: this.listActiveProducts().map((product) => this.toBotCatalogProduct(product)),
+      toppings: activeModifiers
+        .filter((modifier) => !ADDITION_IDS.has(modifier.id))
+        .map((modifier) => this.toBotCatalogModifier(modifier, "topping")),
+      adiciones: activeModifiers
+        .filter((modifier) => ADDITION_IDS.has(modifier.id))
+        .map((modifier) => this.toBotCatalogModifier(modifier, "adicion")),
+      agotados: {
+        productos: this.listUnavailableProducts().map((product) => this.toBotCatalogProduct(product)),
+        modificadores: this.listUnavailableModifierOptions().map((modifier) =>
+          this.toBotCatalogModifier(modifier, ADDITION_IDS.has(modifier.id) ? "adicion" : "topping")
+        )
+      }
+    };
   }
 
   findProductById(productId: string) {
@@ -338,5 +370,31 @@ export class CatalogService {
       .replace(/\boreoo+\b/g, "oreo")
       .replace(/\bneqi\b/g, "nequi")
       .replace(/\bneky\b/g, "nequi");
+  }
+
+  private toBotCatalogProduct(product: Product) {
+    return {
+      id: product.id,
+      name: product.name,
+      category: product.category,
+      price: product.basePrice,
+      isActive: product.isActive,
+      isOutOfStock: product.isOutOfStock,
+      availabilityStatus: !product.isActive
+        ? "hidden"
+        : product.isOutOfStock
+          ? "out_of_stock"
+          : "available"
+    };
+  }
+
+  private toBotCatalogModifier(modifier: ModifierOption, kind: "topping" | "adicion") {
+    return {
+      id: modifier.id,
+      name: modifier.name,
+      price: modifier.priceDelta,
+      isActive: modifier.isActive,
+      kind
+    };
   }
 }

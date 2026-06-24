@@ -349,12 +349,40 @@ textarea {
 .list,
 .conversation-list,
 .availability-list,
+.bot-catalog-list,
 .catalog-list,
 .detail-items,
 .action-stack,
 .edit-form {
   display: grid;
   gap: 10px;
+}
+
+.bot-catalog-preview {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.bot-catalog-preview > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.bot-catalog-preview span,
+.bot-catalog-list span {
+  color: var(--muted);
+}
+
+.bot-catalog-list div {
+  display: grid;
+  gap: 4px;
 }
 
 .order-card,
