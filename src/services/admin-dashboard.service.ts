@@ -229,45 +229,44 @@ export class AdminDashboardService {
   }
 
   private buildCustomerConfirmationMessage(order: Order) {
-    const deliveryLine = order.fulfillmentType === "delivery"
-      ? `🏍️ El valor del domi es: ${this.money(order.pricing.deliveryFee)}, y el total de tu pedido es ${this.money(order.pricing.total)}.`
-      : `🍓 El total de tu pedido es ${this.money(order.pricing.total)}.`;
-    const paymentLine = this.buildPaymentInstructionLine(order.paymentMethod);
-    return [deliveryLine, paymentLine].filter(Boolean).join("\n\n");
-
-    const firstName = order.customerName?.trim().split(/\s+/)[0] ?? "cliente";
-    const itemLines = order.items.flatMap((item) => {
+    const customerFirstName = order.customerName?.trim().split(/\s+/)[0] ?? "cliente";
+    const summaryItems = order.items.flatMap((item) => {
       const productLine = `- ${item.quantity} x ${item.productName} - ${this.money(item.unitBasePrice * item.quantity)}`;
       const options = Object.entries(item.selectedOptions ?? {}).flatMap(([label, values]) =>
         values.length ? [`  - ${label}: ${values.join(", ")}`] : []
       );
       const additions = item.components
         .filter((component) => component.type === "added")
-        .map((component) => `  - Adición: ${component.name} - ${this.money(component.priceDelta)}`);
+        .map((component) => `  - Adicion: ${component.name} - ${this.money(component.priceDelta)}`);
       const removals = item.components
         .filter((component) => component.type === "removed")
         .map((component) => `  - Sin: ${component.name}`);
 
       return [productLine, ...options, ...additions, ...removals];
     });
+    const paymentNote = this.buildDashboardPaymentNote(order.paymentMethod);
 
     return [
-      `Confirmado, ${firstName} 😊🍓`,
+      `Confirmado, ${customerFirstName}.`,
       "",
-      "Tu pedido quedó confirmado así:",
+      "Tu pedido quedo confirmado asi:",
       "",
-      "🧾 Pedido",
-      ...itemLines,
+      "Pedido",
+      ...summaryItems,
       "",
-      `💰 Productos: ${this.money(order.pricing.subtotal)}`,
-      order.fulfillmentType === "delivery" ? `🏍️ Domicilio: ${this.money(order.pricing.deliveryFee)}` : null,
-      `✅ Total final: ${this.money(order.pricing.total)}`,
-      `💳 Pago: ${order.paymentMethod ?? "Por confirmar"}`,
+      "Datos",
+      `Nombre: ${order.customerName ?? "Por confirmar"}`,
+      order.fulfillmentType === "delivery" ? `Direccion: ${order.address ?? "Por confirmar"}` : "Entrega: Recoger en punto",
+      order.fulfillmentType === "delivery" ? `Barrio: ${order.zoneName ?? "Por confirmar"}` : null,
+      order.fulfillmentType === "delivery" ? `Referencia: ${order.addressReference ?? "Por confirmar"}` : null,
+      `Metodo de pago: ${order.paymentMethod ?? "Por confirmar"}`,
       "",
-      order.fulfillmentType === "delivery" ? "📍 Dirección" : "📍 Entrega",
-      order.fulfillmentType === "delivery" ? order.address ?? "Por confirmar" : "Recoger en punto",
+      `Productos: ${this.money(order.pricing.subtotal)}`,
+      order.fulfillmentType === "delivery" ? `Domicilio: ${this.money(order.pricing.deliveryFee)}` : null,
+      `Total final: ${this.money(order.pricing.total)}`,
       "",
-      "Gracias por tu pedido. Te avisamos cuando salga a despacho 🍓"
+      paymentNote,
+      "Gracias por tu pedido. Te avisamos cuando salga a despacho."
     ].filter(Boolean).join("\n");
   }
 
@@ -279,13 +278,13 @@ export class AdminDashboardService {
     });
   }
 
-  private buildPaymentInstructionLine(paymentMethod: string | null) {
+  private buildDashboardPaymentNote(paymentMethod: string | null) {
     const normalized = paymentMethod?.toLowerCase() ?? "";
     if (normalized.includes("nequi")) {
-      return "💳 Puedes pagar por Nequi al numero 3000000000.\n\nUna vez nos adjuntes el comprobante de pago, despacharemos tu pedido! 🍓";
+      return "Cuando realices el pago por Nequi, envianos el comprobante para continuar con el despacho.";
     }
     if (normalized.includes("bancolombia") || normalized.includes("banco")) {
-      return "💳 Puedes pagar por Bancolombia al numero de cuenta 70000000000.\n\nUna vez nos adjuntes el comprobante de pago, despacharemos tu pedido! 🍓";
+      return "Cuando realices el pago por Bancolombia, envianos el comprobante para continuar con el despacho.";
     }
     if (normalized.includes("contra entrega") || normalized.includes("efectivo")) {
       return "Recuerda que tu pedido es contraentrega. Te avisaremos una vez sea enviado.";
