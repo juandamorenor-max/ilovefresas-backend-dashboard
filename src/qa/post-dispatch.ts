@@ -114,6 +114,8 @@ function seedConversationWithOrder(input: {
     address: "Cra 39a # 41-99 casa",
     zoneName: null,
     paymentMethod: "Nequi",
+    paymentProofReceived: true,
+    paymentProofNote: "QA seed",
     cashAmount: null,
     notes: null,
     items: input.items ?? [makeItem()],
@@ -445,6 +447,8 @@ await check("la orden enviada no cambia aunque exista un draft viejo", async () 
     address: order.address,
     inferredZoneId: null,
     paymentMethod: order.paymentMethod,
+    paymentProofReceived: order.paymentProofReceived,
+    paymentProofNote: order.paymentProofNote,
     cashAmount: null,
     notes: null,
     pendingSelections: [],
@@ -457,6 +461,7 @@ await check("la orden enviada no cambia aunque exista un draft viejo", async () 
     "agregale oreo"
   );
   assert.equal(order.items.length, 1);
+  assert(conversation.draftOrder);
   assert.equal(conversation.draftOrder.blockingIssue, "Intervencion post-envio requerida");
 }, results);
 

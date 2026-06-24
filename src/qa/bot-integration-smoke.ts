@@ -98,14 +98,48 @@ service.updateConversationState(first.id, {
   modalidad_entrega: "domicilio"
 });
 
-const ready = service.getOrderReviewReadiness(first.id);
-assert(ready.ready, `complete order should be ready, missing: ${ready.missingFields.join(", ")}`);
+const waitingPaymentReadiness = service.getOrderReviewReadiness(first.id);
+assert(!waitingPaymentReadiness.ready, "transfer order should wait for payment proof");
+assert(
+  waitingPaymentReadiness.missingFields.includes("comprobante_pago"),
+  "missing payment proof should be detected"
+);
+assert(
+  service.createOrderForReview(first.id) === null,
+  "transfer order must not create review order without payment proof"
+);
+
+service.updateConversationState(first.id, {
+  pedido_confirmado_por_cliente: true,
+  comprobante_pago_pendiente: true,
+  next_expected: "comprobante_pago"
+});
+
+const waitingProof = service.getOrCreateActiveConversation("telegram", "531515729");
+assert(
+  waitingProof.conversationState.next_expected === "comprobante_pago",
+  "conversation should wait for payment proof"
+);
+
+service.updateConversationState(first.id, {
+  comprobante_pago_recibido: true,
+  payment_proof_note: "comprobante enviado en Telegram",
+  needs_human: true,
+  next_expected: "humano"
+});
+
+const readyAfterProof = service.getOrderReviewReadiness(first.id);
+assert(
+  readyAfterProof.ready,
+  `order with payment proof should be ready, missing: ${readyAfterProof.missingFields.join(", ")}`
+);
 
 const order = service.createOrderForReview(first.id);
 assert(order, "complete order should create review order");
 assert(order.status === "pending_review", "created order should be pending_review");
 assert(order.pricing.deliveryFee === 5000, "default delivery fee should be 5000");
 assert(order.pricing.total === 23000, "total should include item, topping and delivery fee");
+assert(order.paymentProofReceived, "created review order should keep payment proof flag");
 
 const originalTraditionalPrice = traditionalProduct.basePrice;
 traditionalProduct.basePrice = 17000;
@@ -121,7 +155,7 @@ service.updateConversationState(priceConversation.id, {
   direccion: "Cra 39A #41-99",
   barrio: "Cabecera del Llano",
   referencia: "Porteria",
-  metodo_pago: "Nequi",
+  metodo_pago: "efectivo",
   modalidad_entrega: "domicilio"
 });
 const priceOrder = service.createOrderForReview(priceConversation.id);

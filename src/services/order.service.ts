@@ -20,6 +20,8 @@ export class OrderService {
       addressReference: null,
       inferredZoneId: null,
       paymentMethod: null,
+      paymentProofReceived: false,
+      paymentProofNote: null,
       cashAmount: null,
       notes: null,
       pendingSelections: [],
@@ -67,6 +69,8 @@ export class OrderService {
       addressReference: conversation.draftOrder.addressReference ?? null,
       zoneName: conversation.draftOrder.neighborhood ?? zone?.name ?? null,
       paymentMethod: conversation.draftOrder.paymentMethod,
+      paymentProofReceived: conversation.draftOrder.paymentProofReceived,
+      paymentProofNote: conversation.draftOrder.paymentProofNote,
       cashAmount: conversation.draftOrder.cashAmount,
       notes: conversation.draftOrder.notes,
       items: conversation.draftOrder.items,
@@ -106,6 +110,8 @@ export class OrderService {
     order.addressReference = draft.addressReference ?? null;
     order.zoneName = draft.neighborhood ?? zone?.name ?? null;
     order.paymentMethod = draft.paymentMethod;
+    order.paymentProofReceived = draft.paymentProofReceived;
+    order.paymentProofNote = draft.paymentProofNote;
     order.cashAmount = draft.cashAmount;
     order.notes = draft.notes;
     order.items = draft.items;
@@ -136,7 +142,14 @@ export class OrderService {
     const notes: string[] = [];
 
     if (draft.paymentMethod && draft.paymentMethod !== "Contra entrega") {
-      notes.push("Pago pendiente de verificacion/comprobante.");
+      notes.push(
+        draft.paymentProofReceived
+          ? "Comprobante recibido; operario debe verificarlo antes de confirmar."
+          : "Pago pendiente de verificacion/comprobante."
+      );
+      if (draft.paymentProofNote) {
+        notes.push(`Nota de comprobante: ${draft.paymentProofNote}.`);
+      }
     }
 
     if (draft.paymentMethod === "Contra entrega" && draft.cashAmount) {

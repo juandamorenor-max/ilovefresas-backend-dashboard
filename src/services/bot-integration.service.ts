@@ -28,6 +28,10 @@ interface BotConversationStatePatch {
   metodo_pago?: string;
   modalidad_entrega?: string;
   pedido_confirmado?: boolean | string;
+  pedido_confirmado_por_cliente?: boolean | string;
+  comprobante_pago_pendiente?: boolean | string;
+  comprobante_pago_recibido?: boolean | string;
+  payment_proof_note?: string;
   needs_human?: boolean | string;
   ultimo_agente?: string;
   ultima_pregunta_bot?: string;
@@ -160,6 +164,56 @@ export class BotIntegrationService {
     return order;
   }
 
+  requiresPaymentProofForConversation(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    return this.requiresPaymentProof(conversation?.draftOrder?.paymentMethod);
+  }
+
+  buildPaymentInstructionsForConversation(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!draft?.paymentMethod) {
+      return null;
+    }
+
+    const total = draft.pricing.total;
+    const normalized = draft.paymentMethod.trim().toLowerCase();
+    if (normalized.includes("nequi")) {
+      return [
+        "Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia por Nequi:",
+        "",
+        "Nequi: 3000000000",
+        `Total: ${total}`,
+        "",
+        "Cuando la hagas, enviame el comprobante por aqui."
+      ].join("\n");
+    }
+
+    if (normalized.includes("bancolombia")) {
+      return [
+        "Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia a Bancolombia:",
+        "",
+        "Cuenta Bancolombia: 72600000000",
+        `Total: ${total}`,
+        "",
+        "Cuando la hagas, enviame el comprobante por aqui."
+      ].join("\n");
+    }
+
+    if (normalized.includes("bre")) {
+      return [
+        "Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia por Bre-B:",
+        "",
+        "Llave Bre-B: @test",
+        `Total: ${total}`,
+        "",
+        "Cuando la hagas, enviame el comprobante por aqui."
+      ].join("\n");
+    }
+
+    return null;
+  }
+
   private findActiveConversation(channel: BotChannel, chatId: string) {
     const customerPhone = this.customerPhone(channel, chatId);
     return (
@@ -216,6 +270,14 @@ export class BotIntegrationService {
     if (patch.referencia) draft.addressReference = patch.referencia.trim();
     if (patch.metodo_pago) draft.paymentMethod = this.normalizePaymentMethod(patch.metodo_pago);
     if (patch.modalidad_entrega) draft.fulfillmentType = this.normalizeFulfillment(patch.modalidad_entrega);
+    if (patch.comprobante_pago_recibido === true || patch.comprobante_pago_recibido === "true") {
+      draft.paymentProofReceived = true;
+      draft.paymentProofNote = patch.payment_proof_note?.trim() || "Comprobante reportado por el cliente.";
+    }
+    if (patch.comprobante_pago_pendiente === true || patch.comprobante_pago_pendiente === "true") {
+      draft.paymentProofReceived = false;
+      draft.paymentProofNote = null;
+    }
     this.refreshInferredZone(draft);
     if (patch.needs_human === true || patch.needs_human === "true") {
       draft.blockingIssue = "Requiere revision humana segun Flowise.";
@@ -289,6 +351,10 @@ export class BotIntegrationService {
     if (patch.next_expected === "datos") {
       conversation.memory.lastBotOffer = "delivery_details";
     }
+
+    if (patch.next_expected === "comprobante_pago") {
+      conversation.memory.lastBotOffer = "payment_methods";
+    }
   }
 
   private saveMessage(conversation: Conversation, role: Message["role"], text: string) {
@@ -316,10 +382,33 @@ export class BotIntegrationService {
   }
 
   private nextConversationState(conversation: Conversation, patch: BotConversationStatePatch) {
+    if (patch.comprobante_pago_recibido === true || patch.comprobante_pago_recibido === "true") {
+      return "pending_human";
+    }
+    if (patch.next_expected === "comprobante_pago") return "awaiting_payment_proof";
+    if (patch.comprobante_pago_pendiente === true || patch.comprobante_pago_pendiente === "true") {
+      return "awaiting_payment_proof";
+    }
     if (patch.needs_human === true || patch.needs_human === "true") return "pending_human";
     if (patch.pedido_confirmado === true || patch.pedido_confirmado === "true") return "confirming_order";
+    if (
+      patch.pedido_confirmado_por_cliente === true ||
+      patch.pedido_confirmado_por_cliente === "true"
+    ) {
+      return this.requiresPaymentProof(conversation.draftOrder?.paymentMethod) &&
+        !conversation.draftOrder?.paymentProofReceived
+        ? "awaiting_payment_proof"
+        : "confirming_order";
+    }
     if (!conversation.draftOrder?.items.length) return "collecting_items";
     if (!this.hasRequiredDeliveryData(conversation.draftOrder)) return "collecting_delivery_details";
+    if (
+      this.requiresPaymentProof(conversation.draftOrder.paymentMethod) &&
+      !conversation.draftOrder.paymentProofReceived &&
+      conversation.state === "awaiting_payment_proof"
+    ) {
+      return "awaiting_payment_proof";
+    }
     return "confirming_order";
   }
 
@@ -336,6 +425,9 @@ export class BotIntegrationService {
     if (draft.items.some((item) => item.unitBasePrice <= 0)) missingFields.push("precios");
     if (!draft.customerName) missingFields.push("nombre");
     if (!draft.paymentMethod) missingFields.push("metodo_pago");
+    if (this.requiresPaymentProof(draft.paymentMethod) && !draft.paymentProofReceived) {
+      missingFields.push("comprobante_pago");
+    }
 
     if (draft.fulfillmentType === "delivery") {
       if (!draft.address) missingFields.push("direccion");
@@ -386,6 +478,12 @@ export class BotIntegrationService {
         barrio: draft?.neighborhood ?? "",
         referencia: draft?.addressReference ?? "",
         metodo_pago: draft?.paymentMethod ?? "",
+        comprobante_pago_pendiente: Boolean(
+          draft?.paymentMethod &&
+            this.requiresPaymentProof(draft.paymentMethod) &&
+            !draft.paymentProofReceived
+        ),
+        comprobante_pago_recibido: Boolean(draft?.paymentProofReceived),
         modalidad_entrega: draft?.fulfillmentType === "pickup" ? "recoger" : "domicilio",
         pedido_en_progreso: Boolean(draft?.items.length),
         ultima_pregunta_bot: this.extractLastBotQuestion(conversation),
@@ -401,6 +499,7 @@ export class BotIntegrationService {
 
   private toNextExpected(conversation: Conversation) {
     if (conversation.state === "collecting_delivery_details") return "datos";
+    if (conversation.state === "awaiting_payment_proof") return "comprobante_pago";
     if (conversation.state === "confirming_order") return "confirmacion";
     if (conversation.state === "pending_human") return "humano";
     return conversation.draftOrder?.items.length ? "datos" : "pedido";
@@ -413,6 +512,19 @@ export class BotIntegrationService {
     if (normalized.includes("bre")) return "Bre-B";
     if (normalized.includes("efectivo") || normalized.includes("contra")) return "Contra entrega";
     return value.trim();
+  }
+
+  private requiresPaymentProof(paymentMethod?: string | null) {
+    if (!paymentMethod) {
+      return false;
+    }
+
+    const normalized = paymentMethod.trim().toLowerCase();
+    return (
+      normalized.includes("nequi") ||
+      normalized.includes("bancolombia") ||
+      normalized.includes("bre")
+    );
   }
 
   private normalizeFulfillment(value: string) {

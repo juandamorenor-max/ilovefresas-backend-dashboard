@@ -52,6 +52,74 @@ export class AgentFlowTurnService {
       input.channel,
       input.chatId
     );
+
+    if (
+      conversation.conversationState.next_expected === "confirmacion" &&
+      this.isCustomerConfirmation(text) &&
+      this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
+    ) {
+      const responseText =
+        this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
+        "Para continuar con la revision del pedido, enviame el comprobante del pago por aqui.";
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          pedido_confirmado_por_cliente: true,
+          comprobante_pago_pendiente: true,
+          next_expected: "comprobante_pago"
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_payment_instructions",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
+
+    if (conversation.conversationState.next_expected === "comprobante_pago") {
+      const paymentProofReceived = this.isPaymentProof(text);
+      const responseText = paymentProofReceived
+        ? "Listo, recibimos tu comprobante y dejo tu pedido en revision con el equipo. Te confirmamos por aqui antes de prepararlo."
+        : "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          comprobante_pago_recibido: paymentProofReceived,
+          payment_proof_note: paymentProofReceived ? text : undefined,
+          next_expected: paymentProofReceived ? "humano" : "comprobante_pago",
+          needs_human: paymentProofReceived
+        }
+      );
+
+      const order = paymentProofReceived
+        ? this.botIntegrationService.createOrderForReview(conversation.id)
+        : null;
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: paymentProofReceived
+          ? "backend_payment_proof_received"
+          : "backend_waiting_payment_proof",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: order?.id ?? updatedConversation?.activeOrderId ?? null,
+        reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
+      };
+    }
+
     const unavailableMatches = this.botIntegrationService.findUnavailableCatalogMatches(text);
     if (unavailableMatches.products.length > 0 || unavailableMatches.modifiers.length > 0) {
       const responseText = this.botIntegrationService.buildUnavailableCatalogReply(unavailableMatches);
@@ -278,6 +346,34 @@ export class AgentFlowTurnService {
       patch.send_to_review === true ||
       patch.send_to_review === "true"
     );
+  }
+
+  private isCustomerConfirmation(text: string) {
+    const normalized = this.normalize(text);
+    return ["si", "correcto", "listo", "asi esta bien", "confirmo"].some(
+      (phrase) => normalized === phrase || normalized.includes(phrase)
+    );
+  }
+
+  private isPaymentProof(text: string) {
+    const normalized = this.normalize(text);
+    return [
+      "comprobante",
+      "soporte",
+      "transferencia hecha",
+      "ya pague",
+      "ya lo pague",
+      "te envio el pago",
+      "adjunto"
+    ].some((phrase) => normalized.includes(phrase));
+  }
+
+  private normalize(text: string) {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .trim();
   }
 
   private shouldMergeValue(value: unknown) {

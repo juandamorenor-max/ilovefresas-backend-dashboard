@@ -181,15 +181,34 @@ try {
     })
   });
 
+  const blockedReview = await fetch(`${baseUrl}/bot/conversations/${conversation.id}/orders/review`, {
+    method: "POST",
+    headers: secretHeaders
+  });
+  assert.equal(blockedReview.status, 404, "Transfer order without proof should not enter review");
+
+  await request(`/bot/conversations/${conversation.id}/state`, {
+    method: "PATCH",
+    headers: secretHeaders,
+    body: JSON.stringify({
+      comprobante_pago_recibido: true,
+      payment_proof_note: "comprobante QA",
+      needs_human: true,
+      next_expected: "humano"
+    })
+  });
+
   const order = await request(`/bot/conversations/${conversation.id}/orders/review`, {
     method: "POST",
     headers: secretHeaders
   }) as {
     items: Array<{ unitBasePrice: number }>;
     pricing: { total: number };
+    paymentProofReceived: boolean;
   };
   assert.equal(order.items[0]?.unitBasePrice, 17000);
   assert.equal(order.pricing.total, 22000);
+  assert.equal(order.paymentProofReceived, true);
 
   await request(`/admin/products/${traditional.id}`, {
     method: "PATCH",

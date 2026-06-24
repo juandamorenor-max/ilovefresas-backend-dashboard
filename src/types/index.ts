@@ -10,6 +10,7 @@ export type ConversationState =
   | "collecting_payment"
   | "collecting_notes"
   | "confirming_order"
+  | "awaiting_payment_proof"
   | "pending_human"
   | "post_order_closed"
   | "completed"
@@ -196,6 +197,8 @@ export interface OrderDraft {
   addressReference?: string | null;
   inferredZoneId: string | null;
   paymentMethod: string | null;
+  paymentProofReceived: boolean;
+  paymentProofNote: string | null;
   cashAmount: string | null;
   notes: string | null;
   pendingSelections: PendingSelection[];
@@ -305,6 +308,8 @@ export interface Order extends Timestamped {
   addressReference?: string | null;
   zoneName: string | null;
   paymentMethod: string | null;
+  paymentProofReceived: boolean;
+  paymentProofNote: string | null;
   cashAmount: string | null;
   notes: string | null;
   items: OrderItem[];
