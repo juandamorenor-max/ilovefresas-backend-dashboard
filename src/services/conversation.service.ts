@@ -365,7 +365,7 @@ export class ConversationService {
     if (conversation.state !== "awaiting_payment_proof") {
       const reply =
         "Recibi la imagen, pero todavia no puedo recibir comprobantes. " +
-        "Primero cerramos el pedido, te doy el total y despues te pido el comprobante.";
+        "Primero cerramos el pedido, te doy el total y despues te pido el comprobante 😊";
       this.saveMessage(business.id, conversation.id, payload.from, "bot", reply);
       persistRuntimeStore();
       return this.buildTurnResult(conversation, reply, "stateful");
@@ -385,7 +385,7 @@ export class ConversationService {
     if (!proofValidation.isLikelyPaymentProof) {
       const reply =
         "Recibi la imagen, pero no alcanzo a validar que sea un comprobante de pago. " +
-        "Enviame una captura donde se vea el valor, estado exitoso y referencia.";
+        "Enviame una captura donde se vea el valor, estado exitoso y referencia 😊";
       this.saveMessage(business.id, conversation.id, payload.from, "bot", reply);
       persistRuntimeStore();
       return this.buildTurnResult(conversation, reply, "stateful");

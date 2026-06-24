@@ -74,8 +74,8 @@ export class BotIntegrationService {
         ? `${unavailableNames[0]} esta agotado en este momento.`
         : `${unavailableNames.join(", ")} estan agotados en este momento.`,
       alternatives.length
-        ? `Te puedo ofrecer: ${alternatives.join(", ")}.`
-        : "Si quieres, te comparto las opciones disponibles del menu."
+        ? `Te puedo ofrecer: ${alternatives.join(", ")} 🍓`
+        : "Si quieres, te comparto las opciones disponibles del menu 🍓"
     ].join(" ");
   }
 
@@ -185,12 +185,12 @@ export class BotIntegrationService {
     }
 
     return [
-      `Perfecto. Para continuar con la revision del pedido, puedes hacer la transferencia por ${method.name}:`,
+      `Perfecto 😊 Para continuar con la revision del pedido, puedes hacer la transferencia por ${method.name}:`,
       "",
       `${method.accountLabel}: ${method.accountValue}`,
       `Total: ${total}`,
       "",
-      "Cuando la hagas, enviame el comprobante por aqui."
+      "Cuando la hagas, enviame el comprobante por aqui 🍓"
     ].join("\n");
   }
 

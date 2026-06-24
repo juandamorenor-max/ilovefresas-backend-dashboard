@@ -146,7 +146,7 @@ export class AdminDashboardService {
       return null;
     }
 
-    const customerMessage = "Tu pedido ha sido despachado!";
+    const customerMessage = "Tu pedido ha sido despachado! 🍓";
     await this.sendCustomerMessage(order.customerPhone, customerMessage);
     this.saveBotMessageForOrder(order, customerMessage);
 

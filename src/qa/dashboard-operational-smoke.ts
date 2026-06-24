@@ -262,7 +262,7 @@ try {
     demoStore.messages.some((message) =>
       message.conversationId === conversation.id &&
       message.role === "bot" &&
-      message.text === "Tu pedido ha sido despachado!"
+      message.text === "Tu pedido ha sido despachado! 🍓"
     ),
     "dispatch notification should save exact customer message"
   );

@@ -45,7 +45,7 @@ export class AgentFlowTurnService {
       return {
         conversationId: conversation.id,
         sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
-        responseText: "Listo, abrimos un chat nuevo para probar desde cero.",
+        responseText: "Listo 😊 Abrimos un chat nuevo para probar desde cero.",
         shouldSendReply: true,
         source: "newchat"
       };
@@ -60,7 +60,7 @@ export class AgentFlowTurnService {
       return {
         conversationId: conversation.id,
         sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
-        responseText: "Escribeme tu pedido o dime si quieres ver el menu.",
+        responseText: "Escribeme tu pedido o dime si quieres ver el menu 🍓",
         shouldSendReply: true,
         source: "empty_message",
         state: conversation.state,
@@ -127,7 +127,7 @@ export class AgentFlowTurnService {
     ) {
       const responseText =
         this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
-        "Para continuar con la revision del pedido, enviame el comprobante del pago por aqui.";
+        "Para continuar con la revision del pedido, enviame el comprobante del pago por aqui 😊";
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
         {
@@ -165,9 +165,9 @@ export class AgentFlowTurnService {
       });
       const paymentProofReceived = proofValidation.isLikelyPaymentProof;
       const responseText = paymentProofReceived
-        ? "Comprobante recibido! Un operario te va a confirmar cuando tu pedido este enviado!"
+        ? "Comprobante recibido! 😊 Un operario te va a confirmar cuando tu pedido este enviado."
         : hasAttachment
-          ? "Recibi la imagen, pero no alcanzo a validar que sea un comprobante de pago. Enviame una captura donde se vea el valor, estado exitoso y referencia."
+          ? "Recibi la imagen, pero no alcanzo a validar que sea un comprobante de pago. Enviame una captura donde se vea el valor, estado exitoso y referencia 😊"
         : this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
           "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
       const updatedConversation = this.botIntegrationService.updateConversationState(
@@ -464,19 +464,19 @@ export class AgentFlowTurnService {
   }
 
   private buildUnexpectedAttachmentReply(nextExpected: string) {
-    return "Recibi la imagen, pero todavia no puedo recibir comprobantes. Primero cerramos el pedido, te doy el total y despues te pido el comprobante.";
+    return "Recibi la imagen, pero todavia no puedo recibir comprobantes. Primero cerramos el pedido, te doy el total y despues te pido el comprobante 😊";
   }
 
   private buildPrematurePaymentProofReply(nextExpected: string) {
     if (nextExpected === "confirmacion") {
-      return "Todavia no puedo recibir comprobantes. Primero confirmame si el resumen esta correcto; despues te doy el total y te pido el comprobante.";
+      return "Todavia no puedo recibir comprobantes. Primero confirmame si el resumen esta correcto; despues te doy el total y te pido el comprobante 😊";
     }
 
     if (nextExpected === "datos") {
-      return "Todavia no puedo recibir comprobantes. Primero terminamos los datos del pedido, luego te muestro el total y ahi si te pido el comprobante.";
+      return "Todavia no puedo recibir comprobantes. Primero terminamos los datos del pedido, luego te muestro el total y ahi si te pido el comprobante 😊";
     }
 
-    return "Todavia no puedo recibir comprobantes. Primero armamos y cerramos el pedido; despues te doy el total y te pido el comprobante.";
+    return "Todavia no puedo recibir comprobantes. Primero armamos y cerramos el pedido; despues te doy el total y te pido el comprobante 😊";
   }
 
   private normalize(text: string) {
