@@ -1,0 +1,2757 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>I Love Fresas | Admin</title>
+  <style>
+    :root {
+      --berry: #e95f8a;
+      --berry-dark: #94324f;
+      --berry-soft: #ffeaf1;
+      --cream: #f7f4ef;
+      --cream-2: #ebe7df;
+      --paper: #ffffff;
+      --ink: #1f2328;
+      --muted: #68717a;
+      --line: #e3e7eb;
+      --line-strong: #cfd7de;
+      --choco: #34302e;
+      --plum: #283241;
+      --green: #16805d;
+      --mint: #e7f6ef;
+      --amber: #b26a00;
+      --sun: #fff3d6;
+      --blue: #216c9a;
+      --sky: #e7f2fa;
+      --danger: #b42331;
+      --danger-soft: #fff0f0;
+      --shadow: 0 18px 45px rgba(31, 35, 40, .10);
+      --shadow-soft: 0 8px 22px rgba(31, 35, 40, .07);
+      --radius: 8px;
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(248, 250, 252, .96), rgba(243, 246, 248, .98)),
+        radial-gradient(circle at 12% 0%, rgba(215, 47, 89, .08), transparent 34%),
+        #f5f7f9;
+      letter-spacing: 0;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+    }
+
+    .login-screen {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+      background:
+        linear-gradient(90deg, rgba(255, 253, 249, .98), rgba(255, 253, 249, .74)),
+        url("https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=1800&q=85") center/cover;
+    }
+
+    .login-card {
+      align-self: center;
+      margin: 32px;
+      background: rgba(255, 253, 249, .96);
+      border: 1px solid rgba(234, 220, 205, .9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: linear-gradient(135deg, var(--berry), #a9233b);
+      font-weight: 900;
+      box-shadow: 0 9px 18px rgba(215, 47, 89, .24);
+    }
+
+    .login-card h1 {
+      margin: 18px 0 8px;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .login-card p {
+      margin: 0 0 24px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      margin: 14px 0 7px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      color: var(--ink);
+      min-height: 42px;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--berry);
+      box-shadow: 0 0 0 3px rgba(215, 47, 89, .12);
+    }
+
+    .primary-btn, .secondary-btn, .icon-btn, .status-btn {
+      min-height: 38px;
+      border-radius: var(--radius);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .primary-btn {
+      color: white;
+      background: linear-gradient(135deg, var(--berry), #a31645);
+      box-shadow: 0 9px 20px rgba(215, 47, 89, .18);
+    }
+
+    .secondary-btn {
+      color: var(--choco);
+      background: var(--cream);
+      border: 1px solid var(--line-strong);
+    }
+
+    .status-btn {
+      color: white;
+      background: var(--plum);
+    }
+
+    .icon-btn {
+      width: 38px;
+      padding: 0;
+      color: var(--choco);
+      background: var(--cream);
+      border: 1px solid var(--line);
+    }
+
+    .icon-btn.sound-off {
+      color: #9b2442;
+      background: #ffe5ef;
+      border-color: #f2aec5;
+    }
+
+    .primary-btn:hover {
+      box-shadow: 0 13px 26px rgba(215, 47, 89, .23);
+    }
+
+    .secondary-btn:hover, .icon-btn:hover {
+      border-color: rgba(215, 47, 89, .35);
+      background: white;
+    }
+
+    .login-card .primary-btn {
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .sidebar {
+      background: rgba(255, 253, 249, .94);
+      border-right: 1px solid var(--line);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 8px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-row strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .brand-row span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 5px;
+    }
+
+    .nav button {
+      width: 100%;
+      min-height: 42px;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      font-weight: 800;
+      text-align: left;
+    }
+
+    .nav button svg {
+      padding: 2px;
+      border-radius: 6px;
+      background: rgba(70, 48, 43, .06);
+    }
+
+    .nav button.active {
+      background: linear-gradient(90deg, #fff1f5, #f8fbfd);
+      color: var(--berry-dark);
+      box-shadow: inset 3px 0 0 var(--berry);
+    }
+
+    .nav button.active svg {
+      background: white;
+      color: var(--berry);
+      box-shadow: 0 4px 10px rgba(215, 47, 89, .12);
+    }
+
+    .nav svg, .icon {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .store-card {
+      margin-top: auto;
+      padding: 12px;
+      background: var(--cream);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .store-card strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .store-card p {
+      margin: 6px 0 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .topbar {
+      min-height: 70px;
+      background: rgba(255, 253, 249, .86);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 22px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      box-shadow: 0 8px 26px rgba(72, 46, 36, .05);
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .topbar small {
+      display: block;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search {
+      width: min(430px, 42vw);
+      position: relative;
+    }
+
+    .search input {
+      padding-left: 38px;
+      background: white;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4);
+    }
+
+    .search svg {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      color: var(--muted);
+      width: 17px;
+      height: 17px;
+    }
+
+    .content {
+      min-width: 0;
+      padding: 22px;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      background: rgba(255, 253, 249, .92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      min-height: 110px;
+      display: grid;
+      align-content: space-between;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      overflow: hidden;
+    }
+
+    button.metric {
+      width: 100%;
+      text-align: left;
+      color: inherit;
+    }
+
+    button.metric:hover {
+      border-color: #efaec8;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .72) inset, 0 18px 34px rgba(143, 89, 110, .16);
+    }
+
+    button.metric:focus-visible {
+      outline: 3px solid rgba(233, 95, 138, .22);
+      outline-offset: 2px;
+    }
+
+    .metric::after {
+      content: "";
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: rgba(201, 47, 75, .08);
+      position: absolute;
+      right: -18px;
+      top: -20px;
+      transform: rotate(18deg);
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .metric:nth-child(2)::after { background: rgba(169, 99, 18, .11); }
+    .metric:nth-child(3)::after { background: rgba(36, 122, 84, .11); }
+    .metric:nth-child(4)::after { background: rgba(40, 109, 148, .11); }
+    .metric:nth-child(5)::after { background: rgba(55, 36, 55, .10); }
+
+    .metric strong {
+      display: block;
+      margin-top: 12px;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .metric .trend {
+      color: var(--green);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .work-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+      gap: 16px;
+    }
+
+    .panel {
+      background: rgba(255, 253, 249, .94);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      min-width: 0;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(255, 253, 249, .98), rgba(255, 250, 245, .78));
+    }
+
+    .panel-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .panel-header span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .panel-header.compact {
+      padding: 0 0 12px;
+      border-bottom: 0;
+    }
+
+    .section-spaced {
+      margin-top: 16px;
+    }
+
+    .section-spaced-lg {
+      margin-top: 18px;
+    }
+
+    .section-title-sm {
+      font-size: 16px;
+      margin: 0 0 10px;
+    }
+
+    .single-column-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    .order-list {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .order-card {
+      border: 1px solid var(--line);
+      border-left: 4px solid transparent;
+      border-radius: var(--radius);
+      background: white;
+      padding: 13px;
+      display: grid;
+      gap: 10px;
+      transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease;
+      cursor: pointer;
+    }
+
+    .order-card.urgent {
+      border-left-color: var(--berry);
+      background: linear-gradient(90deg, #ffeaf1, #fff7fa 72%);
+    }
+
+    .order-card:hover {
+      border-color: rgba(215, 47, 89, .34);
+      box-shadow: 0 12px 26px rgba(72, 46, 36, .09);
+      transform: translateY(-1px);
+    }
+
+    .order-card.selected {
+      border-color: rgba(200, 50, 72, .45);
+      box-shadow: 0 0 0 3px rgba(215, 47, 89, .10);
+    }
+
+    .order-head, .row-between {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .order-head strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .order-head small, .meta, .muted {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      background: var(--cream);
+      border: 1px solid var(--line);
+      color: var(--choco);
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .chip.pending { background: var(--berry-soft); color: var(--berry-dark); border-color: #f8bfd0; }
+    .chip.confirmed { background: var(--mint); color: #176340; border-color: #bfe4d0; }
+    .chip.completed { background: #dff7e8; color: #146c43; border-color: #9fe0bd; }
+    .chip.preparing { background: var(--sun); color: #824808; border-color: #efcf95; }
+    .chip.dispatched { background: var(--sky); color: #1f5f84; border-color: #c4deed; }
+    .chip.cancelled { background: var(--danger-soft); color: var(--danger); border-color: #efc5c5; }
+    .chip.human { background: #fce7ef; color: #9b2442; border-color: #f3bdce; }
+
+    .ops-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .ops-pill {
+      background: rgba(255, 253, 249, .82);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      min-height: 54px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .ops-pill strong {
+      font-size: 13px;
+    }
+
+    .ops-pill span {
+      color: var(--muted);
+      display: block;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .signal {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(36, 122, 84, .13);
+    }
+
+    .signal.warn {
+      background: var(--berry);
+      box-shadow: 0 0 0 4px rgba(215, 47, 89, .12);
+    }
+
+    .detail-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .detail-card {
+      padding: 16px;
+    }
+
+    .detail-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .detail-title h3 {
+      margin: 0 0 5px;
+      font-size: 20px;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+
+    .step {
+      min-height: 7px;
+      border-radius: 999px;
+      background: var(--line);
+    }
+
+    .step.on {
+      background: var(--berry);
+    }
+
+    .items {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item-row {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .6);
+    }
+
+    .item-row strong {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      margin-bottom: 7px;
+    }
+
+    .totals {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .totals .total {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .action-stack {
+      display: grid;
+      gap: 9px;
+    }
+
+    .action-stack button {
+      width: 100%;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .full { grid-column: 1 / -1; }
+
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+
+    .inbox-layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr) 320px;
+      gap: 16px;
+      min-height: calc(100vh - 114px);
+    }
+
+    .conversation-list {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+    }
+
+    .conversation {
+      width: 100%;
+      text-align: left;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .conversation.active {
+      border-color: rgba(200, 50, 72, .5);
+      background: #fff8f7;
+      box-shadow: 0 0 0 3px rgba(201, 47, 75, .08);
+    }
+
+    .conversation strong {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 5px;
+    }
+
+    .conversation-last {
+      margin: 8px 0 0;
+    }
+
+    .chat-window {
+      min-height: 620px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+
+    .chat-messages {
+      padding: 16px;
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      background:
+        linear-gradient(180deg, rgba(255, 250, 244, .96), rgba(255, 247, 239, .96));
+    }
+
+    .bubble {
+      max-width: 78%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .bubble.user {
+      background: white;
+      border: 1px solid var(--line);
+      justify-self: start;
+      border-bottom-left-radius: 4px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .bubble.bot {
+      background: linear-gradient(135deg, #fff1f5, #f8fbfd);
+      color: var(--berry-dark);
+      justify-self: end;
+      border-bottom-right-radius: 4px;
+      border: 1px solid #f6c2d1;
+    }
+
+    .chat-compose {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 860px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      background: #fff9f1;
+      position: sticky;
+      top: 0;
+    }
+
+    tr:hover td {
+      background: #fffaf4;
+    }
+
+    tbody tr {
+      cursor: pointer;
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .accounting-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .finance-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .finance-card {
+      background: rgba(255, 253, 249, .94);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow-soft);
+      min-height: 112px;
+    }
+
+    .finance-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .finance-card strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .finance-card small {
+      display: block;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.35;
+    }
+
+    .reconcile-list {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .reconcile-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .reconcile-row strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--cream-2);
+      margin-top: 9px;
+      overflow: hidden;
+    }
+
+    .progress-bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--berry), #e07b62);
+    }
+
+    .cash-close {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cash-box {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: white;
+      padding: 12px;
+    }
+
+    .cash-box .row-between + .row-between {
+      margin-top: 8px;
+    }
+
+    .expense-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .expense {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .expense:last-child {
+      border-bottom: 0;
+    }
+
+    /* Professional product polish */
+    body {
+      background: #f4f6f8;
+    }
+
+    .app {
+      grid-template-columns: 264px minmax(0, 1fr);
+      background: #f4f6f8;
+    }
+
+    .sidebar {
+      background: #18212d;
+      border-right: 0;
+      box-shadow: 12px 0 34px rgba(24, 33, 45, .16);
+      color: #f8fafc;
+    }
+
+    .brand-row {
+      border-bottom-color: rgba(255, 255, 255, .10);
+    }
+
+    .brand-row strong {
+      color: #ffffff;
+      letter-spacing: .01em;
+    }
+
+    .brand-row span,
+    .sidebar .muted {
+      color: rgba(248, 250, 252, .62);
+    }
+
+    .brand-mark {
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f884a8, #dc4f7b);
+      box-shadow: 0 10px 22px rgba(244, 63, 107, .30);
+      font-size: 12px;
+    }
+
+    .nav {
+      gap: 4px;
+    }
+
+    .nav button {
+      color: rgba(248, 250, 252, .70);
+      min-height: 40px;
+      border-radius: 7px;
+      font-weight: 700;
+    }
+
+    .nav button svg {
+      background: transparent;
+      color: rgba(248, 250, 252, .48);
+    }
+
+    .nav button:hover {
+      background: rgba(255, 255, 255, .06);
+      color: #fff;
+    }
+
+    .nav button.active {
+      background: rgba(255, 255, 255, .10);
+      color: #fff;
+      box-shadow: inset 3px 0 0 #e95f8a;
+    }
+
+    .nav button.active svg {
+      background: rgba(244, 63, 107, .16);
+      color: #d87594;
+      box-shadow: none;
+    }
+
+    .store-card {
+      background: rgba(255, 255, 255, .07);
+      border-color: rgba(255, 255, 255, .10);
+      box-shadow: none;
+    }
+
+    .store-card strong {
+      color: #fff;
+    }
+
+    .store-card p {
+      color: rgba(248, 250, 252, .62);
+    }
+
+    .store-card .secondary-btn {
+      background: rgba(255, 255, 255, .10);
+      color: #fff;
+      border-color: rgba(255, 255, 255, .12);
+    }
+
+    .main {
+      background: #f4f6f8;
+    }
+
+    .topbar {
+      min-height: 68px;
+      background: rgba(255, 255, 255, .92);
+      border-bottom: 1px solid #e4e8ee;
+      box-shadow: 0 1px 0 rgba(24, 33, 45, .03);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar h2 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .topbar small {
+      color: #6b7280;
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .search input,
+    input,
+    select,
+    textarea {
+      border-color: #d8dee6;
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(24, 33, 45, .02);
+    }
+
+    .primary-btn,
+    .secondary-btn,
+    .icon-btn,
+    .status-btn {
+      border-radius: 7px;
+      min-height: 36px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .primary-btn {
+      background: #e95f8a;
+      box-shadow: 0 8px 18px rgba(215, 47, 89, .18);
+    }
+
+    .status-btn {
+      background: #283241;
+    }
+
+    .secondary-btn,
+    .icon-btn {
+      background: #fff;
+      border-color: #d8dee6;
+      color: #303946;
+    }
+
+    .ops-strip {
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .ops-pill,
+    .metric,
+    .finance-card,
+    .panel,
+    .order-card,
+    .conversation,
+    .item-row,
+    .cash-box,
+    .reconcile-row {
+      background: #fff;
+      border-color: #e1e6ed;
+      box-shadow: 0 1px 2px rgba(24, 33, 45, .04), 0 8px 22px rgba(24, 33, 45, .04);
+    }
+
+    .ops-pill {
+      min-height: 58px;
+      padding: 12px 14px;
+    }
+
+    .ops-pill strong {
+      color: #202936;
+      font-weight: 800;
+    }
+
+    .metric,
+    .finance-card {
+      min-height: 104px;
+      padding: 16px;
+    }
+
+    .metric::after {
+      display: none;
+    }
+
+    .metric span,
+    .finance-card span {
+      color: #64707d;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .metric strong,
+    .finance-card strong {
+      color: #18212d;
+      font-size: 28px;
+      font-weight: 850;
+    }
+
+    .panel {
+      border-radius: 9px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      background: #fff;
+      padding: 13px 16px;
+      border-bottom-color: #e6ebf1;
+    }
+
+    .panel-header h3 {
+      color: #1f2937;
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    .panel-header span {
+      color: #6b7280;
+      font-weight: 750;
+    }
+
+    .order-card {
+      border-left-width: 3px;
+      padding: 14px;
+    }
+
+    .order-card.urgent {
+      background: #fff;
+      border-left-color: #e95f8a;
+    }
+
+    .order-card:hover {
+      border-color: #cfd7e2;
+      box-shadow: 0 10px 24px rgba(24, 33, 45, .08);
+    }
+
+    .order-card.selected {
+      border-color: #f4a7ba;
+      box-shadow: 0 0 0 3px rgba(215, 47, 89, .10);
+    }
+
+    .chip {
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: none;
+    }
+
+    .chip.pending { background: #ffeaf1; color: #94324f; border-color: #f4b6ca; }
+    .chip.confirmed { background: #ecfdf3; color: #067647; border-color: #abefc6; }
+    .chip.completed { background: #e6f8ee; color: #087443; border-color: #9ce2bb; }
+    .chip.preparing { background: #fffaeb; color: #93370d; border-color: #fedf89; }
+    .chip.dispatched { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+    .chip.cancelled { background: #fef3f2; color: #b42318; border-color: #fecdca; }
+    .chip.human { background: #fff1f3; color: #c01048; border-color: #fecdd6; }
+
+    .table-wrap {
+      background: #fff;
+    }
+
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #667085;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .02em;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom-color: #edf1f5;
+    }
+
+    td {
+      color: #2b3440;
+    }
+
+    tr:hover td {
+      background: #f9fbfd;
+    }
+
+    .bubble.user {
+      box-shadow: 0 1px 2px rgba(24, 33, 45, .05);
+    }
+
+    .bubble.bot {
+      background: #ffeaf1;
+      border-color: #f7cbd7;
+    }
+
+    .login-card {
+      border-color: #e1e6ed;
+      box-shadow: 0 24px 60px rgba(24, 33, 45, .16);
+    }
+
+    /* Pastel redesign */
+    body {
+      background:
+        radial-gradient(circle at 8% 4%, rgba(255, 190, 205, .38), transparent 28%),
+        radial-gradient(circle at 88% 8%, rgba(188, 230, 218, .38), transparent 30%),
+        linear-gradient(135deg, #ffe8f0 0%, #f8dce9 46%, #fff1f5 100%);
+    }
+
+    .app,
+    .main {
+      background:
+        linear-gradient(135deg, rgba(255, 244, 240, .92), rgba(247, 238, 248, .82) 48%, rgba(239, 247, 243, .9)),
+        #f8f0ed;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, #ffdce8 0%, #f9d5e5 52%, #ffeef4 100%);
+      border-right: 1px solid rgba(186, 145, 157, .32);
+      box-shadow: 10px 0 34px rgba(143, 89, 110, .14);
+      color: #38262d;
+    }
+
+    .brand-row {
+      border-bottom-color: rgba(139, 81, 103, .18);
+    }
+
+    .brand-row strong,
+    .store-card strong {
+      color: #3b2631;
+    }
+
+    .brand-row span,
+    .store-card p,
+    .sidebar .muted {
+      color: #7f6570;
+    }
+
+    .brand-mark {
+      border-radius: 14px;
+      background: linear-gradient(135deg, #f995b2, #e95f8a);
+      box-shadow: 0 12px 24px rgba(220, 79, 123, .22);
+    }
+
+    .brand-mark svg {
+      width: 28px;
+      height: 28px;
+      display: block;
+      filter: drop-shadow(0 2px 3px rgba(116, 30, 60, .18));
+    }
+
+    .nav button {
+      color: #795f6c;
+    }
+
+    .nav button svg {
+      color: #9a7f8c;
+      background: rgba(255, 255, 255, .34);
+    }
+
+    .nav button:hover {
+      background: rgba(255, 255, 255, .52);
+      color: #4b2d39;
+    }
+
+    .nav button.active {
+      background: rgba(255, 255, 255, .72);
+      color: #5a2639;
+      box-shadow: inset 3px 0 0 #e95f8a, 0 10px 22px rgba(143, 89, 110, .12);
+    }
+
+    .nav button.active svg {
+      background: #ffe4ec;
+      color: #d74f7b;
+    }
+
+    .admin-only,
+    body.operator-role .admin-only,
+    body:not(.admin-role) .admin-only {
+      display: none !important;
+    }
+
+    body.admin-role .admin-only {
+      display: flex !important;
+    }
+
+    body.admin-role .view.admin-only {
+      display: none !important;
+    }
+
+    body.admin-role .view.admin-only.active {
+      display: block !important;
+    }
+
+    .store-card {
+      background: rgba(255, 255, 255, .48);
+      border-color: rgba(181, 132, 149, .22);
+      box-shadow: 0 12px 26px rgba(143, 89, 110, .10);
+    }
+
+    .store-card .secondary-btn {
+      background: rgba(255, 255, 255, .62);
+      color: #5a2639;
+      border-color: rgba(181, 132, 149, .28);
+    }
+
+    .topbar {
+      background: rgba(255, 247, 244, .78);
+      border-bottom-color: rgba(186, 145, 157, .25);
+      box-shadow: 0 10px 30px rgba(143, 89, 110, .09);
+    }
+
+    .topbar h2,
+    .panel-header h3,
+    .metric strong,
+    .finance-card strong,
+    .ops-pill strong {
+      color: #2e2530;
+    }
+
+    .topbar small,
+    .muted,
+    .panel-header span,
+    .metric span,
+    .finance-card span {
+      color: #74646d;
+    }
+
+    .search input,
+    input,
+    select,
+    textarea {
+      background: rgba(255, 252, 248, .78);
+      border-color: rgba(181, 132, 149, .26);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 8px 20px rgba(143, 89, 110, .06);
+    }
+
+    .primary-btn {
+      background: linear-gradient(135deg, #f995b2, #e95f8a);
+      box-shadow: 0 12px 24px rgba(220, 79, 123, .20);
+    }
+
+    .secondary-btn,
+    .icon-btn {
+      background: rgba(255, 252, 248, .72);
+      border-color: rgba(181, 132, 149, .30);
+      color: #4e3943;
+    }
+
+    .status-btn {
+      background: #6d5161;
+    }
+
+    .ops-pill,
+    .metric,
+    .finance-card,
+    .panel,
+    .order-card,
+    .conversation,
+    .item-row,
+    .cash-box,
+    .reconcile-row {
+      background: rgba(255, 242, 247, .72);
+      border-color: rgba(181, 132, 149, .22);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .72) inset, 0 14px 30px rgba(143, 89, 110, .10);
+      backdrop-filter: blur(10px);
+    }
+
+    .metric:nth-child(1),
+    .finance-card:nth-child(1) {
+      background: linear-gradient(135deg, rgba(255, 228, 238, .92), rgba(255, 242, 247, .66));
+    }
+
+    .metric:nth-child(2),
+    .finance-card:nth-child(2) {
+      background: linear-gradient(135deg, rgba(255, 237, 244, .90), rgba(255, 246, 219, .62));
+    }
+
+    .metric:nth-child(3),
+    .finance-card:nth-child(3) {
+      background: linear-gradient(135deg, rgba(241, 225, 250, .82), rgba(225, 246, 237, .62));
+    }
+
+    .metric:nth-child(4),
+    .finance-card:nth-child(4) {
+      background: linear-gradient(135deg, rgba(255, 229, 240, .84), rgba(229, 240, 255, .62));
+    }
+
+    .metric:nth-child(5) {
+      background: linear-gradient(135deg, rgba(255, 226, 239, .84), rgba(242, 231, 255, .62));
+    }
+
+    .panel-header {
+      background: rgba(255, 240, 246, .66);
+      border-bottom-color: rgba(181, 132, 149, .18);
+    }
+
+    .order-card.urgent {
+      background: linear-gradient(90deg, rgba(255, 238, 243, .95), rgba(255, 250, 246, .72));
+      border-left-color: #e95f8a;
+    }
+
+    .conversation.active {
+      background: rgba(255, 226, 237, .82);
+    }
+
+    .table-wrap,
+    th {
+      background: rgba(255, 240, 246, .66);
+    }
+
+    th {
+      color: #7b6872;
+    }
+
+    td {
+      color: #42323a;
+    }
+
+    tr:hover td {
+      background: rgba(255, 239, 243, .44);
+    }
+
+    .chip {
+      border-radius: 999px;
+    }
+
+    button.chip {
+      cursor: pointer;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    button.chip:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(143, 89, 110, .13);
+    }
+
+    button.chip.active {
+      border-color: rgba(72, 45, 58, .32);
+      box-shadow: 0 0 0 3px rgba(255, 111, 153, .16);
+    }
+
+    .chip.pending { background: #ffe5ef; color: #94324f; border-color: #f2aec5; }
+    .chip.confirmed { background: #def6ea; color: #126a49; border-color: #abe5c8; }
+    .chip.completed { background: #d9f8e7; color: #087443; border-color: #98dfb8; }
+    .chip.preparing { background: #fff1c9; color: #8a520d; border-color: #f4d486; }
+    .chip.dispatched { background: #deefff; color: #256399; border-color: #acd5f6; }
+    .chip.cancelled { background: #ffe2e2; color: #a12b2b; border-color: #f4b9b9; }
+    .chip.human { background: #ffe3ef; color: #94324f; border-color: #efaec8; }
+
+    .bubble.user {
+      background: rgba(255, 252, 248, .82);
+    }
+
+    .bubble.bot {
+      background: #ffe5ef;
+      border-color: #f2aec5;
+    }
+
+    .config-card {
+      min-height: 220px;
+      padding: 16px;
+    }
+
+    .config-card h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    #menuProductList {
+      max-height: 420px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .catalog-category {
+      margin: 14px 0 4px;
+      color: #94324f;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .toggle {
+      width: 42px;
+      height: 24px;
+      padding: 3px;
+      border-radius: 999px;
+      background: #dccab8;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .toggle.on {
+      justify-content: flex-end;
+      background: var(--green);
+    }
+
+    .toggle i {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      display: block;
+    }
+
+    .hide { display: none !important; }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 20;
+      max-width: min(360px, calc(100vw - 32px));
+      padding: 12px 14px;
+      border: 1px solid rgba(181, 132, 149, .28);
+      border-radius: 10px;
+      background: rgba(255, 240, 246, .94);
+      color: #4b2d39;
+      box-shadow: 0 16px 34px rgba(143, 89, 110, .18);
+      font-weight: 800;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1180px) {
+      .metrics { grid-template-columns: repeat(3, minmax(160px, 1fr)); }
+      .ops-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .work-grid, .detail-layout, .inbox-layout, .accounting-grid { grid-template-columns: 1fr; }
+      .chat-window { min-height: 520px; }
+      .config-grid, .finance-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 780px) {
+      .login-screen { grid-template-columns: 1fr; }
+      .app { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+      .nav {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px;
+      }
+      .top-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .search {
+        width: 100%;
+      }
+      .content { padding: 14px; }
+      .metrics, .config-grid, .form-grid, .ops-strip, .finance-summary { grid-template-columns: 1fr; }
+      .timeline { grid-template-columns: repeat(5, minmax(34px, 1fr)); }
+      .store-card { display: none; }
+    }
+  </style>
+</head>
+<body class="operator-role">
+  <div id="login" class="login-screen">
+    <section class="login-card">
+      <div class="brand-mark" aria-label="I Love Fresas">
+        <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
+          <path fill="#64b96a" d="M31 13c-5-8-14-7-18-3 6 1 9 4 11 8-5-2-10-2-14 2 7 1 12 4 15 9h14c3-5 8-8 15-9-4-4-9-4-14-2 2-4 5-7 11-8-5-4-14-5-20 3z"/>
+          <path fill="#f5779f" d="M32 18c-13 0-22 9-22 21 0 11 9 21 22 21s22-10 22-21c0-12-9-21-22-21z"/>
+          <path fill="#d94d7a" d="M32 18c9 3 15 11 15 21 0 9-5 17-13 20 12-1 20-10 20-20 0-12-9-21-22-21z" opacity=".50"/>
+          <g fill="#fff4b8">
+            <circle cx="23" cy="32" r="2"/><circle cx="35" cy="30" r="2"/><circle cx="43" cy="39" r="2"/>
+            <circle cx="29" cy="44" r="2"/><circle cx="20" cy="43" r="1.8"/><circle cx="38" cy="50" r="1.8"/>
+          </g>
+        </svg>
+      </div>
+      <h1>I Love Fresas Admin</h1>
+      <p>Panel operativo para revisar pedidos del bot, ajustar datos y mover la cocina sin fricción.</p>
+      <label for="email">Correo</label>
+      <input id="email" value="operador@ilovefresas.co" autocomplete="email">
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" value="demo1234" autocomplete="current-password">
+      <label for="roleSelect">Rol</label>
+      <select id="roleSelect">
+        <option value="operator">Operario</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button class="primary-btn" id="enterBtn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+        Entrar al panel
+      </button>
+    </section>
+  </div>
+
+  <div id="app" class="app hide">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark" aria-label="I Love Fresas">
+          <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
+            <path fill="#64b96a" d="M31 13c-5-8-14-7-18-3 6 1 9 4 11 8-5-2-10-2-14 2 7 1 12 4 15 9h14c3-5 8-8 15-9-4-4-9-4-14-2 2-4 5-7 11-8-5-4-14-5-20 3z"/>
+            <path fill="#f5779f" d="M32 18c-13 0-22 9-22 21 0 11 9 21 22 21s22-10 22-21c0-12-9-21-22-21z"/>
+            <path fill="#d94d7a" d="M32 18c9 3 15 11 15 21 0 9-5 17-13 20 12-1 20-10 20-20 0-12-9-21-22-21z" opacity=".50"/>
+            <g fill="#fff4b8">
+              <circle cx="23" cy="32" r="2"/><circle cx="35" cy="30" r="2"/><circle cx="43" cy="39" r="2"/>
+              <circle cx="29" cy="44" r="2"/><circle cx="20" cy="43" r="1.8"/><circle cx="38" cy="50" r="1.8"/>
+            </g>
+          </svg>
+        </div>
+        <div>
+          <strong>I Love Fresas</strong>
+          <span>Sede principal abierta</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Principal">
+        <button class="active" data-view="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Dashboard
+        </button>
+        <button data-view="conversations">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          Conversaciones
+        </button>
+        <button data-view="orders">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          Pedidos
+        </button>
+        <button class="admin-only" data-view="accounting">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M8 6h8"/><path d="M8 10h2"/><path d="M14 10h2"/><path d="M8 14h2"/><path d="M14 14h2"/><path d="M8 18h2"/><path d="M14 18h2"/></svg>
+          Contabilidad
+        </button>
+        <button class="admin-only" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          Configuración
+        </button>
+      </nav>
+
+      <div class="store-card">
+        <strong>Bot conectado</strong>
+        <p>Telegram activo. WhatsApp listo para conectar cuando el backend esté preparado.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="viewTitle">Dashboard operativo</h2>
+          <small id="viewSubtitle">Jueves 11 de junio, turno tarde</small>
+        </div>
+        <div class="top-actions">
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="globalSearch" placeholder="Buscar pedido, cliente o zona">
+          </div>
+          <button class="icon-btn" id="notificationsBtn" title="Notificaciones" aria-label="Ver notificaciones">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+          </button>
+          <button class="icon-btn" id="soundToggle" title="Sonido activo" aria-label="Activar o desactivar sonido de nuevos pedidos" aria-pressed="true">
+            <svg class="icon" id="soundIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+            <svg class="icon hide" id="soundIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div id="dashboard" class="view active">
+          <div class="metrics">
+            <button class="metric" data-metric-target="orders" data-order-filter="pending"><span>Pendientes</span><strong id="metricPending">0</strong><div class="trend" id="metricPendingText">Sin pedidos pendientes</div></button>
+            <button class="metric" data-metric-target="orders" data-order-filter="preparing"><span>En preparación</span><strong id="metricPreparing">0</strong><div class="trend" id="metricPreparingText">Sin pedidos en cocina</div></button>
+            <button class="metric" data-metric-target="orders" data-order-filter="dispatched"><span>Despachados</span><strong id="metricDispatched">0</strong><div class="trend" id="metricDispatchedText">Sin despachos aún</div></button>
+            <button class="metric" data-metric-target="accounting"><span>Ventas hasta ahora</span><strong id="metricSales">$0</strong><div class="trend" id="metricSalesText">Ticket medio $0</div></button>
+            <button class="metric" data-metric-target="conversations" data-conversation-filter="human"><span>Chats por revisar</span><strong id="metricChats">0</strong><div class="trend" id="metricChatsText">Sin intervención pendiente</div></button>
+          </div>
+
+          <div class="work-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Pedidos que necesitan acción</h3>
+                <span>Ordenados por urgencia</span>
+              </div>
+              <div class="order-list" id="dashboardOrders"></div>
+            </section>
+            <aside class="panel detail-card">
+              <div class="panel-header compact">
+                <h3>Cola de cocina</h3>
+                <span>Ahora</span>
+              </div>
+              <div class="items">
+                <div class="item-row"><strong>Wafle chocolate x2 <span>8 min</span></strong><div class="muted">Fresa, crema, helado y salsa. Kennedy Central.</div></div>
+                <div class="item-row"><strong>Brownie con helado x2 <span>11 min</span></strong><div class="muted">Agregar Nutella. Pago Daviplata confirmado.</div></div>
+                <div class="item-row"><strong>Mix oreo milo x1 <span>14 min</span></strong><div class="muted">Con fresa, kiwi y durazno. Entregar en recepción.</div></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="conversations" class="view">
+          <div class="inbox-layout">
+            <section class="panel">
+              <div class="panel-header"><h3>Bandeja de conversaciones</h3><span>Telegram</span></div>
+              <div class="conversation-list" id="conversationList"></div>
+            </section>
+            <section class="panel chat-window">
+              <div class="panel-header">
+                <div><h3 id="chatName">Laura M.</h3><span id="chatMeta">Telegram · requiere intervención</span></div>
+                <span class="chip human">Humano</span>
+              </div>
+              <div class="chat-messages" id="chatMessages"></div>
+              <div class="chat-compose">
+                <input placeholder="Responder al cliente">
+                <button class="primary-btn" id="chatSend">Enviar</button>
+              </div>
+            </section>
+            <aside class="panel detail-card">
+              <div class="panel-header compact"><h3>Pedido detectado</h3><span>#ILF-1048</span></div>
+              <div class="items">
+                <div class="item-row"><strong>Fresas con crema mediana <span>$24.000</span></strong><div class="muted">Extra chocolate, sin banano</div></div>
+                <div class="item-row"><strong>Domicilio <span>$5.000</span></strong><div class="muted">Zona: Castilla</div></div>
+              </div>
+              <div class="totals">
+                <div class="row-between"><span>Subtotal</span><strong>$24.000</strong></div>
+                <div class="row-between"><span>Domicilio</span><strong>$5.000</strong></div>
+                <div class="row-between total"><span>Total</span><strong>$29.000</strong></div>
+              </div>
+              <div class="action-stack section-spaced">
+                <button class="primary-btn" data-view-shortcut="detail">Revisar pedido</button>
+                <button class="secondary-btn" id="requestAddress">Pedir dirección exacta</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="orders" class="view">
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Bandeja de pedidos</h3>
+              <div class="chips">
+                <button class="chip" id="clearOrderFilter">Todos</button>
+                <span class="chip human hide" id="activeOrderFilter"></span>
+                <button class="chip pending order-filter-chip" data-order-filter-chip="pending" id="ordersPendingChip">Pendientes 0</button>
+                <button class="chip confirmed order-filter-chip" data-order-filter-chip="confirmed" id="ordersConfirmedChip">Confirmados 0</button>
+                <button class="chip preparing order-filter-chip" data-order-filter-chip="preparing" id="ordersPreparingChip">Preparando 0</button>
+                <button class="chip dispatched order-filter-chip" data-order-filter-chip="dispatched" id="ordersDispatchedChip">Despachados 0</button>
+                <button class="chip completed order-filter-chip" data-order-filter-chip="completed" id="ordersCompletedChip">Completados 0</button>
+                <button class="chip cancelled order-filter-chip" data-order-filter-chip="cancelled" id="ordersCancelledChip">Cancelados 0</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pedido</th><th>Cliente</th><th>Dirección</th><th>Zona</th><th>Pago</th><th>Tiempo</th><th>Riesgo</th><th>Total</th><th>Estado</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div id="detail" class="view">
+          <div class="detail-layout">
+            <section class="panel detail-card">
+              <div class="detail-title">
+                <div>
+                  <h3 id="detailOrderId">Pedido #ILF-1048</h3>
+                  <div class="muted" id="detailCustomer">Laura Méndez · 300 456 1188 · Telegram</div>
+                </div>
+                <span class="chip pending" id="detailStatus">Pendiente de revisión</span>
+              </div>
+              <div class="timeline"><span class="step on"></span><span class="step"></span><span class="step"></span><span class="step"></span><span class="step"></span></div>
+              <div class="items" id="detailItems"></div>
+              <div class="totals">
+                <div class="row-between"><span>Subtotal</span><strong id="subtotal">$24.000</strong></div>
+                <div class="row-between"><span>Domicilio</span><strong id="delivery">$5.000</strong></div>
+                <div class="row-between total"><span>Total estimado</span><strong id="total">$29.000</strong></div>
+              </div>
+            </section>
+
+            <aside class="panel detail-card">
+              <div class="panel-header compact"><h3>Acciones rápidas</h3><span>Operario</span></div>
+              <div class="action-stack">
+                <button class="secondary-btn" data-view-shortcut="orders">Volver a pedidos</button>
+                <button class="primary-btn" data-status="confirmed">Confirmar</button>
+                <button class="status-btn" data-status="preparing">Preparar</button>
+                <button class="status-btn" data-status="dispatched">Despachar</button>
+                <button class="primary-btn" id="sendDispatchNotice">Avisar pedido enviado</button>
+                <button class="status-btn" data-status="completed">Completar</button>
+                <button class="secondary-btn" id="editToggle">Editar pedido</button>
+                <button class="secondary-btn" data-status="cancelled">Cancelar</button>
+              </div>
+
+              <form id="quickEditor" class="hide section-spaced-lg">
+                <div class="form-grid">
+                  <div class="full">
+                    <label>Producto</label>
+                    <select id="editProduct"></select>
+                  </div>
+                  <div>
+                    <label>Toppings</label>
+                    <input id="editToppings" value="Extra chocolate, arequipe">
+                  </div>
+                  <div>
+                    <label>Pago</label>
+                    <select id="editPayment"><option>Nequi</option><option>Efectivo</option><option>Daviplata</option><option>Transferencia</option></select>
+                  </div>
+                  <div class="full">
+                    <label>Dirección</label>
+                    <input id="editAddress" value="Cra 78 # 8B-31, apto 402">
+                  </div>
+                  <div class="full">
+                    <label>Nota interna</label>
+                    <textarea id="editNote">Validar si el conjunto permite ingreso del domiciliario.</textarea>
+                  </div>
+                </div>
+                <button type="button" class="primary-btn section-spaced full-width" id="saveEdit">Guardar cambios</button>
+              </form>
+
+              <div class="section-spaced-lg">
+                <h3 class="section-title-sm">Datos del cliente</h3>
+                <div class="items">
+                  <div class="item-row"><strong>Dirección</strong><div class="muted" id="addressText">Cra 78 # 8B-31, apto 402</div></div>
+                  <div class="item-row"><strong>Zona</strong><div class="muted">Castilla · domicilio $5.000</div></div>
+                  <div class="item-row"><strong>Pago</strong><div class="muted" id="paymentText">Nequi · falta comprobante</div></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="accounting" class="view admin-only">
+          <div class="finance-summary">
+            <article class="finance-card">
+              <span>Venta neta hoy</span>
+              <strong id="accountingSalesToday">$0</strong>
+              <small id="accountingSalesText">0 pedidos · ticket promedio $0</small>
+            </article>
+            <article class="finance-card">
+              <span>Cobrado confirmado</span>
+              <strong id="accountingConfirmedPaid">$0</strong>
+              <small id="accountingConfirmedText">Sin pagos pendientes</small>
+            </article>
+            <article class="finance-card">
+              <span>Efectivo esperado</span>
+              <strong id="accountingCashExpected">$0</strong>
+              <small>Pedidos marcados con pago en efectivo</small>
+            </article>
+            <article class="finance-card">
+              <span>Diferencia de caja</span>
+              <strong>$0</strong>
+              <small>Sin diferencia registrada en el mock</small>
+            </article>
+          </div>
+
+          <div class="ops-strip">
+            <article class="ops-pill">
+              <div><strong>Cierre pendiente</strong><span>Turno tarde · caja principal</span></div>
+              <i class="signal warn"></i>
+            </article>
+            <article class="ops-pill">
+              <div><strong id="pendingPaymentsTitle">0 pagos por confirmar</strong><span id="pendingPaymentsText">Sin pendientes</span></div>
+              <i class="signal warn"></i>
+            </article>
+            <article class="ops-pill">
+              <div><strong>Gastos registrados</strong><span>$72.000 en empaques e insumos</span></div>
+              <i class="signal"></i>
+            </article>
+            <article class="ops-pill">
+              <div><strong>Domicilios netos</strong><span>$116.000 cobrado · $42.000 costo</span></div>
+              <i class="signal"></i>
+            </article>
+          </div>
+
+          <div class="accounting-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Métodos de pago</h3>
+                <div class="chips">
+                  <span class="chip">Hoy</span>
+                  <span class="chip human">Pendientes</span>
+                  <span class="chip confirmed">Conciliados</span>
+                </div>
+              </div>
+              <div class="reconcile-list" id="paymentReconcileList"></div>
+            </section>
+
+            <aside class="panel detail-card">
+              <div class="panel-header compact">
+                <h3>Cierre de caja</h3>
+                <span class="chip preparing">Abierta</span>
+              </div>
+              <div class="cash-close">
+                <div class="cash-box">
+                  <div class="row-between"><span>Base inicial</span><strong>$80.000</strong></div>
+                  <div class="row-between"><span>Ventas en efectivo</span><strong id="cashSales">$0</strong></div>
+                  <div class="row-between"><span>Salidas registradas</span><strong id="cashOut">$0</strong></div>
+                  <div class="row-between"><span>Efectivo esperado</span><strong id="cashExpected">$0</strong></div>
+                </div>
+                <label for="cashCount">Efectivo contado</label>
+                <input id="cashCount" value="$0">
+                <label for="cashNote">Nota de diferencia</label>
+                <textarea id="cashNote">Sin diferencia registrada por ahora.</textarea>
+                <button class="primary-btn" id="closeCash">Cerrar caja</button>
+                <button class="secondary-btn" id="exportSummary">Exportar resumen</button>
+              </div>
+            </aside>
+          </div>
+
+          <div class="work-grid section-spaced single-column-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Movimientos del día</h3>
+                <span>Ventas, gastos y ajustes</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Método</th><th>Responsable</th><th>Monto</th><th>Estado</th><th>Acción</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>5:18 p.m.</td><td>Venta</td><td>#ILF-1048 · Laura Méndez</td><td>Nequi</td><td>Bot</td><td><strong>$29.000</strong></td><td><span class="chip human">Sin soporte</span></td><td><button class="secondary-btn" data-toast="Adjuntar soporte quedará conectado al backend.">Adjuntar</button></td></tr>
+                    <tr><td>5:04 p.m.</td><td>Gasto</td><td>Compra de empaques</td><td>Efectivo</td><td>Camila</td><td><strong>$42.000</strong></td><td><span class="chip confirmed">Registrado</span></td><td><button class="secondary-btn" data-toast="Detalle de movimiento abierto.">Ver</button></td></tr>
+                    <tr><td>4:51 p.m.</td><td>Venta</td><td>#ILF-1047 · Andrés R.</td><td>Efectivo</td><td>Operario</td><td><strong>$52.000</strong></td><td><span class="chip preparing">Cambio $100k</span></td><td><button class="secondary-btn" data-toast="Movimiento marcado para revisión de caja.">Revisar</button></td></tr>
+                    <tr><td>4:35 p.m.</td><td>Salida</td><td>Pago domiciliario zona Marsella</td><td>Efectivo</td><td>Admin</td><td><strong>$30.000</strong></td><td><span class="chip confirmed">Incluido</span></td><td><button class="secondary-btn" data-toast="Detalle de salida abierto.">Ver</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+        <div id="settings" class="view admin-only">
+          <div class="config-grid">
+            <section class="panel config-card">
+              <h3>Menú y productos</h3>
+              <div id="menuProductList"></div>
+              <button class="secondary-btn section-spaced" data-toast="Editor de producto preparado para conectar.">Agregar producto</button>
+            </section>
+            <section class="panel config-card">
+              <h3>Toppings y modificadores</h3>
+              <div class="chips" id="menuToppingList"></div>
+              <button class="secondary-btn section-spaced" data-toast="Editor de toppings preparado para conectar.">Editar toppings</button>
+            </section>
+            <section class="panel config-card">
+              <h3>Zonas de domicilio</h3>
+              <div class="setting-row"><div><strong>Castilla</strong><div class="muted">$5.000 · 25-35 min</div></div><button class="icon-btn" aria-label="Editar zona Castilla" data-toast="Edición de zona preparada.">✎</button></div>
+              <div class="setting-row"><div><strong>Kennedy Central</strong><div class="muted">$4.000 · 20-30 min</div></div><button class="icon-btn" aria-label="Editar zona Kennedy Central" data-toast="Edición de zona preparada.">✎</button></div>
+              <div class="setting-row"><div><strong>Marsella</strong><div class="muted">$6.000 · 35-45 min</div></div><button class="icon-btn" aria-label="Editar zona Marsella" data-toast="Edición de zona preparada.">✎</button></div>
+            </section>
+            <section class="panel config-card">
+              <h3>Métodos de pago</h3>
+              <div class="setting-row"><strong>Nequi</strong><button class="toggle on"><i></i></button></div>
+              <div class="setting-row"><strong>Daviplata</strong><button class="toggle on"><i></i></button></div>
+              <div class="setting-row"><strong>Efectivo</strong><button class="toggle on"><i></i></button></div>
+              <div class="setting-row"><strong>Tarjeta contraentrega</strong><button class="toggle"><i></i></button></div>
+            </section>
+            <section class="panel config-card">
+              <h3>Horarios</h3>
+              <div class="setting-row"><div><strong>Hoy</strong><div class="muted">12:00 p.m. - 10:00 p.m.</div></div><span class="chip confirmed">Abierto</span></div>
+              <div class="setting-row"><div><strong>Cierre especial</strong><div class="muted">Domingo 14: inventario</div></div><button class="icon-btn" aria-label="Editar cierre especial" data-toast="Edición de cierre preparada.">✎</button></div>
+              <button class="secondary-btn section-spaced" data-toast="Nuevo cierre especial preparado.">Crear cierre</button>
+            </section>
+            <section class="panel config-card">
+              <h3>Mensajes del bot</h3>
+              <label>Confirmación inicial</label>
+              <textarea>Listo, tengo tu pedido. Lo vamos a revisar y te confirmamos disponibilidad en un momento.</textarea>
+              <label>Dirección incompleta</label>
+              <textarea>¿Me compartes barrio, dirección completa y alguna referencia para el domicilio?</textarea>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const menuProducts = [
+      { id: "fresas-crema-tradicional", name: "Fresas con crema tradicional", category: "Fresas con crema", price: 16000 },
+      { id: "fresas-helado", name: "Fresas con helado", category: "Fresas con crema", price: 18000 },
+      { id: "durazno-crema", name: "Durazno con crema", category: "Fresas con crema", price: 22000 },
+      { id: "combo-fresa-durazno-crema", name: "Combinado fresa durazno con crema", category: "Fresas con crema", price: 18000 },
+      { id: "combo-fresa-durazno-helado", name: "Combinado fresa durazno con helado", category: "Fresas con crema", price: 18000 },
+      { id: "combo-fresa-banano-crema", name: "Combinado fresa banano con crema", category: "Fresas con crema", price: 16000 },
+      { id: "fresas-crema-oreo", name: "Fresas con crema de oreo", category: "Fresas con crema", price: 18000 },
+      { id: "mix-oreo", name: "Mix oreo (fresa, kiwi, durazno)", category: "Fresas con crema", price: 20000 },
+      { id: "mix-oreo-milo", name: "Mix oreo milo (fresa, kiwi, durazno)", category: "Fresas con crema", price: 22000 },
+      { id: "fresa-crema-oreo-milo", name: "Fresa con crema + oreo + milo", category: "Fresas con crema", price: 20000 },
+      { id: "fresas-chocolate", name: "Fresas con chocolate", category: "Fresas con crema", price: 18000 },
+      { id: "fresas-explosion-chocolate", name: "Fresas explosión de chocolate", category: "Fresas con crema", price: 18000 },
+      { id: "fresas-frutos-rojos", name: "Fresas frutos rojos (dulce mora + queso)", category: "Fresas con crema", price: 18000 },
+      { id: "love-banana", name: "Love Banana", category: "Fresas con crema", price: 17000 },
+      { id: "maracufresa", name: "Maracufresa (maracuyá + mango + fresa)", category: "Fresas con crema", price: 18000 },
+      { id: "oblea-arequipe", name: "Oblea arequipe", category: "Obleas", price: 7000 },
+      { id: "oblea-arequipe-crema", name: "Oblea arequipe crema", category: "Obleas", price: 7000 },
+      { id: "oblea-arequipe-mora", name: "Oblea arequipe dulce de mora", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso", name: "Oblea arequipe queso", category: "Obleas", price: 8000 },
+      { id: "oblea-nutella", name: "Oblea Nutella", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-crema-mora", name: "Oblea arequipe crema y dulce de mora", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso-crema", name: "Oblea arequipe queso y crema", category: "Obleas", price: 8000 },
+      { id: "oblea-crema-nutella", name: "Oblea crema y Nutella", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso-crema-mora", name: "Oblea arequipe queso crema dulce de mora", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso-crema-fresa", name: "Oblea arequipe queso crema fresa", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso-crema-durazno", name: "Oblea arequipe queso crema durazno", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso-crema-mora-fresa", name: "Oblea arequipe queso crema dulce de mora fresa", category: "Obleas", price: 8000 },
+      { id: "oblea-arequipe-queso-crema-mora-durazno", name: "Oblea arequipe queso crema dulce de mora durazno", category: "Obleas", price: 8000 },
+      { id: "brownie-helado", name: "Brownie con helado", category: "Antojitos", price: 12000 },
+      { id: "wafle-tradicional", name: "Wafle tradicional", category: "Antojitos", price: 15000 },
+      { id: "wafle-chocolate", name: "Wafle chocolate", category: "Antojitos", price: 15000 },
+      { id: "vaso-fantasia", name: "Vaso fantasía", category: "Antojitos", price: 15000 },
+      { id: "pavlova", name: "Pavlova", category: "Antojitos", price: 15000 },
+      { id: "vaso-helado-uno", name: "Vaso helado un sabor", category: "Antojitos", price: 7000 },
+      { id: "vaso-helado-dos", name: "Vaso helado dos sabores", category: "Antojitos", price: 10000 },
+      { id: "malteada-fresa", name: "Malteada fresa", category: "Malteadas", price: 15000 },
+      { id: "malteada-chocolate", name: "Malteada chocolate", category: "Malteadas", price: 15000 },
+      { id: "malteada-vainilla", name: "Malteada vainilla", category: "Malteadas", price: 15000 },
+      { id: "malteada-oreo", name: "Malteada oreo", category: "Malteadas", price: 15000 },
+      { id: "vaso-waffle", name: "Vaso waffle", category: "Antojitos", price: 20000 }
+    ];
+
+    const menuToppings = [
+      { name: "Leche condensada", price: 2000 },
+      { name: "Arequipe", price: 2000 },
+      { name: "Oreo", price: 2000 },
+      { name: "Merengue", price: 2000 },
+      { name: "Brownie", price: 2000 },
+      { name: "Salsa Hershey", price: 2000 },
+      { name: "Chips de chocolate negro", price: 2000 },
+      { name: "Chips de chocolate blancos", price: 2000 },
+      { name: "Chips de chocolate colores", price: 2000 },
+      { name: "Krispi", price: 2000 },
+      { name: "Milo", price: 2000 },
+      { name: "M&M", price: 3000 },
+      { name: "Chokis", price: 3000 },
+      { name: "Coco", price: 2000 },
+      { name: "Choco Crispi", price: 2000 },
+      { name: "Helado", price: 4000 },
+      { name: "Queso", price: 4000 },
+      { name: "Nutella", price: 4000 },
+      { name: "Chocorramo", price: 4000 },
+      { name: "Dulce de mora", price: 3000 },
+      { name: "Adicional crema", price: 4000 },
+      { name: "Barquillo", price: 4000 },
+      { name: "Cerezas", price: 4000 },
+      { name: "Arándanos", price: 4000 }
+    ];
+
+    const orders = [
+      { id: "ILF-1048", customer: "Laura Méndez", phone: "300 456 1188", channel: "Telegram", address: "Cra 78 # 8B-31, apto 402", zone: "Castilla", payment: "Nequi", total: 25000, status: "pending", urgent: true, age: "6 min", risk: "Comprobante", note: "Falta comprobante. Validar ingreso al conjunto.", items: ["Fresas con crema tradicional · arequipe y salsa Hershey · sin banano"] },
+      { id: "ILF-1047", customer: "Andrés R.", phone: "311 882 4401", channel: "Telegram", address: "Av. 1 de Mayo # 72-18", zone: "Kennedy Central", payment: "Efectivo", total: 50000, status: "preparing", urgent: false, age: "12 min", risk: "Cambio $100k", note: "Cliente paga con billete de $100.000.", items: ["Wafle chocolate x2 · fresa, crema, helado y salsa", "Fresas con crema tradicional x1"] },
+      { id: "ILF-1046", customer: "Paola C.", phone: "320 754 9320", channel: "Telegram", address: "Calle 8 # 69C-15 torre 2", zone: "Marsella", payment: "Daviplata", total: 39000, status: "confirmed", urgent: false, age: "4 min", risk: "Bajo", note: "Llamar al llegar.", items: ["Brownie con helado x2", "Adicional Nutella x2"] },
+      { id: "ILF-1045", customer: "Sofía Vargas", phone: "315 668 9902", channel: "Telegram", address: "Dirección incompleta: cerca al parque", zone: "Por confirmar", payment: "Nequi", total: 23000, status: "pending", urgent: true, age: "9 min", risk: "Dirección", note: "Bot no pudo resolver barrio.", items: ["Combinado fresa banano con crema x1 · sin banano"] },
+      { id: "ILF-1044", customer: "Mateo L.", phone: "301 222 7654", channel: "Telegram", address: "Transv. 71D # 6-22", zone: "Pradera", payment: "Transferencia", total: 43000, status: "dispatched", urgent: false, age: "28 min", risk: "Bajo", note: "Entregar en recepción.", items: ["Mix oreo milo x1", "Malteada fresa x1"] },
+      { id: "ILF-1043", customer: "Daniela Ruiz", phone: "302 119 7742", channel: "WhatsApp", address: "Cra 73 # 10-45 interior 3", zone: "Castilla", payment: "Nequi", total: 36000, status: "confirmed", urgent: false, age: "35 min", risk: "Bajo", note: "Cliente pide poca crema.", items: ["Fresas con chocolate x2"] },
+      { id: "ILF-1042", customer: "Nicolás P.", phone: "314 808 1190", channel: "Telegram", address: "Calle 6A # 78-14", zone: "Marsella", payment: "Efectivo", total: 29000, status: "preparing", urgent: false, age: "38 min", risk: "Cambio $50k", note: "Llevar cambio para $50.000.", items: ["Durazno con crema x1", "Adicional Oreo x1"] },
+      { id: "ILF-1041", customer: "Valentina Mora", phone: "316 220 4509", channel: "WhatsApp", address: "Av. Boyacá # 8-71 apto 502", zone: "Kennedy Central", payment: "Daviplata", total: 54000, status: "pending", urgent: true, age: "41 min", risk: "Comprobante", note: "Validar soporte Daviplata.", items: ["Wafle premium x2"] },
+      { id: "ILF-1040", customer: "Camilo Torres", phone: "300 778 6201", channel: "Telegram", address: "Calle 3 # 72B-19", zone: "Patio Bonito", payment: "Nequi", total: 22000, status: "completed", urgent: false, age: "47 min", risk: "Bajo", note: "Entregado sin novedades.", items: ["Mix oreo milo x1"] },
+      { id: "ILF-1039", customer: "Mariana G.", phone: "321 540 9921", channel: "WhatsApp", address: "Cra 80 # 9-30 torre 1", zone: "Castilla", payment: "Transferencia", total: 61000, status: "dispatched", urgent: false, age: "51 min", risk: "Bajo", note: "Portería autorizada.", items: ["Brownie con helado x2", "Fresas con crema de oreo x1"] },
+      { id: "ILF-1038", customer: "Juliana Cárdenas", phone: "310 664 1785", channel: "Telegram", address: "Calle 26 Sur # 68B-02", zone: "Carvajal", payment: "Efectivo", total: 18000, status: "cancelled", urgent: false, age: "55 min", risk: "Cancelado", note: "Cliente canceló por demora.", items: ["Fresas con helado x1"] },
+      { id: "ILF-1037", customer: "Sebastián León", phone: "312 905 4418", channel: "WhatsApp", address: "Cra 79 # 5-63", zone: "Pradera", payment: "Nequi", total: 40000, status: "confirmed", urgent: false, age: "1 h 02 min", risk: "Bajo", note: "Sin cucharas extra.", items: ["Fresa con crema + oreo + milo x2"] },
+      { id: "ILF-1036", customer: "Natalia B.", phone: "305 442 1180", channel: "Telegram", address: "Calle 8 # 71-50 casa 2", zone: "Marsella", payment: "Nequi", total: 27000, status: "pending", urgent: true, age: "1 h 05 min", risk: "Dirección", note: "Falta confirmar torre o casa.", items: ["Maracufresa x1", "Adicional queso x1"] },
+      { id: "ILF-1035", customer: "Felipe Arias", phone: "301 330 7720", channel: "WhatsApp", address: "Av. Américas # 70-28", zone: "Mandalay", payment: "Daviplata", total: 57000, status: "preparing", urgent: false, age: "1 h 09 min", risk: "Bajo", note: "Empacar separado.", items: ["Wafle mixto x1", "Malteada chocolate x1", "Oblea arequipe crema x1"] },
+      { id: "ILF-1034", customer: "Carolina Peña", phone: "315 909 2173", channel: "Telegram", address: "Cra 72 # 2A-44", zone: "Kennedy Central", payment: "Transferencia", total: 33000, status: "completed", urgent: false, age: "1 h 14 min", risk: "Bajo", note: "Cliente frecuente.", items: ["Fresas frutos rojos x1", "Adicional Nutella x1"] },
+      { id: "ILF-1033", customer: "Juan Esteban", phone: "322 187 6305", channel: "WhatsApp", address: "Calle 10 # 78-90 apto 301", zone: "Castilla", payment: "Efectivo", total: 46000, status: "dispatched", urgent: false, age: "1 h 18 min", risk: "Cambio $100k", note: "Llamar antes de salir.", items: ["Combinado fresa durazno con helado x2", "Adicional brownie x1"] },
+      { id: "ILF-1032", customer: "Alejandra Méndez", phone: "300 891 1204", channel: "Telegram", address: "Dirección incompleta: conjunto cerca a Plaza de las Américas", zone: "Por confirmar", payment: "Nequi", total: 20000, status: "pending", urgent: true, age: "1 h 21 min", risk: "Dirección", note: "Bot pidió dirección exacta.", items: ["Fresas explosión de chocolate x1"] },
+      { id: "ILF-1031", customer: "Kevin Rojas", phone: "318 776 4501", channel: "WhatsApp", address: "Transv. 68D # 39-16 Sur", zone: "Alquería", payment: "Nequi", total: 70000, status: "preparing", urgent: false, age: "1 h 26 min", risk: "Bajo", note: "Pedido grande, confirmar empaque.", items: ["Brownie con helado x2", "Wafle chocolate x1", "Malteada fresa x1"] },
+      { id: "ILF-1030", customer: "Diana López", phone: "317 332 9180", channel: "Telegram", address: "Cra 69B # 8-20", zone: "Marsella", payment: "Daviplata", total: 24000, status: "confirmed", urgent: false, age: "1 h 31 min", risk: "Bajo", note: "Sin maní.", items: ["Fresas con crema tradicional x1", "Adicional lechera x1"] },
+      { id: "ILF-1029", customer: "Óscar Molina", phone: "311 509 8842", channel: "WhatsApp", address: "Calle 5B # 73-80 local 2", zone: "Castilla", payment: "Transferencia", total: 44000, status: "completed", urgent: false, age: "1 h 37 min", risk: "Bajo", note: "Recibió en local.", items: ["Mix oreo x2", "Oblea arequipe x1"] },
+      { id: "ILF-1028", customer: "Tatiana F.", phone: "302 650 1429", channel: "Telegram", address: "Calle 38 Sur # 78H-12", zone: "Patio Bonito", payment: "Efectivo", total: 26000, status: "dispatched", urgent: false, age: "1 h 42 min", risk: "Bajo", note: "Entregar en tienda azul.", items: ["Love Banana x1", "Adicional Milo x1"] },
+      { id: "ILF-1027", customer: "Miguel Ángel", phone: "300 918 7766", channel: "WhatsApp", address: "Cra 70 # 3-59", zone: "Mandalay", payment: "Nequi", total: 38000, status: "pending", urgent: true, age: "1 h 45 min", risk: "Comprobante", note: "Cliente dice que paga al confirmar.", items: ["Fresas con crema de oreo x1", "Malteada vainilla x1"] },
+      { id: "ILF-1026", customer: "Sara Villamil", phone: "314 661 2309", channel: "Telegram", address: "Av. 1 de Mayo # 69-17", zone: "Kennedy Central", payment: "Daviplata", total: 48000, status: "confirmed", urgent: false, age: "1 h 53 min", risk: "Bajo", note: "Extra servilletas.", items: ["Wafle chocolate x1", "Fresas con helado x1"] },
+      { id: "ILF-1025", customer: "Brayan Castro", phone: "320 442 0061", channel: "WhatsApp", address: "Calle 13 # 80-11", zone: "Castilla", payment: "Efectivo", total: 16000, status: "completed", urgent: false, age: "2 h 01 min", risk: "Bajo", note: "Pedido recogido en punto.", items: ["Combinado fresa banano con crema x1"] },
+      { id: "ILF-1024", customer: "Lina Marcela", phone: "301 771 5408", channel: "Telegram", address: "Cra 75 # 9A-33", zone: "Marsella", payment: "Transferencia", total: 62000, status: "preparing", urgent: false, age: "2 h 05 min", risk: "Bajo", note: "No mezclar salsas.", items: ["Wafle premium x2", "Adicional Nutella x1"] },
+      { id: "ILF-1023", customer: "Héctor S.", phone: "315 706 3291", channel: "WhatsApp", address: "Calle 4 # 72C-41", zone: "Pradera", payment: "Nequi", total: 34000, status: "dispatched", urgent: false, age: "2 h 12 min", risk: "Bajo", note: "Conjunto sin parqueadero.", items: ["Durazno con crema x1", "Fresas con chocolate x1"] },
+      { id: "ILF-1022", customer: "Manuela Ortiz", phone: "312 774 9005", channel: "Telegram", address: "Dirección incompleta: cerca a Mundo Aventura", zone: "Por confirmar", payment: "Nequi", total: 18000, status: "pending", urgent: true, age: "2 h 18 min", risk: "Dirección", note: "Pedir nomenclatura completa.", items: ["Fresa con crema + oreo + milo x1"] },
+      { id: "ILF-1021", customer: "Ricardo N.", phone: "310 880 1127", channel: "WhatsApp", address: "Cra 68 # 12-30", zone: "Salitre", payment: "Transferencia", total: 82000, status: "completed", urgent: false, age: "2 h 25 min", risk: "Bajo", note: "Entregar factura simple.", items: ["Brownie con helado x3", "Malteada fresa x2"] },
+      { id: "ILF-1020", customer: "Isabella Pardo", phone: "300 765 2210", channel: "Telegram", address: "Calle 9 # 79-55 apto 204", zone: "Castilla", payment: "Daviplata", total: 30000, status: "confirmed", urgent: false, age: "2 h 32 min", risk: "Bajo", note: "Sin uvas.", items: ["Fresas con crema tradicional x1", "Adicional arequipe x2"] },
+      { id: "ILF-1019", customer: "Jorge Prieto", phone: "317 920 8844", channel: "WhatsApp", address: "Av. Esperanza # 72-65", zone: "Modelia", payment: "Efectivo", total: 52000, status: "dispatched", urgent: false, age: "2 h 40 min", risk: "Cambio $100k", note: "Entregar en recepción torre B.", items: ["Wafle mixto x1", "Fresas frutos rojos x1"] },
+      { id: "ILF-1018", customer: "Laura Natalia", phone: "318 390 8811", channel: "Telegram", address: "Cra 80B # 7-14", zone: "Castilla", payment: "Nequi", total: 36000, status: "cancelled", urgent: false, age: "2 h 47 min", risk: "Cancelado", note: "Cliente pidió reprogramar para mañana.", items: ["Maracufresa x2"] },
+      { id: "ILF-1017", customer: "Esteban Díaz", phone: "311 667 2290", channel: "WhatsApp", address: "Calle 2 # 70-12", zone: "Mandalay", payment: "Transferencia", total: 28000, status: "completed", urgent: false, age: "2 h 55 min", risk: "Bajo", note: "Sin novedades.", items: ["Fresas con helado x1", "Oblea arequipe crema x1"] },
+      { id: "ILF-1016", customer: "Paula Andrea", phone: "302 117 6540", channel: "Telegram", address: "Cra 78C # 5-28", zone: "Pradera", payment: "Nequi", total: 46000, status: "confirmed", urgent: false, age: "3 h 04 min", risk: "Bajo", note: "Agregar mensaje de cumpleaños.", items: ["Fresas con chocolate x2", "Adicional brownie x1"] },
+      { id: "ILF-1015", customer: "Mauricio Gómez", phone: "314 888 3194", channel: "WhatsApp", address: "Calle 40 Sur # 72-10", zone: "Carvajal", payment: "Efectivo", total: 64000, status: "preparing", urgent: false, age: "3 h 12 min", risk: "Bajo", note: "Empaque familiar.", items: ["Wafle premium x1", "Brownie con helado x2"] },
+      { id: "ILF-1014", customer: "Gabriela S.", phone: "315 230 7718", channel: "Telegram", address: "Cra 71 # 11-19", zone: "Kennedy Central", payment: "Daviplata", total: 42000, status: "completed", urgent: false, age: "3 h 20 min", risk: "Bajo", note: "Cliente confirmó recibido.", items: ["Mix oreo milo x1", "Malteada chocolate x1"] }
+    ];
+
+    const conversations = [
+      { name: "Laura M.", meta: "300 456 1188 · Telegram", state: "Requiere intervención", human: true, last: "Ya hice el pedido, ¿te mando el comprobante?", messages: [["user", "Hola, quiero fresas medianas con crema, extra chocolate y arequipe."], ["bot", "Perfecto. ¿Deseas quitar algún ingrediente o agregar nota?"], ["user", "Sin banano. Dirección Cra 78 # 8B-31 apto 402, pago por Nequi."], ["bot", "Listo, tengo tu pedido pendiente de revisión."], ["user", "Ya hice el pedido, ¿te mando el comprobante?"]] },
+      { name: "Sofía V.", meta: "315 668 9902 · Telegram", state: "Dirección incompleta", human: true, last: "Estoy cerca al parque de Castilla", messages: [["user", "Una mediana sin uvas para domicilio."], ["bot", "Claro. ¿Me compartes dirección completa, barrio y método de pago?"], ["user", "Estoy cerca al parque de Castilla"], ["bot", "Necesito la dirección exacta para calcular el domicilio."]] },
+      { name: "Andrés R.", meta: "311 882 4401 · Telegram", state: "Pedido en preparación", human: false, last: "Pago en efectivo con 100", messages: [["user", "Un waffle con fresas y una fresa pequeña sin maní."], ["bot", "Pedido recibido. Total estimado $52.000 con domicilio."], ["user", "Pago en efectivo con 100"]] },
+      { name: "Paola C.", meta: "320 754 9320 · Telegram", state: "Confirmado", human: false, last: "Gracias, quedo pendiente", messages: [["user", "Dos vasos brownie con lechera aparte"], ["bot", "Confirmado. Tiempo estimado 35 a 45 minutos."], ["user", "Gracias, quedo pendiente"]] }
+    ];
+
+    const statusLabels = {
+      pending: "Pendiente de revisión",
+      confirmed: "Confirmado",
+      preparing: "Preparando",
+      dispatched: "Despachado",
+      completed: "Completado",
+      cancelled: "Cancelado"
+    };
+
+    const titles = {
+      dashboard: ["Dashboard operativo", "Jueves 11 de junio, turno tarde"],
+      conversations: ["Bandeja de conversaciones", "Chats entrantes del bot y casos que piden intervención"],
+      orders: ["Bandeja de pedidos", "Pedidos creados por lenguaje natural"],
+      detail: ["Detalle de pedido", "Revisión, edición rápida y cambio de estado"],
+      accounting: ["Contabilidad operativa", "Caja diaria, métodos de pago, gastos y conciliación"],
+      settings: ["Configuración básica", "Menú, zonas, horarios y mensajes del bot"]
+    };
+
+    let selectedOrder = orders[0];
+    let selectedConversation = conversations[0];
+    let searchQuery = "";
+    let statusFilter = "";
+    let currentView = "dashboard";
+    let soundEnabled = true;
+    let audioContext;
+    let toastTimer;
+
+    const money = value => value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+    const byId = id => document.getElementById(id);
+
+    const escapeHtml = value => String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+    const escapeAttr = value => escapeHtml(value);
+
+    const normalizeText = value => String(value)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    // Adapter mock: reemplazar estas funciones por llamadas HTTP/WebSocket al conectar el backend.
+    const dashboardApi = {
+      listOrders: () => orders,
+      addOrder: order => {
+        orders.unshift(order);
+        return order;
+      },
+      updateOrderStatus: (order, status) => {
+        order.status = status;
+        return order;
+      },
+      updateOrder: (order, patch) => Object.assign(order, patch),
+      markDispatchNotified: order => {
+        order.dispatchNotified = true;
+        order.note = `${order.note} Aviso automático enviado al cliente.`;
+        return order;
+      }
+    };
+
+    function showToast(message) {
+      const toast = byId("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function unlockAudio() {
+      const AudioEngine = window.AudioContext || window.webkitAudioContext;
+      if (!AudioEngine) return null;
+      if (!audioContext) audioContext = new AudioEngine();
+      if (audioContext.state === "suspended") audioContext.resume();
+      return audioContext;
+    }
+
+    function playTone(startTime, frequency, duration, volume = 0.08, type = "sine") {
+      const context = unlockAudio();
+      if (!context || !soundEnabled) return;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, startTime);
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration + 0.03);
+    }
+
+    function playNewOrderSound() {
+      const context = unlockAudio();
+      if (!context || !soundEnabled) return;
+      const now = context.currentTime;
+      playTone(now, 1318.5, 0.48, 0.16, "triangle");
+      playTone(now + 0.028, 2637, 0.26, 0.055, "sine");
+      playTone(now + 0.22, 1760, 0.42, 0.13, "triangle");
+      playTone(now + 0.248, 3520, 0.22, 0.045, "sine");
+      playTone(now + 0.62, 1568, 0.34, 0.12, "triangle");
+      playTone(now + 0.65, 3136, 0.18, 0.04, "sine");
+    }
+
+    function updateSoundToggle() {
+      const button = byId("soundToggle");
+      if (!button) return;
+      button.classList.toggle("sound-off", !soundEnabled);
+      button.title = soundEnabled ? "Sonido activo" : "Sonido desactivado";
+      button.setAttribute("aria-pressed", String(soundEnabled));
+      byId("soundIconOn").classList.toggle("hide", !soundEnabled);
+      byId("soundIconOff").classList.toggle("hide", soundEnabled);
+    }
+
+    function notifyNewOrder(order) {
+      if (order) {
+        selectedOrder = dashboardApi.addOrder(order);
+        renderOrders();
+        renderDetail();
+      }
+      playNewOrderSound();
+      showToast(order ? `Nuevo pedido #${order.id} recibido.` : "Nuevo pedido recibido.");
+    }
+
+    // Punto de integración: el bot/backend debe llamar notifyNewOrder(order) solo cuando cree un pedido nuevo.
+    window.notifyNewOrder = notifyNewOrder;
+
+    function filteredOrders() {
+      const keywords = normalizeText(searchQuery).split(/\s+/).filter(Boolean);
+      return orders.filter(order => {
+        if (statusFilter && order.status !== statusFilter) return false;
+        if (!keywords.length) return true;
+        const haystack = normalizeText([
+        order.id,
+        order.customer,
+        order.phone,
+        order.address,
+        order.zone,
+        order.payment,
+        order.channel,
+        order.risk,
+        statusLabels[order.status],
+        order.status,
+        order.items.join(" ")
+        ].join(" "));
+        return keywords.every(keyword => haystack.includes(keyword));
+      });
+    }
+
+    function statusChip(status) {
+      return `<span class="chip ${escapeAttr(status)}">${escapeHtml(statusLabels[status])}</span>`;
+    }
+
+    function setText(id, value) {
+      const element = byId(id);
+      if (element) element.textContent = value;
+    }
+
+    function getOrderStats() {
+      const byStatus = Object.fromEntries(Object.keys(statusLabels).map(status => [status, 0]));
+      orders.forEach(order => { byStatus[order.status] = (byStatus[order.status] || 0) + 1; });
+      const soldOrders = orders.filter(order => ["confirmed", "preparing", "dispatched", "completed"].includes(order.status));
+      const salesToday = soldOrders.reduce((sum, order) => sum + order.total, 0);
+      const pendingOrders = orders.filter(order => order.status === "pending");
+      const cashOrders = orders.filter(order => order.payment === "Efectivo" && order.status !== "cancelled");
+      return {
+        byStatus,
+        soldOrders,
+        pendingOrders,
+        salesToday,
+        averageTicket: soldOrders.length ? Math.round(salesToday / soldOrders.length) : 0,
+        confirmedPaid: soldOrders.reduce((sum, order) => sum + order.total, 0),
+        cashSales: cashOrders.reduce((sum, order) => sum + order.total, 0),
+        cashExpected: 80000 + cashOrders.reduce((sum, order) => sum + order.total, 0),
+        humanChats: conversations.filter(conversation => conversation.human).length
+      };
+    }
+
+    function renderAccounting(stats) {
+      const paymentMethods = ["Nequi", "Efectivo", "Daviplata", "Transferencia"];
+      const pendingByPayment = stats.pendingOrders.reduce((acc, order) => {
+        acc[order.payment] = (acc[order.payment] || 0) + 1;
+        return acc;
+      }, {});
+      const pendingPaymentCount = stats.pendingOrders.length;
+      const pendingPaymentText = Object.entries(pendingByPayment)
+        .map(([payment, count]) => `${count} ${payment}`)
+        .join(" · ");
+
+      setText("pendingPaymentsTitle", `${pendingPaymentCount} pagos por confirmar`);
+      setText("pendingPaymentsText", pendingPaymentText || "Sin pendientes");
+      setText("cashSales", money(stats.cashSales));
+      setText("cashOut", money(0));
+      setText("cashExpected", money(stats.cashExpected));
+      const cashCount = byId("cashCount");
+      if (cashCount) cashCount.value = money(stats.cashExpected);
+
+      const list = byId("paymentReconcileList");
+      if (!list) return;
+      list.innerHTML = paymentMethods.map(payment => {
+        const paymentOrders = orders.filter(order => order.payment === payment && order.status !== "cancelled");
+        const pendingOrders = paymentOrders.filter(order => order.status === "pending");
+        const confirmedOrders = paymentOrders.filter(order => order.status !== "pending");
+        const total = paymentOrders.reduce((sum, order) => sum + order.total, 0);
+        const confirmed = confirmedOrders.reduce((sum, order) => sum + order.total, 0);
+        const progress = Math.max(0, Math.min(100, total ? Math.round((confirmed / total) * 100) : 100));
+        const label = pendingOrders.length ? `${pendingOrders.length} pendientes` : "Cuadrado";
+        const chipClass = pendingOrders.length ? "human" : "confirmed";
+        return `
+          <article class="reconcile-row">
+            <div>
+              <strong>${escapeHtml(payment)}</strong>
+              <div class="muted">${paymentOrders.length} transacciones · confirmado ${money(confirmed)} de ${money(total)}</div>
+              <div class="progress-bar" data-progress="${progress}"><i></i></div>
+            </div>
+            <span class="chip ${escapeAttr(chipClass)}">${escapeHtml(label)}</span>
+          </article>
+        `;
+      }).join("");
+      list.querySelectorAll("[data-progress]").forEach(bar => {
+        bar.querySelector("i").style.width = `${bar.dataset.progress}%`;
+      });
+    }
+
+    function renderDashboardMetrics() {
+      const stats = getOrderStats();
+      setText("metricPending", stats.byStatus.pending);
+      setText("metricPreparing", stats.byStatus.preparing);
+      setText("metricDispatched", stats.byStatus.dispatched);
+      setText("metricSales", money(stats.salesToday));
+      setText("metricChats", stats.humanChats);
+      setText("metricPendingText", stats.byStatus.pending ? `${stats.byStatus.pending} requieren revisión` : "Sin pedidos pendientes");
+      setText("metricPreparingText", stats.byStatus.preparing ? "Pedidos activos en cocina" : "Sin pedidos en cocina");
+      setText("metricDispatchedText", stats.byStatus.dispatched ? "Pedidos enviados hoy" : "Sin despachos aún");
+      setText("metricSalesText", `Ticket medio ${money(stats.averageTicket)}`);
+      setText("metricChatsText", stats.humanChats ? `${stats.humanChats} con intervención pendiente` : "Sin intervención pendiente");
+      setText("ordersPendingChip", `Pendientes ${stats.byStatus.pending}`);
+      setText("ordersConfirmedChip", `Confirmados ${stats.byStatus.confirmed}`);
+      setText("ordersPreparingChip", `Preparando ${stats.byStatus.preparing}`);
+      setText("ordersDispatchedChip", `Despachados ${stats.byStatus.dispatched}`);
+      setText("ordersCompletedChip", `Completados ${stats.byStatus.completed}`);
+      setText("ordersCancelledChip", `Cancelados ${stats.byStatus.cancelled}`);
+      setText("accountingSalesToday", money(stats.salesToday));
+      setText("accountingSalesText", `${stats.soldOrders.length} pedidos · ticket promedio ${money(stats.averageTicket)}`);
+      setText("accountingConfirmedPaid", money(stats.confirmedPaid));
+      setText("accountingConfirmedText", stats.byStatus.pending ? `Faltan ${stats.byStatus.pending} pedidos por validar` : "Todo validado");
+      setText("accountingCashExpected", money(stats.cashExpected));
+      renderAccounting(stats);
+    }
+
+    function renderOrders() {
+      renderDashboardMetrics();
+      const visibleOrders = filteredOrders();
+      const activeFilter = byId("activeOrderFilter");
+      if (activeFilter) {
+        activeFilter.textContent = statusFilter ? `Filtro: ${statusLabels[statusFilter]}` : "";
+        activeFilter.classList.toggle("hide", !statusFilter);
+      }
+      document.querySelectorAll("[data-order-filter-chip]").forEach(chip => {
+        chip.classList.toggle("active", chip.dataset.orderFilterChip === statusFilter);
+      });
+      byId("clearOrderFilter").classList.toggle("active", !statusFilter);
+      byId("dashboardOrders").innerHTML = visibleOrders.slice(0, 4).map(order => `
+        <article class="order-card ${order.urgent ? "urgent" : ""} ${order.id === selectedOrder.id ? "selected" : ""}" data-order="${escapeAttr(order.id)}">
+          <div class="order-head">
+            <div><strong>#${escapeHtml(order.id)} · ${escapeHtml(order.customer)}</strong><small>${escapeHtml(order.zone)} · ${escapeHtml(order.payment)} · ${escapeHtml(order.channel)}</small></div>
+            ${statusChip(order.status)}
+          </div>
+          <div class="muted">${escapeHtml(order.items[0])}</div>
+          <div class="row-between"><span class="meta">${escapeHtml(order.address)}</span><strong>${money(order.total)}</strong></div>
+        </article>
+      `).join("");
+
+      byId("ordersTable").innerHTML = visibleOrders.map(order => `
+        <tr data-order="${escapeAttr(order.id)}">
+          <td><strong>#${escapeHtml(order.id)}</strong><div class="muted">${escapeHtml(order.channel)}</div></td>
+          <td>${escapeHtml(order.customer)}<div class="muted">${escapeHtml(order.phone)}</div></td>
+          <td>${escapeHtml(order.address)}</td>
+          <td>${escapeHtml(order.zone)}</td>
+          <td>${escapeHtml(order.payment)}</td>
+          <td><strong>${escapeHtml(order.age)}</strong></td>
+          <td><span class="chip ${order.risk === "Bajo" ? "confirmed" : "human"}">${escapeHtml(order.risk)}</span></td>
+          <td><strong>${money(order.total)}</strong></td>
+          <td>${statusChip(order.status)}</td>
+          <td><button class="secondary-btn table-open" data-id="${escapeAttr(order.id)}">Abrir</button></td>
+        </tr>
+      `).join("") || `<tr><td colspan="10"><strong>No hay pedidos con ese criterio.</strong><div class="muted">Prueba con nombre, teléfono, zona, método de pago o número de pedido.</div></td></tr>`;
+    }
+
+    function allowedNextStatuses(status, order = selectedOrder) {
+      return {
+        pending: ["confirmed", "cancelled"],
+        confirmed: ["preparing", "cancelled"],
+        preparing: ["dispatched", "cancelled"],
+        dispatched: order.dispatchNotified ? ["completed"] : [],
+        completed: [],
+        cancelled: []
+      }[status] || [];
+    }
+
+    function renderDetail() {
+      byId("detailOrderId").textContent = `Pedido #${selectedOrder.id}`;
+      byId("detailCustomer").textContent = `${selectedOrder.customer} · ${selectedOrder.phone} · ${selectedOrder.channel}`;
+      const chip = byId("detailStatus");
+      chip.className = `chip ${selectedOrder.status}`;
+      chip.textContent = statusLabels[selectedOrder.status];
+      byId("detailItems").innerHTML = selectedOrder.items.map((item, index) => `
+        <div class="item-row">
+          <strong>${escapeHtml(item)} <span>${index === 0 ? money(selectedOrder.total - 5000) : ""}</span></strong>
+          <div class="muted">Nota: ${escapeHtml(selectedOrder.note)}</div>
+        </div>
+      `).join("");
+      byId("subtotal").textContent = money(selectedOrder.total - 5000);
+      byId("delivery").textContent = money(5000);
+      byId("total").textContent = money(selectedOrder.total);
+      byId("addressText").textContent = selectedOrder.address;
+      byId("paymentText").textContent = selectedOrder.payment + (selectedOrder.payment === "Nequi" ? " · falta comprobante" : "");
+      byId("editAddress").value = selectedOrder.address;
+      byId("editPayment").value = selectedOrder.payment;
+      byId("editNote").value = selectedOrder.note;
+      const currentProduct = menuProducts.find(product => selectedOrder.items[0].toLowerCase().includes(product.name.toLowerCase()));
+      if (currentProduct) byId("editProduct").value = currentProduct.name;
+      byId("editToppings").value = selectedOrder.items[0].split(" · ").slice(1).join(", ");
+      const allowed = allowedNextStatuses(selectedOrder.status, selectedOrder);
+      document.querySelectorAll("[data-status]").forEach(button => {
+        button.hidden = !allowed.includes(button.dataset.status);
+      });
+      const dispatchNotice = byId("sendDispatchNotice");
+      dispatchNotice.hidden = selectedOrder.status !== "dispatched";
+      dispatchNotice.disabled = Boolean(selectedOrder.dispatchNotified);
+      dispatchNotice.textContent = selectedOrder.dispatchNotified ? "Cliente avisado" : "Avisar pedido enviado";
+      byId("editToggle").hidden = selectedOrder.status === "completed" || selectedOrder.status === "cancelled";
+      document.querySelectorAll(".step").forEach((step, index) => {
+        const order = ["pending", "confirmed", "preparing", "dispatched", "completed"].indexOf(selectedOrder.status);
+        step.classList.toggle("on", selectedOrder.status !== "cancelled" && index <= Math.max(order, 0));
+      });
+    }
+
+    function renderConversations() {
+      byId("conversationList").innerHTML = conversations.map((conversation, index) => `
+        <button class="conversation ${conversation.name === selectedConversation.name ? "active" : ""}" data-conversation="${index}">
+          <strong>${escapeHtml(conversation.name)}<span class="chip ${conversation.human ? "human" : "confirmed"}">${conversation.human ? "Humano" : "OK"}</span></strong>
+          <div class="muted">${escapeHtml(conversation.meta)}</div>
+          <p class="muted conversation-last">${escapeHtml(conversation.last)}</p>
+        </button>
+      `).join("");
+      byId("chatName").textContent = selectedConversation.name;
+      byId("chatMeta").textContent = selectedConversation.meta + " · " + selectedConversation.state;
+      byId("chatMessages").innerHTML = selectedConversation.messages.map(([type, text]) => `<div class="bubble ${escapeAttr(type)}">${escapeHtml(text)}</div>`).join("");
+    }
+
+    function renderMenuCatalog() {
+      const productsByCategory = menuProducts.reduce((groups, product) => {
+        groups[product.category] = groups[product.category] || [];
+        groups[product.category].push(product);
+        return groups;
+      }, {});
+
+      byId("menuProductList").innerHTML = Object.entries(productsByCategory).map(([category, products]) => `
+        <div class="catalog-category">${escapeHtml(category)}</div>
+        ${products.map(product => `
+          <div class="setting-row">
+            <div><strong>${escapeHtml(product.name)}</strong><div class="muted">${money(product.price)} · disponible</div></div>
+            <button class="toggle on" data-toast="${escapeAttr(product.name)} sigue disponible." aria-label="Cambiar disponibilidad de ${escapeAttr(product.name)}"><i></i></button>
+          </div>
+        `).join("")}
+      `).join("");
+
+      byId("menuToppingList").innerHTML = menuToppings.map(topping =>
+        `<span class="chip">${escapeHtml(topping.name)} · ${money(topping.price)}</span>`
+      ).join("");
+
+      byId("editProduct").innerHTML = menuProducts.map(product =>
+        `<option value="${escapeAttr(product.name)}">${escapeHtml(product.name)} · ${money(product.price)}</option>`
+      ).join("");
+    }
+
+    function resetOrderFilters() {
+      statusFilter = "";
+      searchQuery = "";
+      const searchInput = byId("globalSearch");
+      if (searchInput) searchInput.value = "";
+      renderOrders();
+    }
+
+    function go(view, options = {}) {
+      if (view === "orders" && currentView !== "orders" && !options.keepOrderFilters) {
+        resetOrderFilters();
+      }
+      document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === view));
+      const navView = view === "detail" ? "orders" : view;
+      document.querySelectorAll(".nav button").forEach(el => el.classList.toggle("active", el.dataset.view === navView));
+      byId("viewTitle").textContent = titles[view][0];
+      byId("viewSubtitle").textContent = titles[view][1];
+      currentView = view;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    byId("enterBtn").addEventListener("click", () => {
+      const isAdmin = byId("roleSelect").value === "admin";
+      document.body.classList.toggle("admin-role", isAdmin);
+      document.body.classList.toggle("operator-role", !isAdmin);
+      unlockAudio();
+      byId("login").classList.add("hide");
+      byId("app").classList.remove("hide");
+      go("dashboard");
+    });
+
+    document.querySelectorAll("[data-view], [data-view-shortcut]").forEach(button => {
+      button.addEventListener("click", () => go(button.dataset.view || button.dataset.viewShortcut));
+    });
+
+    byId("dashboardOrders").addEventListener("click", event => {
+      const card = event.target.closest("[data-order]");
+      if (!card) return;
+      selectedOrder = orders.find(order => order.id === card.dataset.order);
+      renderDetail();
+      go("detail");
+    });
+
+    byId("ordersTable").addEventListener("click", event => {
+      const row = event.target.closest("[data-order]");
+      if (!row) return;
+      selectedOrder = orders.find(order => order.id === row.dataset.order);
+      renderDetail();
+      go("detail");
+    });
+
+    byId("conversationList").addEventListener("click", event => {
+      const button = event.target.closest("[data-conversation]");
+      if (!button) return;
+      selectedConversation = conversations[Number(button.dataset.conversation)];
+      renderConversations();
+    });
+
+    document.querySelectorAll("[data-status]").forEach(button => {
+      button.addEventListener("click", () => {
+        if (!allowedNextStatuses(selectedOrder.status, selectedOrder).includes(button.dataset.status)) {
+          showToast("Esta acción no aplica para el estado actual del pedido.");
+          return;
+        }
+        if (button.dataset.status === "cancelled" && !confirm(`¿Cancelar el pedido #${selectedOrder.id}? Esta acción debe quedar revisada por el operario.`)) {
+          return;
+        }
+        dashboardApi.updateOrderStatus(selectedOrder, button.dataset.status);
+        renderDetail();
+        renderOrders();
+        showToast(`Pedido #${selectedOrder.id}: ${statusLabels[selectedOrder.status]}.`);
+      });
+    });
+
+    byId("sendDispatchNotice").addEventListener("click", () => {
+      if (selectedOrder.status !== "dispatched") {
+        showToast("El aviso solo se envía cuando el pedido está despachado.");
+        return;
+      }
+      dashboardApi.markDispatchNotified(selectedOrder);
+      renderDetail();
+      renderOrders();
+      showToast(`Bot enviado a ${selectedOrder.customer}: Tu pedido ya va en camino.`);
+    });
+
+    byId("editToggle").addEventListener("click", () => {
+      byId("quickEditor").classList.toggle("hide");
+    });
+
+    byId("saveEdit").addEventListener("click", () => {
+      dashboardApi.updateOrder(selectedOrder, {
+        address: byId("editAddress").value,
+        payment: byId("editPayment").value,
+        note: byId("editNote").value,
+        items: [byId("editProduct").value + " · " + byId("editToppings").value, ...selectedOrder.items.slice(1)]
+      });
+      renderDetail();
+      renderOrders();
+      showToast("Cambios guardados en el pedido.");
+    });
+
+    byId("globalSearch").addEventListener("input", event => {
+      searchQuery = event.target.value;
+      statusFilter = "";
+      renderOrders();
+    });
+
+    byId("clearOrderFilter").addEventListener("click", () => {
+      statusFilter = "";
+      searchQuery = "";
+      byId("globalSearch").value = "";
+      renderOrders();
+      showToast("Mostrando todos los pedidos.");
+    });
+
+    document.querySelectorAll("[data-order-filter-chip]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const nextFilter = chip.dataset.orderFilterChip;
+        statusFilter = statusFilter === nextFilter ? "" : nextFilter;
+        searchQuery = "";
+        byId("globalSearch").value = "";
+        renderOrders();
+        showToast(statusFilter ? `Mostrando pedidos: ${statusLabels[statusFilter]}.` : "Mostrando todos los pedidos.");
+      });
+    });
+
+    document.querySelectorAll("[data-metric-target]").forEach(card => {
+      card.addEventListener("click", () => {
+        const target = card.dataset.metricTarget;
+        if (target === "orders") {
+          statusFilter = card.dataset.orderFilter || "";
+          byId("globalSearch").value = "";
+          searchQuery = "";
+          renderOrders();
+          go("orders", { keepOrderFilters: true });
+          showToast(`Mostrando pedidos: ${statusLabels[statusFilter]}.`);
+          return;
+        }
+        if (target === "conversations") {
+          go("conversations");
+          showToast("Mostrando conversaciones que requieren revisión.");
+          return;
+        }
+        if (target === "accounting") {
+          if (document.body.classList.contains("admin-role")) {
+            go("accounting");
+          } else {
+            showToast("Ventas hasta ahora esta disponible para Admin.");
+          }
+        }
+      });
+    });
+
+    byId("closeCash").addEventListener("click", () => {
+      if (confirm("¿Cerrar la caja del turno con la diferencia registrada?")) {
+        showToast("Cierre de caja registrado para revisión.");
+      }
+    });
+
+    byId("exportSummary").addEventListener("click", () => {
+      showToast("Resumen preparado para exportación.");
+    });
+
+    byId("notificationsBtn").addEventListener("click", () => {
+      const pending = getOrderStats().byStatus.pending;
+      showToast(pending ? `No hay alertas nuevas. Quedan ${pending} pedidos por revisar.` : "No hay alertas nuevas. No quedan pedidos por revisar.");
+    });
+
+    byId("soundToggle").addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      updateSoundToggle();
+      if (soundEnabled) {
+        playNewOrderSound();
+        showToast("Sonido de nuevos pedidos activado.");
+      } else {
+        showToast("Sonido de nuevos pedidos desactivado.");
+      }
+    });
+
+    byId("chatSend").addEventListener("click", () => {
+      showToast("Respuesta lista para enviarse cuando se conecte el canal.");
+    });
+
+    byId("requestAddress").addEventListener("click", () => {
+      showToast("Mensaje preparado: pedir dirección exacta al cliente.");
+    });
+
+    document.addEventListener("click", event => {
+      const toastButton = event.target.closest("[data-toast]");
+      if (!toastButton) return;
+      event.stopPropagation();
+      showToast(toastButton.dataset.toast);
+    });
+
+    renderOrders();
+    renderMenuCatalog();
+    renderDetail();
+    renderConversations();
+    updateSoundToggle();
+  </script>
+</body>
+</html>

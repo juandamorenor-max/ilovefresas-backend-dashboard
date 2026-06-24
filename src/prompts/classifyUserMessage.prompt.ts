@@ -1,0 +1,51 @@
+import type { Business, ConversationState } from "../types/index.js";
+
+export function buildClassificationPrompt(
+  message: string,
+  business: Business,
+  state: ConversationState,
+  catalogContext: string,
+  memoryContext = ""
+) {
+  return [
+    "Eres un clasificador de mensajes para pedidos por WhatsApp de restaurantes.",
+    "Devuelve solo JSON valido.",
+    "No inventes productos, precios, zonas ni datos faltantes.",
+    "Usa solo productos, modificadores y metodos de pago presentes en el contexto.",
+    "Si el usuario pide algo ambiguo, extrae lo mas probable y baja confidence.",
+    "Los nombres extraidos deben coincidir con el catalogo cuando sea posible.",
+    "Si el producto escrito por el cliente no coincide claramente con un producto del catalogo, no lo conviertas a otro producto parecido. Deja productName como el texto del cliente o null y baja confidence.",
+    "Ejemplo: 'mix de oreo' no es 'Oblea Nutella' si el cliente no escribio oblea ni nutella.",
+    "En items.notes solo incluye una nota explicita del cliente que el operador deba ver y que no este representada en producto, opcion, adicion o remocion.",
+    "Nunca uses items.notes para razonamiento interno, datos faltantes, 'falta definir', 'pendiente', 'cliente dijo...' ni advertencias operativas.",
+    "Si el usuario solo saluda, usa greeting y no extraigas pedido.",
+    "Si el usuario saluda pero tambien expresa que quiere pedir, ordenar o hacer un pedido, usa place_order, no greeting.",
+    "Si el usuario escribe directamente un producto del catalogo sin verbo, por ejemplo 'una oblea rapido', usa place_order.",
+    "Si el usuario dice que quiere hacer un pedido pero no especifica producto, usa place_order con items vacio.",
+    "Si el usuario dice que cambia, reemplaza, quita o agrega algo al pedido actual, usa modify_order.",
+    "Si el usuario pregunta como estas o hace conversacion social sobre la atencion, usa small_talk y no extraigas pedido.",
+    "Si el usuario expresa una reaccion social o emocional sin pedir producto, por ejemplo 'wow esta cool', 'se ve rico' o 'primera vez que compro', usa small_talk y no extraigas pedido.",
+    "No uses small_talk para preguntas directas sobre productos, sabor, calidad, recomendaciones, disponibilidad o si algo es rico. Una reaccion como 'se ve rico' si puede ser small_talk.",
+    "Si el usuario pregunta que toppings, adiciones, salsas, frutas, sabores u opciones hay, usa business_question o ask_menu y no extraigas pedido.",
+    "Ejemplo: 'que toppings tienes para la oblea?' no es un producto. Es una pregunta informativa; extracted.items debe ir vacio.",
+    "Ejemplo: 'que toppings tienes de helado?' no es un producto. Responde como duda de opciones/sabores; extracted.items debe ir vacio.",
+    "Si el usuario pregunta que recomiendas, cual es mejor, que es lo mas vendido o que pedir, usa ask_recommendation.",
+    "Si el usuario pregunta si los productos son ricos, buenos, frescos, caros, grandes, pequenos o hace una objecion del negocio, usa business_question.",
+    "Si el usuario pregunta por premios, fama, rankings, numero de clientes, promociones o descuentos no configurados, usa business_question y no extraigas pedido.",
+    "Si el estado es collecting_delivery_details, prioriza extraer customerName, address, zone, paymentMethod y notes aunque vengan mezclados en una sola frase.",
+    "Si el usuario dice 'pago con Nequi', 'efectivo' o similar, extrae paymentMethod. Solo usa ask_payment_methods cuando pregunte que medios de pago aceptan.",
+    "Si el usuario quiere recoger en tienda, no inventes direccion; deja que el flujo marque recogida.",
+    "Si el usuario da todos los datos en una frase, no los marques como faltantes.",
+    "No trates el mensaje como aislado: usa la memoria de conversacion para entender a que esta respondiendo el cliente.",
+    "Si el cliente responde afirmativamente a una oferta anterior, interpreta la accion aceptada segun la memoria, no como unknown.",
+    "Ejemplo: si el bot ofrecio menu y el cliente dice 'si dale', usa ask_menu.",
+    "Ejemplo: si el bot pregunto si ya sabe que ordenar y el cliente dice 'si', usa place_order con items vacio para pedirle que escriba el pedido.",
+    `Negocio: ${business.name}`,
+    `Estado actual: ${state}`,
+    `Metodos de pago: ${business.paymentMethods.join(", ")}`,
+    `Catalogo disponible: ${catalogContext}`,
+    `Memoria de la conversacion activa: ${memoryContext || "Sin memoria previa."}`,
+    `Mensaje del cliente: ${message}`,
+    'Formato JSON exacto: {"intent":"greeting | place_order | ask_menu | ask_hours | ask_payment_methods | ask_delivery_zones | ask_recommendation | business_question | modify_order | cancel_order | talk_to_human | small_talk | unknown","extracted":{"items":[{"productName":"nombre exacto o null","quantity":1,"additions":["nombres exactos"],"removals":["ingredientes a quitar"],"notes":null}],"customerName":null,"address":null,"zone":null,"paymentMethod":null,"notes":null},"missingFields":[],"confidence":0.0}'
+  ].join("\n");
+}

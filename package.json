@@ -1,0 +1,48 @@
+{
+  "name": "chatbot-i-love-fresas-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MVP foundation for reusable WhatsApp ordering chatbots for restaurants.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "telegram:dev": "tsx src/telegram-local.ts",
+    "telegram:admin-id": "tsx src/telegram-admin-id.ts",
+    "build": "tsc -p tsconfig.json",
+    "beta:local": "npm run build && node dist/local-beta.js",
+    "qa:conversation": "npm run build && node dist/qa/conversation-regression.js",
+    "qa:redteam": "npm run build && node dist/qa/red-team-attacks.js",
+    "qa:chaos": "npm run build && node dist/qa/chaos-conversations.js",
+    "qa:menu": "npm run build && node dist/qa/menu-real-catalog.js",
+    "qa:personality": "npm run build && node dist/qa/personality-backtest.js",
+    "qa:post-dispatch": "npm run build && node dist/qa/post-dispatch.js",
+    "qa:required-options": "npm run build && node dist/qa/required-option-quantities.js",
+    "qa:delivery-zones": "npm run build && node dist/qa/delivery-zones.js",
+    "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",
+    "qa:catalog-matrix": "npm run build && node dist/qa/catalog-matrix.js",
+    "qa:ai-smoke": "npm run build && node dist/qa/ai-smoke.js",
+    "qa:diversity-smoke": "npm run build && node dist/qa/diversity-smoke.js",
+    "qa:gpt-engine": "npm run build && node dist/qa/gpt-engine.js",
+    "qa:manual-failures": "npm run build && node dist/qa/manual-failures-index.js",
+    "qa:openai-structural-mini": "npm run build && node dist/qa/openai-structural-mini.js",
+    "test:bot-integration": "npm run build && node dist/qa/bot-integration-smoke.js",
+    "test:catalog": "npm run build && node dist/catalog/catalog.test.js",
+    "test:orchestrator": "npm run build && node dist/orchestrator/orchestrator.test.js",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+qa-output/
+.telegram-local.pid
+.beta-local.pid
+.flowise-local.pid
+.server-dashboard-test.pid

@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>I Love Fresas | Admin</title>
+  <link rel="stylesheet" href="./src/styles.css">
+</head>
+<body class="operator-role">
+  <div id="login" class="login-screen">
+    <section class="login-card">
+      <div class="brand-mark brand-photo brand-photo-login" aria-label="I Love Fresas">
+        <img src="./public/ilovefresas-logo.png" alt="I Love Fresas">
+      </div>
+      <h1>I Love Fresas Admin</h1>
+      <p>Panel operativo para revisar pedidos del bot, ajustar datos y mover la cocina sin fricción.</p>
+      <label for="email">Correo</label>
+      <input id="email" value="operador@ilovefresas.co" autocomplete="email">
+      <label for="password">Contraseña</label>
+      <input id="password" type="password" value="demo1234" autocomplete="current-password">
+      <label for="roleSelect">Rol</label>
+      <select id="roleSelect">
+        <option value="operator">Operario</option>
+        <option value="admin">Admin</option>
+        <option value="demo">Demo</option>
+      </select>
+      <button class="primary-btn" id="enterBtn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+        Entrar al panel
+      </button>
+    </section>
+  </div>
+
+  <div id="app" class="app hide">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark brand-photo" aria-label="I Love Fresas">
+          <img src="./public/ilovefresas-logo.png" alt="I Love Fresas">
+        </div>
+        <div>
+          <strong>I Love Fresas</strong>
+          <span>Sede principal abierta</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Principal">
+        <button class="active" data-view="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Operación
+        </button>
+        <button data-view="conversations">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          Conversaciones
+        </button>
+        <button data-view="orders">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          Pedidos
+        </button>
+        <button class="admin-only" data-view="menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+          Catálogo
+        </button>
+        <button data-view="availability">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7 9 18l-5-5"/><path d="M15 7h5v5"/></svg>
+          Disponibilidad
+        </button>
+        <button class="admin-only" data-view="accounting">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M8 6h8"/><path d="M8 10h2"/><path d="M14 10h2"/><path d="M8 14h2"/><path d="M14 14h2"/><path d="M8 18h2"/><path d="M14 18h2"/></svg>
+          Contabilidad
+        </button>
+        <button class="admin-only" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.72l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          Configuración
+        </button>
+        <button class="admin-only" data-view="betaMetrics">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 6"/></svg>
+          Métricas beta
+        </button>
+      </nav>
+
+      <div class="store-card">
+        <strong>Estado operativo</strong>
+        <div class="sidebar-stats">
+          <span><b id="sidebarPendingCount">0</b> pendientes</span>
+          <span><b id="sidebarOutCount">0</b> agotados</span>
+        </div>
+        <p>Telegram activo. WhatsApp listo para conectar cuando el backend esté preparado.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="viewTitle">Dashboard operativo</h2>
+          <small id="viewSubtitle">Jueves 11 de junio, turno tarde</small>
+        </div>
+        <div class="top-actions">
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="globalSearch" placeholder="Buscar pedido, cliente o zona">
+          </div>
+          <button class="bot-power-btn" id="globalBotPowerToggle" aria-pressed="false">
+            <span class="bot-power-dot"></span>
+            <strong>Bot ON</strong>
+          </button>
+          <span class="top-status-pill" id="topPendingPill">0 pendientes</span>
+          <span class="top-status-pill alert" id="topAlertsPill">0 alertas</span>
+          <button class="icon-btn" id="notificationsBtn" title="Notificaciones" aria-label="Ver notificaciones">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+          </button>
+          <button class="icon-btn" id="soundToggle" title="Sonido activo" aria-label="Activar o desactivar sonido de nuevos pedidos" aria-pressed="true">
+            <svg class="icon" id="soundIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+            <svg class="icon hide" id="soundIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+          </button>
+          <button class="icon-btn" id="themeToggle" title="Modo oscuro" aria-label="Cambiar modo claro u oscuro" aria-pressed="false">🌙</button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="intervention-alert hide" id="interventionAlert">
+          <div>
+            <strong id="interventionAlertTitle">Intervención requerida</strong>
+            <span id="interventionAlertText">Hay conversaciones esperando revisión del operario.</span>
+          </div>
+          <button class="secondary-btn" data-view-shortcut="conversations">Ver conversaciones</button>
+        </div>
+
+        <div id="dashboard" class="view active">
+          <section class="ops-command-strip">
+            <article>
+              <span>Bot</span>
+              <strong id="opsBotState">Activo</strong>
+              <small id="opsBotHint">Respondiendo clientes automaticamente</small>
+            </article>
+            <article>
+              <span>Horario</span>
+              <strong id="opsHoursState">Hora Colombia</strong>
+              <small>Usa la configuracion diaria del bot</small>
+            </article>
+            <article>
+              <span>Riesgo operativo</span>
+              <strong id="opsRiskState">Sin alertas</strong>
+              <small>Pagos, direcciones y chats humanos</small>
+            </article>
+          </section>
+          <section class="attention-center panel">
+            <div class="attention-copy">
+              <span class="eyebrow">Centro de control</span>
+              <h3>Que necesita atencion ahora</h3>
+              <p>Prioriza chats, pagos, datos incompletos y pedidos listos para cocina o despacho.</p>
+            </div>
+            <div class="attention-grid" id="attentionGrid"></div>
+          </section>
+
+          <div class="metrics">
+            <button class="metric" data-metric-target="orders" data-order-filter="pending"><span>Pendientes</span><strong id="metricPending">0</strong><div class="trend" id="metricPendingText">Sin pedidos pendientes</div></button>
+            <button class="metric" data-metric-target="orders" data-order-filter="preparing"><span>En preparación</span><strong id="metricPreparing">0</strong><div class="trend" id="metricPreparingText">Sin pedidos en cocina</div></button>
+            <button class="metric" data-metric-target="orders" data-order-filter="dispatched"><span>Enviados</span><strong id="metricDispatched">0</strong><div class="trend" id="metricDispatchedText">Sin envíos aún</div></button>
+            <button class="metric" data-metric-target="accounting"><span>Ventas hasta ahora</span><strong id="metricSales">$0</strong><div class="trend" id="metricSalesText">Ticket medio $0</div></button>
+            <button class="metric" data-metric-target="conversations" data-conversation-filter="human"><span>Chats por revisar</span><strong id="metricChats">0</strong><div class="trend" id="metricChatsText">Sin intervención pendiente</div></button>
+          </div>
+
+          <div class="work-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Pedidos que necesitan acción</h3>
+                <span>Ordenados por urgencia</span>
+              </div>
+              <div class="order-list" id="dashboardOrders"></div>
+            </section>
+            <aside class="panel detail-card kitchen-card" id="kitchenPanel">
+              <div class="panel-header compact">
+                <h3>Cola de cocina</h3>
+                <span>Ahora</span>
+              </div>
+              <div class="items" id="kitchenQueue">
+                <div class="item-row"><strong>Wafle chocolate x2 <span>8 min</span></strong><div class="muted">Fresa, crema, helado y salsa. Kennedy Central.</div></div>
+                <div class="item-row"><strong>Brownie con helado x2 <span>11 min</span></strong><div class="muted">Agregar Nutella. Pago Daviplata confirmado.</div></div>
+                <div class="item-row"><strong>Mix oreo milo x1 <span>14 min</span></strong><div class="muted">Con fresa, kiwi y durazno. Entregar en recepción.</div></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="conversations" class="view">
+          <div class="inbox-layout">
+            <section class="panel">
+              <div class="panel-header"><h3>Bandeja de conversaciones</h3><span>Telegram</span></div>
+              <div class="conversation-list" id="conversationList"></div>
+            </section>
+            <section class="panel chat-window">
+              <div class="panel-header">
+                <div><h3 id="chatName">Laura M.</h3><span id="chatMeta">Telegram · requiere intervención</span></div>
+                <span class="chip human" id="chatHumanChip">Humano</span>
+              </div>
+              <div class="chat-control-strip" id="chatBotControlCard">
+                <div class="bot-chat-state">
+                  <span class="bot-chat-dot" id="chatBotPauseDot"></span>
+                  <div>
+                    <strong id="chatBotPauseStatus">Bot activo en este chat</strong>
+                    <small id="chatBotPauseHint">El asistente responde automáticamente mientras no haya intervención humana.</small>
+                  </div>
+                </div>
+                <button class="secondary-btn" id="chatBotPauseToggle">Pausar 30 min</button>
+              </div>
+              <div class="chat-messages" id="chatMessages"></div>
+              <div class="chat-compose">
+                <input id="chatReplyInput" placeholder="Responder al cliente">
+                <button class="primary-btn" id="chatSend">Enviar</button>
+              </div>
+              <div class="manual-qa-card" id="manualQaCard">
+                <div class="manual-qa-header">
+                  <div>
+                    <strong>Evaluacion manual 50 chats</strong>
+                    <span id="manualQaProgress">0/50 conversaciones calificadas</span>
+                  </div>
+                  <button class="secondary-btn" id="manualQaReportBtn" type="button">Generar reporte</button>
+                </div>
+                <div class="manual-qa-actions" role="group" aria-label="Calificar conversacion">
+                  <button class="qa-success" id="manualQaSuccessBtn" type="button">Exito</button>
+                  <button class="qa-failure" id="manualQaFailureBtn" type="button">Fracaso</button>
+                </div>
+                <textarea id="manualQaComments" rows="3" placeholder="Si fue fracaso, escribe que fallo: que dijo el cliente, que hizo el bot y que debio pasar."></textarea>
+                <pre class="manual-qa-report hide" id="manualQaReport"></pre>
+              </div>
+            </section>
+            <aside class="panel detail-card conversation-order-card conversation-context-card" id="conversationOrderCard">
+              <div class="panel-header compact"><h3>Resumen operativo</h3><span>Sin chat</span></div>
+              <div class="empty-state-card">
+                <strong>Selecciona una conversacion</strong>
+                <span class="muted">Aqui veras alertas, datos faltantes y la proxima accion recomendada.</span>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="orders" class="view">
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Bandeja de pedidos</h3>
+              <div class="chips">
+                <button class="chip" id="clearOrderFilter">Todos</button>
+                <span class="chip human hide" id="activeOrderFilter"></span>
+                <button class="chip pending order-filter-chip" data-order-filter-chip="pending" id="ordersPendingChip">Pendientes 0</button>
+                <button class="chip confirmed order-filter-chip" data-order-filter-chip="confirmed" id="ordersConfirmedChip">Confirmados 0</button>
+                <button class="chip preparing order-filter-chip" data-order-filter-chip="preparing" id="ordersPreparingChip">Preparando 0</button>
+                <button class="chip dispatched order-filter-chip" data-order-filter-chip="dispatched" id="ordersDispatchedChip">Enviados 0</button>
+                <button class="chip completed order-filter-chip" data-order-filter-chip="completed" id="ordersCompletedChip">Completados 0</button>
+                <button class="chip cancelled order-filter-chip" data-order-filter-chip="cancelled" id="ordersCancelledChip">Cancelados 0</button>
+              </div>
+            </div>
+            <div class="order-view-toolbar">
+              <div>
+                <span class="eyebrow">Vista de pedidos</span>
+                <strong>Operacion del turno</strong>
+              </div>
+              <div class="segmented-control" aria-label="Cambiar vista de pedidos">
+                <button class="active" id="ordersKanbanToggle" type="button">Por etapas</button>
+                <button id="ordersTableToggle" type="button">Tabla</button>
+              </div>
+            </div>
+            <div class="kanban-board" id="ordersKanban"></div>
+            <div class="table-wrap" id="ordersTableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pedido</th><th>Cliente</th><th>Dirección</th><th>Zona</th><th>Pago</th><th>Tiempo</th><th>Riesgo</th><th>Total</th><th>Estado</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div id="availability" class="view">
+          <section class="panel availability-hero">
+            <div>
+              <span class="eyebrow">Disponibilidad rapida</span>
+              <h3>Apaga o reactiva productos sin entrar al catalogo completo</h3>
+              <p class="muted">Ideal para operacion diaria: si algo se agota, queda marcado como Agotado para que el bot no lo ofrezca como disponible.</p>
+            </div>
+            <div class="availability-search">
+              <input id="availabilitySearch" placeholder="Buscar producto, topping o categoria">
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3>Productos</h3>
+              <div class="chips" id="availabilityCategoryFilters"></div>
+            </div>
+            <div class="availability-list" id="availabilityProductList"></div>
+          </section>
+          <section class="panel section-spaced">
+            <div class="panel-header">
+              <h3>Toppings y adiciones</h3>
+              <span>Disponibilidad operativa</span>
+            </div>
+            <div class="availability-list compact" id="availabilityToppingList"></div>
+          </section>
+        </div>
+
+        <div id="detail" class="view">
+          <div class="detail-layout">
+            <section class="panel detail-card">
+              <div class="detail-title">
+                <div>
+                  <h3 id="detailOrderId">Pedido #ILF-1048</h3>
+                  <div class="muted" id="detailCustomer">Laura Méndez · 300 456 1188 · Telegram</div>
+                </div>
+                <span class="chip pending" id="detailStatus">Pendiente de revisión</span>
+              </div>
+              <div class="timeline"><span class="step on"></span><span class="step"></span><span class="step"></span><span class="step"></span><span class="step"></span></div>
+              <div class="items" id="detailItems"></div>
+              <div class="totals">
+                <div class="row-between"><span>Subtotal</span><strong id="subtotal">$24.000</strong></div>
+                <div class="row-between"><span>Domicilio</span><strong id="delivery">$5.000</strong></div>
+                <div class="row-between total"><span>Total estimado</span><strong id="total">$29.000</strong></div>
+              </div>
+            </section>
+
+            <aside class="panel detail-card">
+              <div class="panel-header compact"><h3>Acciones rápidas</h3><span>Operario</span></div>
+              <div class="action-stack">
+                <button class="secondary-btn" data-view-shortcut="orders">Volver a pedidos</button>
+                <button class="primary-btn" data-status="confirmed">Confirmar y avisar total</button>
+                <button class="primary-btn" id="sendDispatchNotice">Avisar pedido enviado</button>
+                <button class="status-btn" data-status="completed">Completar</button>
+                <button class="secondary-btn" id="editToggle">Editar pedido</button>
+                <button class="secondary-btn" data-status="cancelled">Cancelar</button>
+              </div>
+
+              <div class="manual-qa-card manual-qa-card-detail" id="manualQaOrderCard">
+                <div class="manual-qa-header">
+                  <div>
+                    <strong>Evaluacion obligatoria en beta</strong>
+                    <span id="manualQaOrderProgress">0/50 conversaciones calificadas</span>
+                  </div>
+                  <button class="secondary-btn" id="manualQaOrderReportBtn" type="button">Generar reporte</button>
+                </div>
+                <p class="manual-qa-helper">Califica este pedido cuando termines la prueba. Si falla, deja el comentario para que podamos corregir causa raiz.</p>
+                <div class="manual-qa-actions" role="group" aria-label="Calificar pedido">
+                  <button class="qa-success" id="manualQaOrderSuccessBtn" type="button">Exito</button>
+                  <button class="qa-failure" id="manualQaOrderFailureBtn" type="button">Fracaso</button>
+                </div>
+                <textarea id="manualQaOrderComments" rows="3" placeholder="Si fue fracaso, escribe que fallo en este pedido."></textarea>
+                <pre class="manual-qa-report hide" id="manualQaOrderReport"></pre>
+              </div>
+
+              <form id="quickEditor" class="hide section-spaced-lg">
+                <div class="form-grid">
+                  <div class="full">
+                    <label>Producto</label>
+                    <select id="editProduct"></select>
+                  </div>
+                  <div>
+                    <label>Toppings</label>
+                    <input id="editToppings" value="Extra chocolate, arequipe">
+                  </div>
+                  <div>
+                    <label>Pago</label>
+                    <select id="editPayment"><option>Nequi</option><option>Efectivo</option><option>Daviplata</option><option>Transferencia</option></select>
+                  </div>
+                  <div>
+                    <label>Domicilio</label>
+                    <input id="editDeliveryFee" value="$0">
+                  </div>
+                  <div class="full">
+                    <label>Dirección</label>
+                    <input id="editAddress" value="Cra 78 # 8B-31, apto 402">
+                  </div>
+                  <div class="full">
+                    <label>Nota interna</label>
+                    <textarea id="editNote">Validar si el conjunto permite ingreso del domiciliario.</textarea>
+                  </div>
+                </div>
+                <button type="button" class="primary-btn section-spaced full-width" id="saveEdit">Guardar cambios</button>
+              </form>
+
+              <div class="section-spaced-lg">
+                <h3 class="section-title-sm">Datos del cliente</h3>
+                <div class="items">
+                  <div class="item-row"><strong>Dirección</strong><div class="muted" id="addressText">Cra 78 # 8B-31, apto 402</div></div>
+                  <div class="item-row"><strong>Zona</strong><div class="muted">Castilla · domicilio $5.000</div></div>
+                  <div class="item-row"><strong>Pago</strong><div class="muted" id="paymentText">Nequi · falta comprobante</div></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div id="accounting" class="view admin-only">
+          <div class="finance-summary">
+            <article class="finance-card">
+              <span>Venta neta hoy</span>
+              <strong id="accountingSalesToday">$0</strong>
+              <small id="accountingSalesText">0 pedidos · ticket promedio $0</small>
+            </article>
+            <article class="finance-card">
+              <span>Cobrado confirmado</span>
+              <strong id="accountingConfirmedPaid">$0</strong>
+              <small id="accountingConfirmedText">Sin pagos pendientes</small>
+            </article>
+            <article class="finance-card">
+              <span>Efectivo esperado</span>
+              <strong id="accountingCashExpected">$0</strong>
+              <small>Pedidos marcados con pago en efectivo</small>
+            </article>
+            <article class="finance-card">
+              <span>Diferencia de caja</span>
+              <strong id="accountingCashDifference">$0</strong>
+              <small id="accountingCashDifferenceText">Sin cierre registrado</small>
+            </article>
+          </div>
+
+          <div class="ops-strip">
+            <article class="ops-pill">
+              <div><strong>Cierre pendiente</strong><span>Turno tarde · caja principal</span></div>
+              <i class="signal warn"></i>
+            </article>
+            <article class="ops-pill">
+              <div><strong id="pendingPaymentsTitle">0 pagos por confirmar</strong><span id="pendingPaymentsText">Sin pendientes</span></div>
+              <i class="signal warn"></i>
+            </article>
+            <article class="ops-pill">
+              <div><strong>Gastos registrados</strong><span>$72.000 en empaques e insumos</span></div>
+              <i class="signal"></i>
+            </article>
+            <article class="ops-pill">
+              <div><strong>Domicilios netos</strong><span>$116.000 cobrado · $42.000 costo</span></div>
+              <i class="signal"></i>
+            </article>
+          </div>
+
+          <div class="accounting-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Métodos de pago</h3>
+                <div class="chips">
+                  <span class="chip">Hoy</span>
+                  <span class="chip human">Pendientes</span>
+                  <span class="chip confirmed">Conciliados</span>
+                </div>
+              </div>
+              <div class="reconcile-list" id="paymentReconcileList"></div>
+            </section>
+
+            <aside class="panel detail-card">
+              <div class="panel-header compact">
+                <h3>Cierre de caja</h3>
+                <span class="chip preparing" id="cashCloseStatus">Abierta</span>
+              </div>
+              <div class="cash-close">
+                <div class="cash-box">
+                  <div class="row-between"><span>Base inicial</span><strong>$80.000</strong></div>
+                  <div class="row-between"><span>Ventas en efectivo</span><strong id="cashSales">$0</strong></div>
+                  <div class="row-between"><span>Salidas registradas</span><strong id="cashOut">$0</strong></div>
+                  <div class="row-between"><span>Efectivo esperado</span><strong id="cashExpected">$0</strong></div>
+                </div>
+                <label for="cashCount">Efectivo contado</label>
+                <input id="cashCount" value="$0">
+                <label for="cashNote">Nota de diferencia</label>
+                <textarea id="cashNote">Sin diferencia registrada por ahora.</textarea>
+                <button class="primary-btn" id="closeCash">Cerrar caja</button>
+                <button class="secondary-btn" id="exportSummary">Exportar resumen</button>
+              </div>
+            </aside>
+          </div>
+
+          <div class="work-grid section-spaced single-column-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Movimientos del día</h3>
+                <span>Ventas, gastos y ajustes</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Método</th><th>Responsable</th><th>Monto</th><th>Estado</th><th>Acción</th></tr>
+                  </thead>
+                  <tbody id="accountingMovements">
+                    <tr><td>5:18 p.m.</td><td>Venta</td><td>#ILF-1048 · Laura Méndez</td><td>Nequi</td><td>Bot</td><td><strong>$29.000</strong></td><td><span class="chip human">Sin soporte</span></td><td><button class="secondary-btn" data-toast="Adjuntar soporte quedará conectado al backend.">Adjuntar</button></td></tr>
+                    <tr><td>5:04 p.m.</td><td>Gasto</td><td>Compra de empaques</td><td>Efectivo</td><td>Camila</td><td><strong>$42.000</strong></td><td><span class="chip confirmed">Registrado</span></td><td><button class="secondary-btn" data-toast="Detalle de movimiento abierto.">Ver</button></td></tr>
+                    <tr><td>4:51 p.m.</td><td>Venta</td><td>#ILF-1047 · Andrés R.</td><td>Efectivo</td><td>Operario</td><td><strong>$52.000</strong></td><td><span class="chip preparing">Cambio $100k</span></td><td><button class="secondary-btn" data-toast="Movimiento marcado para revisión de caja.">Revisar</button></td></tr>
+                    <tr><td>4:35 p.m.</td><td>Salida</td><td>Pago domiciliario zona Marsella</td><td>Efectivo</td><td>Admin</td><td><strong>$30.000</strong></td><td><span class="chip confirmed">Incluido</span></td><td><button class="secondary-btn" data-toast="Detalle de salida abierto.">Ver</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+          </div>
+        </div>
+
+        <div id="menu" class="view admin-only">
+          <section class="panel menu-intro-card">
+            <div>
+              <span>Administración de catálogo</span>
+              <h3>Actualiza productos, precios y disponibilidad sin tocar el bot</h3>
+              <p>Apaga un producto cuando se agote: cambia al instante a Agotado y el bot no debe ofrecerlo como disponible. Los precios se usan para revisar pedidos y alimentar el catálogo del asistente.</p>
+            </div>
+            <button class="secondary-btn" id="menuRefreshBtn">Sincronizar datos</button>
+          </section>
+
+          <div class="menu-hero">
+            <section class="panel menu-summary-card">
+              <span>Catalogo operativo</span>
+              <strong id="menuProductCount">0 productos</strong>
+              <small>Estos productos alimentan el menu que usa el bot y el panel del operador.</small>
+            </section>
+            <section class="panel menu-summary-card">
+              <span>Disponibles</span>
+              <strong id="menuAvailableCount">0</strong>
+              <small>Activos y no marcados como agotados.</small>
+            </section>
+            <section class="panel menu-summary-card">
+              <span>Agotados</span>
+              <strong id="menuUnavailableCount">0</strong>
+              <small>El bot no deberia venderlos como disponibles.</small>
+            </section>
+            <section class="panel menu-summary-card">
+              <span>Toppings/adiciones</span>
+              <strong id="menuToppingCount">0</strong>
+              <small>Opciones que el cliente puede agregar o consultar.</small>
+            </section>
+          </div>
+
+          <div class="config-grid menu-admin-grid">
+            <section class="panel config-card menu-products-card">
+              <div class="panel-header compact">
+                <h3>Productos, precios y disponibilidad</h3>
+                <span>Conectado al backend</span>
+              </div>
+              <div id="menuProductList"></div>
+              <button class="secondary-btn section-spaced" id="addProductBtn">Agregar producto</button>
+            </section>
+            <section class="panel config-card">
+              <div class="panel-header compact">
+                <h3>Toppings y adiciones</h3>
+                <span>Conectado al catalogo</span>
+              </div>
+              <div class="chips" id="menuToppingList"></div>
+              <button class="secondary-btn section-spaced" id="addToppingBtn">Agregar topping</button>
+            </section>
+          </div>
+        </div>
+
+        <div id="settings" class="view admin-only">
+          <div class="config-grid">
+            <section class="panel config-card">
+              <h3>Menú y disponibilidad</h3>
+              <p class="muted">Productos, precios, toppings y disponibilidad viven ahora en una sección dedicada para que el restaurante pueda actualizar el catálogo sin mezclarlo con horarios o pagos.</p>
+              <button class="secondary-btn section-spaced" data-view-shortcut="menu">Abrir menú</button>
+            </section>
+            <section class="panel config-card">
+              <h3>Zonas de domicilio <span class="beta-pill">Beta</span></h3>
+              <p class="muted">Pendiente de configuración real. Por ahora el bot no inventa tarifas y el operario confirma el domicilio antes de despachar.</p>
+              <div id="deliveryZoneList"></div>
+              <button class="secondary-btn section-spaced" id="addZoneBtn" disabled title="Beta: se configurará después">Agregar zona próximamente</button>
+            </section>
+            <section class="panel config-card">
+              <h3>Métodos de pago</h3>
+              <div id="paymentMethodList"></div>
+            </section>
+            <section class="panel config-card">
+              <h3>Horarios</h3>
+              <div id="businessStatusPanel" class="business-status-panel"></div>
+              <div class="pause-control section-spaced" id="globalBotPauseControls">
+                <span>Pausar</span>
+                <button class="secondary-btn tiny-btn" data-global-bot-pause="30">30 min</button>
+                <button class="secondary-btn tiny-btn" data-global-bot-pause="60">1 h</button>
+                <button class="secondary-btn tiny-btn hide" id="globalBotPauseToggle">Reactivar</button>
+              </div>
+              <div id="businessHoursList" class="business-status-panel section-spaced"></div>
+              <div id="specialClosureList"></div>
+              <button class="secondary-btn section-spaced" id="createClosureBtn">Crear cierre</button>
+            </section>
+          </div>
+        </div>
+
+        <div id="betaMetrics" class="view admin-only">
+          <section class="panel beta-dashboard">
+            <div class="panel-header">
+              <div>
+                <h3>Metricas beta</h3>
+                <span>Lectura simple de operacion, sin analytics complejo</span>
+              </div>
+              <span class="chip preparing">Beta</span>
+            </div>
+            <div class="beta-metrics-grid" id="betaMetricsGrid"></div>
+          </section>
+          <section class="panel section-spaced">
+            <div class="panel-header">
+              <h3>Alertas a revisar</h3>
+              <span>Pedidos y conversaciones</span>
+            </div>
+            <div class="beta-alert-list" id="betaAlertList"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
