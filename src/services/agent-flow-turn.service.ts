@@ -9,6 +9,9 @@ interface BotTurnInput {
   channel: BotChannel;
   chatId: string;
   text: string;
+  hasAttachment?: boolean;
+  attachmentType?: "image" | "document" | null;
+  attachmentFileId?: string | null;
 }
 
 interface FlowisePredictionResponse {
@@ -29,13 +32,7 @@ export class AgentFlowTurnService {
 
   async handleTurn(input: BotTurnInput) {
     const text = input.text.trim();
-    if (!text) {
-      return {
-        responseText: "Escribeme tu pedido o dime si quieres ver el menu.",
-        shouldSendReply: true,
-        source: "empty_message"
-      };
-    }
+    const hasAttachment = Boolean(input.hasAttachment || input.attachmentType || input.attachmentFileId);
 
     if (this.isNewChatCommand(text)) {
       const conversation = this.botIntegrationService.startNewConversation(input.channel, input.chatId);
@@ -52,6 +49,18 @@ export class AgentFlowTurnService {
       input.channel,
       input.chatId
     );
+
+    if (!text && !hasAttachment && conversation.conversationState.next_expected !== "comprobante_pago") {
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText: "Escribeme tu pedido o dime si quieres ver el menu.",
+        shouldSendReply: true,
+        source: "empty_message",
+        state: conversation.state,
+        orderId: conversation.activeOrderId ?? null
+      };
+    }
 
     if (
       conversation.conversationState.next_expected === "confirmacion" &&
@@ -85,9 +94,9 @@ export class AgentFlowTurnService {
     }
 
     if (conversation.conversationState.next_expected === "comprobante_pago") {
-      const paymentProofReceived = this.isPaymentProof(text);
+      const paymentProofReceived = hasAttachment || !text || this.isPaymentProof(text);
       const responseText = paymentProofReceived
-        ? "Listo, recibimos tu comprobante y dejo tu pedido en revision con el equipo. Te confirmamos por aqui antes de prepararlo."
+        ? "Comprobante recibido! Un operario te va a confirmar cuando tu pedido este enviado!"
         : this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
           "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
       const updatedConversation = this.botIntegrationService.updateConversationState(
@@ -97,7 +106,9 @@ export class AgentFlowTurnService {
           botMessage: responseText,
           mensaje_cliente: responseText,
           comprobante_pago_recibido: paymentProofReceived,
-          payment_proof_note: paymentProofReceived ? text : undefined,
+          payment_proof_note: paymentProofReceived
+            ? text || `Comprobante recibido por ${input.attachmentType ?? "archivo"} desde ${input.channel}.`
+            : undefined,
           next_expected: paymentProofReceived ? "humano" : "comprobante_pago",
           needs_human: paymentProofReceived
         }

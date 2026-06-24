@@ -222,6 +222,20 @@ try {
   assert.equal(dashboardOrder.paymentProofReceived, true);
   assert.equal(dashboardOrder.paymentStatusLabel, "Comprobante recibido, pendiente de verificacion");
 
+  const dispatchedOrder = await request(`/admin/dashboard/orders/${order.id}/notify-dispatched`, {
+    method: "POST",
+    body: JSON.stringify({})
+  }) as { status: string };
+  assert.equal(dispatchedOrder.status, "dispatched");
+  assert(
+    demoStore.messages.some((message) =>
+      message.conversationId === conversation.id &&
+      message.role === "bot" &&
+      message.text === "Tu pedido ha sido despachado!"
+    ),
+    "dispatch notification should save exact customer message"
+  );
+
   const paymentMethods = await request("/admin/dashboard/payment-methods") as Array<{
     id: string;
     accountLabel: string | null;
@@ -283,6 +297,17 @@ try {
     method: "PATCH",
     body: JSON.stringify({ basePrice: originalProduct.basePrice })
   });
+
+  const reset = await request("/admin/dashboard/reset-operational-data", {
+    method: "POST",
+    body: JSON.stringify({})
+  }) as { ok: boolean; deleted: { orders: number; conversations: number } };
+  assert.equal(reset.ok, true);
+  assert(reset.deleted.orders > 0, "reset should delete orders");
+  assert(reset.deleted.conversations > 0, "reset should delete conversations");
+  assert.equal(demoStore.orders.length, 0);
+  assert.equal(demoStore.conversations.length, 0);
+  assert.equal(demoStore.messages.length, 0);
 
   console.log("dashboard-operational smoke OK");
 } finally {

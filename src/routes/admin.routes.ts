@@ -24,6 +24,10 @@ adminRouter.get(
   "/admin/dashboard/conversations",
   controller.listDashboardConversations.bind(controller)
 );
+adminRouter.post(
+  "/admin/dashboard/reset-operational-data",
+  controller.resetDashboardOperationalData.bind(controller)
+);
 adminRouter.get(
   "/admin/dashboard/conversations/:id",
   controller.getDashboardConversation.bind(controller)

@@ -4,6 +4,7 @@ import type { Conversation, Message, Order, OrderItem } from "../types/index.js"
 import { env } from "../config/env.js";
 import { createId, nowIso } from "../utils/id.js";
 import { HttpError } from "../utils/http.js";
+import { logger } from "../utils/logger.js";
 import { TelegramService } from "./telegram.service.js";
 import { WhatsAppService } from "./whatsapp.service.js";
 
@@ -145,7 +146,7 @@ export class AdminDashboardService {
       return null;
     }
 
-    const customerMessage = "Tu pedido ha sido enviado! Va en camino.";
+    const customerMessage = "Tu pedido ha sido despachado!";
     await this.sendCustomerMessage(order.customerPhone, customerMessage);
     this.saveBotMessageForOrder(order, customerMessage);
 
@@ -222,18 +223,25 @@ export class AdminDashboardService {
   }
 
   private async sendCustomerMessage(customerPhone: string, message: string) {
-    if (customerPhone.startsWith("telegram:")) {
-      if (!env.TELEGRAM_CLIENT_BOT_TOKEN) {
-        throw new HttpError(400, "Telegram client bot token is not configured");
+    try {
+      if (customerPhone.startsWith("telegram:")) {
+        if (!env.TELEGRAM_CLIENT_BOT_TOKEN) {
+          throw new HttpError(400, "Telegram client bot token is not configured");
+        }
+
+        const chatId = customerPhone.replace(/^telegram:/, "");
+        await this.telegramService.sendMessage(env.TELEGRAM_CLIENT_BOT_TOKEN, chatId, message);
+        return;
       }
 
-      const chatId = customerPhone.replace(/^telegram:/, "");
-      await this.telegramService.sendMessage(env.TELEGRAM_CLIENT_BOT_TOKEN, chatId, message);
-      return;
+      const whatsappTo = customerPhone.replace(/^whatsapp:/, "");
+      await this.whatsAppService.sendTextMessage(whatsappTo, message);
+    } catch (error) {
+      logger.warn("Customer notification failed; dashboard state was still updated", {
+        customerPhone,
+        error: error instanceof Error ? error.message : "unknown"
+      });
     }
-
-    const whatsappTo = customerPhone.replace(/^whatsapp:/, "");
-    await this.whatsAppService.sendTextMessage(whatsappTo, message);
   }
 
   private buildCustomerConfirmationMessage(order: Order) {
@@ -348,6 +356,23 @@ export class AdminDashboardService {
       .slice()
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .map((conversation) => this.toDashboardConversation(conversation));
+  }
+
+  resetOperationalData() {
+    const deleted = {
+      conversations: demoStore.conversations.length,
+      messages: demoStore.messages.length,
+      conversationTraces: demoStore.conversationTraces.length,
+      orders: demoStore.orders.length
+    };
+
+    demoStore.conversations = [];
+    demoStore.messages = [];
+    demoStore.conversationTraces = [];
+    demoStore.orders = [];
+    persistRuntimeStore();
+
+    return { ok: true, deleted };
   }
 
   getDashboardConversation(conversationId: string) {

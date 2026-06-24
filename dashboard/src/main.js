@@ -870,7 +870,7 @@ async function notifyDispatch() {
     replaceById(state.orders, updated);
     state.selectedOrderId = updated.id;
     renderAll();
-    showToast("Cliente avisado del despacho.");
+    showToast("Cliente avisado: pedido despachado.");
   } catch (error) {
     console.error(error);
     showToast("No pude avisar despacho.");

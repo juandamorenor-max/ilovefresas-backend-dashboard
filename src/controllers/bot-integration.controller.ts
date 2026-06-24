@@ -64,7 +64,10 @@ export class BotIntegrationController {
       await this.agentFlowTurnService.handleTurn({
         channel: this.getBodyChannel(request),
         chatId: String(request.body.chatId ?? ""),
-        text: String(request.body.text ?? "")
+        text: String(request.body.text ?? request.body.caption ?? ""),
+        hasAttachment: this.hasAttachment(request.body),
+        attachmentType: this.getAttachmentType(request.body),
+        attachmentFileId: this.getAttachmentFileId(request.body)
       })
     );
   }
@@ -99,5 +102,37 @@ export class BotIntegrationController {
     if (request.header("x-bot-secret") !== env.BOT_INTEGRATION_SECRET) {
       throw new HttpError(401, "Invalid bot integration secret");
     }
+  }
+
+  private hasAttachment(body: Record<string, unknown>) {
+    return (
+      body.hasAttachment === true ||
+      body.hasAttachment === "true" ||
+      Boolean(body.attachmentType) ||
+      Array.isArray(body.photo) ||
+      Boolean(body.document)
+    );
+  }
+
+  private getAttachmentType(body: Record<string, unknown>) {
+    const attachmentType = String(body.attachmentType ?? "").toLowerCase();
+    if (attachmentType === "image" || attachmentType === "photo") return "image" as const;
+    if (attachmentType === "document") return "document" as const;
+    if (Array.isArray(body.photo)) return "image" as const;
+    if (body.document) return "document" as const;
+    return null;
+  }
+
+  private getAttachmentFileId(body: Record<string, unknown>) {
+    if (typeof body.attachmentFileId === "string") return body.attachmentFileId;
+    const photo = Array.isArray(body.photo) ? body.photo.at(-1) : null;
+    if (photo && typeof photo === "object" && "file_id" in photo) {
+      return String(photo.file_id ?? "");
+    }
+    const document = body.document;
+    if (document && typeof document === "object" && "file_id" in document) {
+      return String(document.file_id ?? "");
+    }
+    return null;
   }
 }

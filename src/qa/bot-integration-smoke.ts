@@ -211,9 +211,74 @@ assert(
 );
 assert(proofTurn.orderId, "payment proof should create review order");
 assert(
-  String(proofTurn.responseText).includes("dejo tu pedido en revision"),
-  "payment proof response should mention review"
+  String(proofTurn.responseText).includes("Comprobante recibido"),
+  "payment proof response should acknowledge proof"
 );
+
+const imageProofChatId = "payment-image-proof-test";
+const imageProofConversation = service.startNewConversation("telegram", imageProofChatId);
+service.updateConversationState(imageProofConversation.id, {
+  items: [
+    {
+      producto: "Fresas con crema tradicional",
+      cantidad: 1
+    }
+  ],
+  nombre: "Image Proof Test",
+  direccion: "Cra 39A #41-99",
+  barrio: "Cabecera del Llano",
+  referencia: "Porteria",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio",
+  comprobante_pago_pendiente: true,
+  next_expected: "comprobante_pago"
+});
+const imageProofTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: imageProofChatId,
+  text: "",
+  hasAttachment: true,
+  attachmentType: "image",
+  attachmentFileId: "telegram-photo-qa"
+});
+assert(
+  imageProofTurn.source === "backend_payment_proof_received",
+  "image proof should be handled by backend before Flowise"
+);
+assert(imageProofTurn.orderId, "image proof should create review order");
+assert(
+  String(imageProofTurn.responseText).includes("Comprobante recibido"),
+  "image proof response should acknowledge proof"
+);
+
+const emptyTelegramProofChatId = "payment-empty-telegram-proof-test";
+const emptyTelegramProofConversation = service.startNewConversation("telegram", emptyTelegramProofChatId);
+service.updateConversationState(emptyTelegramProofConversation.id, {
+  items: [
+    {
+      producto: "Fresas con crema tradicional",
+      cantidad: 1
+    }
+  ],
+  nombre: "Empty Proof Test",
+  direccion: "Cra 39A #41-99",
+  barrio: "Cabecera del Llano",
+  referencia: "Porteria",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio",
+  comprobante_pago_pendiente: true,
+  next_expected: "comprobante_pago"
+});
+const emptyTelegramProofTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: emptyTelegramProofChatId,
+  text: ""
+});
+assert(
+  emptyTelegramProofTurn.source === "backend_payment_proof_received",
+  "empty Telegram message while waiting proof should be treated as proof to avoid image loop"
+);
+assert(emptyTelegramProofTurn.orderId, "empty Telegram proof should create review order");
 
 async function assertPaymentMethodInstructions(
   paymentMethod: string,

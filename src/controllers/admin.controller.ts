@@ -126,6 +126,10 @@ export class AdminController {
     response.json(this.adminDashboardService.listDashboardConversations());
   }
 
+  resetDashboardOperationalData(_request: Request, response: Response) {
+    response.json(this.adminDashboardService.resetOperationalData());
+  }
+
   getDashboardConversation(request: Request, response: Response) {
     const conversation = this.adminDashboardService.getDashboardConversation(
       this.getParam(request, "id")
