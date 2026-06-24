@@ -12,6 +12,8 @@
     "telegram:dev": "tsx src/telegram-local.ts",
     "telegram:admin-id": "tsx src/telegram-admin-id.ts",
     "build": "tsc -p tsconfig.json",
+    "build:dashboard": "npm run build --prefix dashboard",
+    "build:all": "npm run build:dashboard && npm run build",
     "beta:local": "npm run build && node dist/local-beta.js",
     "qa:conversation": "npm run build && node dist/qa/conversation-regression.js",
     "qa:redteam": "npm run build && node dist/qa/red-team-attacks.js",

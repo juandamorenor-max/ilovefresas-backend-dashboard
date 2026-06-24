@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from "express";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { adminRouter } from "./routes/admin.routes.js";
 import { botIntegrationRouter } from "./routes/bot-integration.routes.js";
@@ -13,7 +14,9 @@ export function createApp() {
 
   app.use(express.json({ limit: "1mb" }));
 
-  const dashboardPath = path.join(process.cwd(), "dashboard");
+  const dashboardSourcePath = path.join(process.cwd(), "dashboard");
+  const dashboardDistPath = path.join(dashboardSourcePath, "dist");
+  const dashboardPath = existsSync(dashboardDistPath) ? dashboardDistPath : dashboardSourcePath;
   app.get("/", (_request: Request, response: Response) => {
     response.redirect(302, "/dashboard");
   });
