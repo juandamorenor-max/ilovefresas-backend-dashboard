@@ -88,7 +88,8 @@ export class AgentFlowTurnService {
       const paymentProofReceived = this.isPaymentProof(text);
       const responseText = paymentProofReceived
         ? "Listo, recibimos tu comprobante y dejo tu pedido en revision con el equipo. Te confirmamos por aqui antes de prepararlo."
-        : "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
+        : this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
+          "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
         {

@@ -190,6 +190,14 @@ assert(
   String(offTopicTurn.responseText).toLowerCase().includes("comprobante"),
   "off-topic response should redirect to payment proof"
 );
+assert(
+  String(offTopicTurn.responseText).includes("Nequi: 3000000000"),
+  "off-topic response should keep payment instructions visible"
+);
+assert(
+  String(offTopicTurn.responseText).includes("Total: 21000"),
+  "off-topic response should keep total visible"
+);
 assert(!offTopicTurn.orderId, "off-topic message should not create review order");
 
 const proofTurn = await agentFlowTurnService.handleTurn({
