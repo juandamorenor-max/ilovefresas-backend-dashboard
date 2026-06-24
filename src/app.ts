@@ -14,6 +14,9 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
 
   const dashboardPath = path.join(process.cwd(), "dashboard");
+  app.get("/", (_request: Request, response: Response) => {
+    response.redirect(302, "/dashboard");
+  });
   app.use("/dashboard", express.static(dashboardPath));
 
   app.use(healthRouter);
