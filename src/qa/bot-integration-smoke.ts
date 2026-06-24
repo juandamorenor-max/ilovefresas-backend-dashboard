@@ -215,6 +215,51 @@ assert(
   "payment proof response should mention review"
 );
 
+async function assertPaymentMethodInstructions(
+  paymentMethod: string,
+  expectedLine: string
+) {
+  const chatId = `payment-method-${paymentMethod.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const conversation = service.startNewConversation("telegram", chatId);
+  service.updateConversationState(conversation.id, {
+    items: [
+      {
+        producto: "Fresas con crema tradicional",
+        cantidad: 1
+      }
+    ],
+    nombre: "Metodo Pago Test",
+    direccion: "Cra 39A #41-99",
+    barrio: "Cabecera del Llano",
+    referencia: "Porteria",
+    metodo_pago: paymentMethod,
+    modalidad_entrega: "domicilio"
+  });
+
+  const turn = await agentFlowTurnService.handleTurn({
+    channel: "telegram",
+    chatId,
+    text: "si"
+  });
+
+  assert(
+    turn.source === "backend_payment_instructions",
+    `${paymentMethod} should return backend payment instructions`
+  );
+  assert(
+    String(turn.responseText).includes(expectedLine),
+    `${paymentMethod} instructions should include ${expectedLine}`
+  );
+  assert(
+    String(turn.responseText).includes("Total: 21000"),
+    `${paymentMethod} instructions should include total`
+  );
+  assert(!turn.orderId, `${paymentMethod} instructions should not create order yet`);
+}
+
+await assertPaymentMethodInstructions("Bancolombia", "Cuenta Bancolombia: 72600000000");
+await assertPaymentMethodInstructions("Bre-B", "Llave Bre-B: @test");
+
 const originalTraditionalPrice = traditionalProduct.basePrice;
 traditionalProduct.basePrice = 17000;
 const priceConversation = service.startNewConversation("telegram", "price-test");
