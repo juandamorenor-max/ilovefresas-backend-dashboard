@@ -300,6 +300,20 @@ export class AdminDashboardService {
     return null;
   }
 
+  private buildPaymentStatusLabel(order: Order) {
+    if (!order.paymentMethod) {
+      return "Pago pendiente";
+    }
+
+    if (order.paymentMethod === "Contra entrega") {
+      return "Pago contra entrega";
+    }
+
+    return order.paymentProofReceived
+      ? "Comprobante recibido, pendiente de verificacion"
+      : "Falta comprobante";
+  }
+
   private saveBotMessageForOrder(order: Order, text: string) {
     const conversation = this.findConversationForOrder(order);
     if (!conversation) {
@@ -359,6 +373,9 @@ export class AdminDashboardService {
       zone: order.zoneName ?? "Por confirmar",
       addressReference: order.addressReference ?? null,
       payment: order.paymentMethod ?? "Pendiente",
+      paymentProofReceived: order.paymentProofReceived,
+      paymentProofNote: order.paymentProofNote,
+      paymentStatusLabel: this.buildPaymentStatusLabel(order),
       total: order.pricing.total,
       subtotal: order.pricing.subtotal,
       delivery: order.pricing.deliveryFee,
@@ -534,7 +551,7 @@ export class AdminDashboardService {
       return "Pago";
     }
 
-    if (order.paymentMethod !== "Contra entrega") {
+    if (order.paymentMethod !== "Contra entrega" && !order.paymentProofReceived) {
       return "Comprobante";
     }
 

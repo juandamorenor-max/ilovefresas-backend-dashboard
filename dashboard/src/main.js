@@ -553,6 +553,7 @@ function orderCard(order) {
       <strong>${escapeHtml(orderLabel(order))}</strong>
       <span>${escapeHtml(order.customer || "Cliente pendiente")}</span>
       <small>${escapeHtml(order.zone || "Zona pendiente")} - ${escapeHtml(order.payment || "Pago pendiente")}</small>
+      <small>${escapeHtml(order.paymentStatusLabel || paymentStatusLabel(order))}</small>
       <div class="card-bottom">
         <span class="chip ${escapeAttr(order.status)}">${escapeHtml(statusLabels[order.status] || order.status)}</span>
         <b>${money(order.total)}</b>
@@ -589,6 +590,13 @@ function renderDetail() {
       <b>${item.priceStatus === "review_required" ? "Por revisar" : money(item.total)}</b>
     </article>
   `).join("") || emptyState("El pedido no tiene productos.");
+  $("detailItems").insertAdjacentHTML("afterbegin", `
+    <article class="line-item">
+      <strong>Pago</strong>
+      <span>${escapeHtml(order.payment || "Pago pendiente")}</span>
+      <b>${escapeHtml(order.paymentStatusLabel || paymentStatusLabel(order))}</b>
+    </article>
+  `);
   $("detailSubtotal").textContent = money(order.subtotal);
   $("detailDelivery").textContent = money(order.delivery);
   $("detailTotal").textContent = money(order.total);
@@ -617,6 +625,12 @@ function lineDetails(item) {
   const options = (item.selectedOptions || []).map((entry) => `${entry.label}: ${entry.value}`);
   const notes = item.notes ? [item.notes] : [];
   return [...options, ...additions, ...removals, ...notes].join(" - ") || "Sin cambios";
+}
+
+function paymentStatusLabel(order) {
+  if (!order.payment || order.payment === "Pendiente") return "Pago pendiente";
+  if (order.payment === "Contra entrega") return "Pago contra entrega";
+  return order.paymentProofReceived ? "Comprobante recibido, pendiente de verificacion" : "Falta comprobante";
 }
 
 function renderConversations() {

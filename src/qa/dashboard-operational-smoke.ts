@@ -7,6 +7,7 @@ process.env.TELEGRAM_ADMIN_BOT_TOKEN = "";
 
 const { createApp } = await import("../app.js");
 const { demoStore } = await import("../data/demoStore.js");
+const integrationSecret = process.env.BOT_INTEGRATION_SECRET ?? "qa-dashboard-secret";
 
 type Json = Record<string, unknown>;
 
@@ -18,7 +19,7 @@ const server = await new Promise<Server>((resolve) => {
 const address = server.address();
 assert(address && typeof address === "object", "Expected server address");
 const baseUrl = `http://127.0.0.1:${address.port}`;
-const secretHeaders = { "x-bot-secret": "qa-dashboard-secret" };
+const secretHeaders = { "x-bot-secret": integrationSecret };
 
 async function request(path: string, options: RequestInit = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -202,6 +203,7 @@ try {
     method: "POST",
     headers: secretHeaders
   }) as {
+    id: string;
     items: Array<{ unitBasePrice: number }>;
     pricing: { total: number };
     paymentProofReceived: boolean;
@@ -209,6 +211,16 @@ try {
   assert.equal(order.items[0]?.unitBasePrice, 17000);
   assert.equal(order.pricing.total, 22000);
   assert.equal(order.paymentProofReceived, true);
+
+  const dashboardOrders = await request("/admin/dashboard/orders") as Array<{
+    id: string;
+    paymentProofReceived: boolean;
+    paymentStatusLabel: string;
+  }>;
+  const dashboardOrder = dashboardOrders.find((entry) => entry.id === order.id);
+  assert(dashboardOrder, "Created review order should be visible in dashboard orders");
+  assert.equal(dashboardOrder.paymentProofReceived, true);
+  assert.equal(dashboardOrder.paymentStatusLabel, "Comprobante recibido, pendiente de verificacion");
 
   await request(`/admin/products/${traditional.id}`, {
     method: "PATCH",
