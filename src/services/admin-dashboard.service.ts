@@ -381,6 +381,21 @@ export class AdminDashboardService {
     return { ok: true, deleted };
   }
 
+  resetConversationData() {
+    const deleted = {
+      conversations: demoStore.conversations.length,
+      messages: demoStore.messages.length,
+      conversationTraces: demoStore.conversationTraces.length
+    };
+
+    demoStore.conversations = [];
+    demoStore.messages = [];
+    demoStore.conversationTraces = [];
+    persistRuntimeStore();
+
+    return { ok: true, deleted };
+  }
+
   getDashboardConversation(conversationId: string) {
     const conversation = demoStore.conversations.find((entry) => entry.id === conversationId);
     return conversation ? this.toDashboardConversation(conversation) : null;

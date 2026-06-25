@@ -54,6 +54,7 @@ El dashboard consume estos endpoints:
 - `PATCH /admin/dashboard/orders/:id/status`
 - `POST /admin/dashboard/orders/:id/notify-dispatched`
 - `GET /admin/dashboard/conversations`
+- `POST /admin/dashboard/reset-conversations`
 - `GET /admin/dashboard/conversations/:id`
 - `GET /admin/dashboard/products`
 - `GET /admin/dashboard/modifiers`
