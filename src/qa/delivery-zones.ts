@@ -75,6 +75,34 @@ await check("barrio con typo conservador", () => {
   expectMatch("Altos del Praddo", "Altos del Prado");
 });
 
+await check("barrio real publico Riomar La Castellana", () => {
+  expectMatch("La Castellana", "La Castellana");
+});
+
+await check("barrio real publico Norte Centro Historico El Country", () => {
+  expectMatch("El Country", "El Country");
+});
+
+await check("barrio real publico Metropolitana Realengo", () => {
+  expectMatch("Realengo", "Realengo");
+});
+
+await check("barrio real publico Suroccidente Pastoral Social", () => {
+  expectMatch("Pastoral Social", "Pastoral Social");
+});
+
+await check("barrio real publico Suroriente Ciudad Cisneros", () => {
+  expectMatch("Ciudad Cisneros", "Ciudad Cisneros");
+});
+
+await check("variante publica Ciudadela Veinte de Julio", () => {
+  expectMatch("Ciudadela Veinte de Julio", "Ciudadela 20 de Julio");
+});
+
+await check("variante publica Bella Arena", () => {
+  expectMatch("Bella Arena", "Bellarena");
+});
+
 await check("por Buenavista es landmark, no barrio definitivo", () => {
   expectStatus("por Buenavista", "landmark_only");
 });
@@ -119,8 +147,12 @@ await check("Los Angeles numero arabigo resuelve romano", () => {
   expectMatch("Los Angeles 2", "Los Angeles II");
 });
 
-await check("Las Colinas es ambiguo porque existe en mas de una localidad", () => {
-  expectStatus("Las Colinas", "ambiguous");
+await check("Las Colinas existe como barrio y se acepta", () => {
+  expectMatch("Las Colinas", "Las Colinas");
+});
+
+await check("Cabecera del Llano no es barrio de Barranquilla", () => {
+  expectStatus("Cabecera del Llano", "not_found");
 });
 
 const passed = results.filter((result) => result.ok).length;

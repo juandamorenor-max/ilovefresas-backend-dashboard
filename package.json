@@ -23,6 +23,7 @@
     "qa:post-dispatch": "npm run build && node dist/qa/post-dispatch.js",
     "qa:required-options": "npm run build && node dist/qa/required-option-quantities.js",
     "qa:delivery-zones": "npm run build && node dist/qa/delivery-zones.js",
+    "qa:barranquilla-neighborhoods": "npm run build && node dist/qa/barranquilla-neighborhood-validation.js",
     "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",
     "qa:catalog-matrix": "npm run build && node dist/qa/catalog-matrix.js",
     "qa:ai-smoke": "npm run build && node dist/qa/ai-smoke.js",

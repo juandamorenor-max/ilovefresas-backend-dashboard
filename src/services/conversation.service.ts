@@ -1,6 +1,9 @@
 import { demoStore } from "../data/demoStore.js";
 import { persistRuntimeStore } from "../data/runtime-store.js";
-import { resolveBarranquillaZone } from "../data/geo/barranquilla-zone-resolver.js";
+import {
+  normalizeBarranquillaZoneText,
+  resolveBarranquillaZone
+} from "../data/geo/barranquilla-zone-resolver.js";
 import { env } from "../config/env.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -2332,7 +2335,7 @@ export class ConversationService {
       draft.notes = result.draftPatch.setNotes;
     }
 
-    this.validateAndNormalizeNeighborhood(draft);
+    this.validateAndNormalizeNeighborhood(draft, currentMessage);
   }
 
   private buildDraftItem(
@@ -4129,6 +4132,14 @@ export class ConversationService {
         conversation.state = "collecting_delivery_details";
         conversation.updatedAt = nowIso();
 
+        if (this.shouldHandoffInvalidNeighborhood(conversation.draftOrder)) {
+          this.handoffConversationToHuman(
+            conversation,
+            conversation.draftOrder.blockingIssue ?? "Barrio no reconocido"
+          );
+          return this.buildAgentTransferMessage();
+        }
+
         const requiredOptionsMessage = this.syncRequiredOptionsBlockingIssue(conversation.draftOrder);
         if (requiredOptionsMessage) {
           conversation.state = "collecting_items";
@@ -4395,6 +4406,7 @@ export class ConversationService {
       mentionedPaymentMethods.length > 1
         ? null
         : extracted?.paymentMethod ?? this.extractPaymentMethodFromText(text);
+    const neighborhoodCandidate = extracted?.zone ?? this.extractNeighborhoodCandidateFromText(text);
     const cashAmount = this.extractCashAmountFromText(text);
     const notes = extracted?.notes ?? this.extractNotesFromText(text);
 
@@ -4423,6 +4435,11 @@ export class ConversationService {
       }
     }
 
+    if (neighborhoodCandidate) {
+      draft.fulfillmentType = "delivery";
+      draft.neighborhood = neighborhoodCandidate;
+    }
+
     if (mentionedPaymentMethods.length > 1) {
       draft.paymentMethod = null;
       draft.cashAmount = null;
@@ -4445,7 +4462,7 @@ export class ConversationService {
       draft.notes = null;
     }
 
-    this.validateAndNormalizeNeighborhood(draft);
+    this.validateAndNormalizeNeighborhood(draft, text);
   }
 
   private async finalizeOrderForReview(conversation: Conversation) {
@@ -5219,6 +5236,13 @@ export class ConversationService {
 
     const visibleMissing = this.simplifyVisibleDeliveryFields(missing, draft);
 
+    if (neighborhoodNeedsCorrection && !draft.blockingIssue) {
+      return [
+        `Ese barrio no lo reconozco: "${draft.neighborhood}".`,
+        "Me confirmas el barrio correcto de Barranquilla, por favor?"
+      ].join("\n");
+    }
+
     return [
       "Dale, para completar tu pedido necesitamos tus siguientes datos:",
       "",
@@ -5277,7 +5301,7 @@ export class ConversationService {
     return missing;
   }
 
-  private validateAndNormalizeNeighborhood(draft: OrderDraft) {
+  private validateAndNormalizeNeighborhood(draft: OrderDraft, latestCustomerText = "") {
     if (draft.fulfillmentType !== "delivery" || !draft.neighborhood?.trim()) {
       return;
     }
@@ -5286,10 +5310,27 @@ export class ConversationService {
     if (resolution.status === "match") {
       draft.neighborhood = resolution.zone.name;
       draft.inferredZoneId = resolution.zone.id;
+      draft.neighborhoodValidationAttempts = 0;
+      draft.lastInvalidNeighborhood = null;
+      this.clearDraftBlockingIssue(draft, "neighborhood");
       return;
     }
 
     draft.inferredZoneId = null;
+    const invalidNeighborhood = normalizeBarranquillaZoneText(draft.neighborhood);
+    const latestText = normalizeBarranquillaZoneText(latestCustomerText);
+    const shouldCountAttempt =
+      draft.lastInvalidNeighborhood !== invalidNeighborhood ||
+      (Boolean(latestText) && latestText.includes(invalidNeighborhood));
+
+    if (shouldCountAttempt) {
+      draft.neighborhoodValidationAttempts = (draft.neighborhoodValidationAttempts ?? 0) + 1;
+      draft.lastInvalidNeighborhood = invalidNeighborhood;
+    }
+
+    if ((draft.neighborhoodValidationAttempts ?? 0) >= 2) {
+      draft.blockingIssue = `Barrio no reconocido despues de varios intentos: ${draft.neighborhood}`;
+    }
   }
 
   private isValidBarranquillaNeighborhood(value: string | null | undefined) {
@@ -5298,6 +5339,10 @@ export class ConversationService {
     }
 
     return resolveBarranquillaZone(value).status === "match";
+  }
+
+  private shouldHandoffInvalidNeighborhood(draft: OrderDraft) {
+    return Boolean(draft.blockingIssue && /barrio no reconocido/i.test(draft.blockingIssue));
   }
 
   private hasDeliveryReferenceOrUnitDetail(address: string) {
@@ -5478,6 +5523,58 @@ export class ConversationService {
       !this.looksLikeAddress(text) &&
       !this.extractPaymentMethodFromText(text)
     );
+  }
+
+  private extractNeighborhoodCandidateFromText(text: string) {
+    const zones = this.catalogService.findDeliveryZonesMentioned(text);
+    if (zones.length === 1) {
+      return zones[0]!.name;
+    }
+
+    const explicit = text.match(/\bbarrio\s+([^,.;\n]+)/i);
+    if (explicit?.[1]) {
+      return this.cleanNeighborhoodCandidate(explicit[1]);
+    }
+
+    const address = this.extractAddressFromText(text);
+    if (!address) {
+      return null;
+    }
+
+    const words = address
+      .replace(/\b(calle|cll|cra|carrera|avenida|av|diagonal|transversal|apto|apartamento|torre|edificio|edif|conjunto|unidad|residencia|manzana|mz|casa|local|piso|interior|bloque|barrio)\b/gi, " ")
+      .replace(/[#0-9-]+/g, " ")
+      .replace(/[^\p{L}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    for (const size of [4, 3, 2]) {
+      const candidate = this.cleanNeighborhoodCandidate(words.slice(-size).join(" "));
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private cleanNeighborhoodCandidate(value: string) {
+    const candidate = this.cleanExtractedSegment(value)
+      .replace(/\b(?:pago|metodo|por|contra|entrega|nequi|bancolombia|efectivo)\b.*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!candidate || candidate.length < 3 || candidate.length > 60) {
+      return null;
+    }
+
+    if (this.extractPaymentMethodFromText(candidate) || this.looksLikeOperationalPhrase(candidate)) {
+      return null;
+    }
+
+    return candidate;
   }
 
   private looksLikeOperationalPhrase(value: string) {
@@ -6795,7 +6892,7 @@ export class ConversationService {
     );
   }
 
-  private clearDraftBlockingIssue(draft: OrderDraft, scope: "item" | "address") {
+  private clearDraftBlockingIssue(draft: OrderDraft, scope: "item" | "address" | "neighborhood") {
     if (!draft.blockingIssue) {
       return;
     }
@@ -6807,6 +6904,10 @@ export class ConversationService {
     }
 
     if (scope === "address" && /\b(apartamento|direccion)\b/i.test(issue)) {
+      draft.blockingIssue = null;
+    }
+
+    if (scope === "neighborhood" && /\b(barrio|zona)\b/i.test(issue)) {
       draft.blockingIssue = null;
     }
   }

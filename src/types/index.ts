@@ -196,6 +196,8 @@ export interface OrderDraft {
   customerName: string | null;
   address: string | null;
   neighborhood?: string | null;
+  neighborhoodValidationAttempts?: number;
+  lastInvalidNeighborhood?: string | null;
   addressReference?: string | null;
   inferredZoneId: string | null;
   paymentMethod: string | null;

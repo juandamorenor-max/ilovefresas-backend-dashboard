@@ -17,6 +17,8 @@ export class OrderService {
       customerName: null,
       address: null,
       neighborhood: null,
+      neighborhoodValidationAttempts: 0,
+      lastInvalidNeighborhood: null,
       addressReference: null,
       inferredZoneId: null,
       paymentMethod: null,
