@@ -3,9 +3,13 @@ import { persistRuntimeStore } from "../data/runtime-store.js";
 import { createId, nowIso } from "../utils/id.js";
 import type { Conversation, Order, OrderDraft, OrderItem } from "../types/index.js";
 import { PricingService } from "./pricing.service.js";
+import { AccountingLedgerService } from "./accounting-ledger.service.js";
 
 export class OrderService {
-  constructor(private readonly pricingService = new PricingService()) {}
+  constructor(
+    private readonly pricingService = new PricingService(),
+    private readonly accountingLedgerService = new AccountingLedgerService()
+  ) {}
 
   createEmptyDraft(businessId: string, customerPhone: string): OrderDraft {
     return {
@@ -137,6 +141,9 @@ export class OrderService {
     }
     order.updatedAt = nowIso();
     persistRuntimeStore();
+    if (status === "dispatched") {
+      void this.accountingLedgerService.recordDispatchedOrder(order);
+    }
     return order;
   }
 

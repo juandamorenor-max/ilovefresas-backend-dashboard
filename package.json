@@ -25,6 +25,7 @@
     "qa:delivery-zones": "npm run build && node dist/qa/delivery-zones.js",
     "qa:barranquilla-neighborhoods": "npm run build && node dist/qa/barranquilla-neighborhood-validation.js",
     "qa:payment-proof": "npm run build && node dist/qa/payment-proof-validation.js",
+    "qa:accounting-ledger": "npm run build && node dist/qa/accounting-ledger.js",
     "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",
     "qa:catalog-matrix": "npm run build && node dist/qa/catalog-matrix.js",
     "qa:ai-smoke": "npm run build && node dist/qa/ai-smoke.js",
@@ -43,11 +44,13 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
+    "pg": "^8.22.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

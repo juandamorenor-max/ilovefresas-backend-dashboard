@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { env } from "../config/env.js";
 import { getRuntimeStoreStatus } from "../data/runtime-store.js";
+import { getPostgresStatus } from "../db/postgres.js";
 
 export class HealthController {
   getStatus(_request: Request, response: Response) {
@@ -16,6 +17,7 @@ export class HealthController {
       ok: true,
       service: "chatbot-i-love-fresas-v2",
       storage: getRuntimeStoreStatus(),
+      accountingDatabase: getPostgresStatus(),
       flowise: {
         configured: Boolean(env.FLOWISE_CHATFLOW_ID),
         apiUrl: env.FLOWISE_API_URL,

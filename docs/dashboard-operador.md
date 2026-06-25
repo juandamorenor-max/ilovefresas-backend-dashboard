@@ -131,6 +131,50 @@ npm run test:runtime-store
 
 Ese smoke cambia un producto por HTTP, verifica que se escriba el snapshot y simula una recarga desde disco.
 
+## Ledger contable de pedidos enviados
+
+La operacion diaria puede seguir usando el dashboard y el snapshot JSON, pero contabilidad necesita una salida mas limpia. Para eso, si `DATABASE_URL` esta configurado, el backend guarda automaticamente una fila en Postgres cuando un pedido pasa a `Despachado`.
+
+Tabla:
+
+```text
+accounting_dispatched_orders
+```
+
+Se guarda:
+
+- numero/chat del cliente;
+- nombre;
+- direccion, barrio y referencia;
+- modalidad;
+- metodo de pago;
+- monto de efectivo si aplica;
+- subtotal, domicilio, descuento y total;
+- fecha de despacho;
+- snapshot completo de la orden.
+
+El registro se crea o actualiza por `order_id`, asi que si se oprime dos veces el boton de despacho no duplica la venta.
+
+Config en Railway:
+
+```text
+DATABASE_URL=<Postgres connection URL>
+```
+
+Verificacion:
+
+```text
+GET /health/integration
+```
+
+Debe aparecer `accountingDatabase.configured=true`.
+
+Prueba repetible:
+
+```bash
+npm run qa:accounting-ledger
+```
+
 ## Flujo recomendado del operador
 
 1. Abrir el pedido pendiente.
@@ -144,9 +188,10 @@ Ese smoke cambia un producto por HTTP, verifica que se escriba el snapshot y sim
 ## Limitaciones de esta beta
 
 - Sin `RUNTIME_STORE_PATH`, los datos siguen en memoria; reiniciar el backend borra pedidos, conversaciones y cambios de catalogo hechos desde dashboard.
-- Con `RUNTIME_STORE_PATH`, se usa snapshot JSON operativo. Para produccion robusta multi-instancia falta Postgres.
+- Con `RUNTIME_STORE_PATH`, se usa snapshot JSON operativo.
+- Con `DATABASE_URL`, los pedidos despachados tambien quedan en Postgres para contabilidad.
 - No hay login/autenticacion real; el selector Operario/Admin es demo visual.
 - La edicion rapida guarda direccion, pago, nota, disponibilidad y catalogo basico. No reestructura items complejos del pedido.
 - Confirmar/notificar y avisar despacho pasan por backend; requieren que el canal del cliente tenga credenciales configuradas.
 - No hay SSE/WebSocket; el dashboard usa polling simple.
-- V1 no incluye contabilidad, metricas beta, cierre de caja ni configuraciones grandes.
+- V1 incluye ledger contable basico de pedidos despachados; no incluye cierre de caja, reportes contables avanzados ni metricas beta.

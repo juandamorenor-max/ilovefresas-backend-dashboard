@@ -73,6 +73,8 @@ Claves relevantes:
 - `OPENAI_MODEL`: por defecto `gpt-5.4-mini`.
 - `GEMINI_API_KEY`: habilita clasificacion via Gemini.
 - `GEMINI_MODEL`: por defecto `gemini-3.5-flash`.
+- `RUNTIME_STORE_PATH`: ruta del snapshot JSON operativo.
+- `DATABASE_URL`: URL Postgres. En V1 se usa para el ledger contable de pedidos despachados.
 
 ## Como correr localmente
 
@@ -199,6 +201,52 @@ Prueba:
 
 ```bash
 npm run test:runtime-store
+```
+
+## Base contable de pedidos enviados
+
+Cuando `DATABASE_URL` esta configurado, cada pedido que pasa a estado `dispatched` se guarda tambien en Postgres, en la tabla:
+
+```text
+accounting_dispatched_orders
+```
+
+Ese registro queda separado del snapshot operativo y contiene lo necesario para contabilidad:
+
+- `customer_phone`
+- `customer_name`
+- `address`
+- `neighborhood`
+- `address_reference`
+- `payment_method`
+- `cash_amount`
+- `subtotal`
+- `delivery_fee`
+- `discount_total`
+- `total`
+- `dispatched_at`
+- `order_snapshot`
+
+El guardado se dispara al usar el boton de despacho del dashboard o al cambiar el estado del pedido a `dispatched`.
+
+Para Railway, agrega Postgres al proyecto y configura:
+
+```text
+DATABASE_URL=<url interna o publica de Postgres>
+```
+
+Verifica que este activo en:
+
+```text
+GET /health/integration
+```
+
+El campo `accountingDatabase.configured` debe quedar en `true`.
+
+Prueba repetible:
+
+```bash
+npm run qa:accounting-ledger
 ```
 
 ## Ejemplo de webhook entrante

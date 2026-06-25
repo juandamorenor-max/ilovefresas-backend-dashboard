@@ -173,6 +173,30 @@ create table if not exists order_item_components (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists accounting_dispatched_orders (
+  order_id text primary key,
+  business_id text not null,
+  customer_phone text not null,
+  customer_name text,
+  fulfillment_type text not null,
+  address text,
+  neighborhood text,
+  address_reference text,
+  payment_method text,
+  cash_amount text,
+  subtotal integer not null default 0,
+  delivery_fee integer not null default 0,
+  discount_total integer not null default 0,
+  total integer not null default 0,
+  status text not null,
+  dispatched_at timestamptz not null,
+  order_created_at timestamptz not null,
+  order_updated_at timestamptz not null,
+  order_snapshot jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists admin_users (
   id uuid primary key,
   business_id uuid not null references businesses(id) on delete cascade,
@@ -190,3 +214,5 @@ create index if not exists idx_customers_business_phone on customers (business_i
 create index if not exists idx_conversations_business_phone on conversations (business_id, customer_phone);
 create index if not exists idx_messages_conversation_id on messages (conversation_id);
 create index if not exists idx_orders_business_status on orders (business_id, status);
+create index if not exists idx_accounting_dispatched_orders_business_date on accounting_dispatched_orders (business_id, dispatched_at desc);
+create index if not exists idx_accounting_dispatched_orders_customer_phone on accounting_dispatched_orders (customer_phone);

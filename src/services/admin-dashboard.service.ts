@@ -7,6 +7,7 @@ import { HttpError } from "../utils/http.js";
 import { logger } from "../utils/logger.js";
 import { TelegramService } from "./telegram.service.js";
 import { WhatsAppService } from "./whatsapp.service.js";
+import { AccountingLedgerService } from "./accounting-ledger.service.js";
 
 type DashboardStatus =
   | "pending"
@@ -37,7 +38,8 @@ const statusToBackend: Record<DashboardStatus, Order["status"]> = {
 export class AdminDashboardService {
   constructor(
     private readonly telegramService = new TelegramService(),
-    private readonly whatsAppService = new WhatsAppService()
+    private readonly whatsAppService = new WhatsAppService(),
+    private readonly accountingLedgerService = new AccountingLedgerService()
   ) {}
 
   listDashboardOrders() {
@@ -95,6 +97,9 @@ export class AdminDashboardService {
     order.updatedAt = new Date().toISOString();
     if (backendStatus === "completed") {
       this.closeConversationForCompletedOrder(order);
+    }
+    if (backendStatus === "dispatched") {
+      void this.accountingLedgerService.recordDispatchedOrder(order);
     }
     persistRuntimeStore();
     return this.toDashboardOrder(order);
@@ -159,6 +164,7 @@ export class AdminDashboardService {
       : notice;
     order.updatedAt = new Date().toISOString();
     persistRuntimeStore();
+    await this.accountingLedgerService.recordDispatchedOrder(order);
     return this.toDashboardOrder(order);
   }
 
