@@ -44,7 +44,13 @@ async function withFetchMock(outputText: string, assertion: () => Promise<void>)
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body ?? "{}"));
+    const text = body.input?.[0]?.content?.find((entry: { type?: string }) => entry.type === "input_text");
     const image = body.input?.[0]?.content?.find((entry: { type?: string }) => entry.type === "input_image");
+    assert(
+      typeof text?.text === "string" &&
+        text.text.includes("No rechaces solo porque el valor no coincide"),
+      "vision prompt should not reject proof only because amount differs from expected total"
+    );
     assert(
       typeof image?.image_url === "string" && image.image_url.startsWith("data:image/jpeg;base64,"),
       "vision request should receive Telegram photo as image/jpeg data URL"

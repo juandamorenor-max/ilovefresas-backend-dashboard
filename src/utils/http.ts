@@ -8,9 +8,5 @@ export class HttpError extends Error {
 }
 
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0
-  }).format(value);
+  return `$${Math.round(value).toLocaleString("en-US")}`;
 }

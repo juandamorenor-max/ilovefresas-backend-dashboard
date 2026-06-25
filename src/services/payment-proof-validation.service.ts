@@ -192,6 +192,8 @@ export class PaymentProofValidationService {
     const prompt = [
       "Analiza la imagen y decide si parece un comprobante de pago real enviado por un cliente.",
       "No verifiques si el dinero entro al banco. Solo valida si visualmente parece comprobante.",
+      "No rechaces solo porque el valor no coincide con el total esperado; el operario verifica monto y entrada real del dinero.",
+      "Si el valor visible no coincide, igual puedes marcar is_payment_proof=true si la imagen parece comprobante y debes extraer el valor visible.",
       "Debe tener señales como app/banco, estado exitoso/aprobado, valor, referencia, destinatario o fecha.",
       "Si parece selfie, foto de comida, captura irrelevante, meme, menu o imagen borrosa sin datos de pago, rechaza.",
       `Metodo esperado: ${input.expectedPaymentMethod ?? "desconocido"}.`,

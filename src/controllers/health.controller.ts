@@ -28,6 +28,10 @@ export class HealthController {
         includeRawFlowiseResponse: env.BOT_TURN_INCLUDE_RAW,
         defaultDeliveryFee: env.DEFAULT_DELIVERY_FEE
       },
+      vision: {
+        configured: Boolean(env.OPENAI_API_KEY),
+        model: env.OPENAI_VISION_MODEL
+      },
       timestamp: new Date().toISOString()
     });
   }

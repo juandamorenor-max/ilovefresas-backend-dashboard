@@ -226,7 +226,7 @@ assert(
   "no after add-more should include Nequi account"
 );
 assert(
-  String(noAfterAddMoreTurn.responseText).includes("Total: 21000"),
+  String(noAfterAddMoreTurn.responseText).includes("Total: $21,000"),
   "no after add-more should include total"
 );
 assert(
@@ -266,7 +266,7 @@ assert(
   "payment instructions should include Nequi number"
 );
 assert(
-  String(confirmedTurn.responseText).includes("Total: 21000"),
+  String(confirmedTurn.responseText).includes("Total: $21,000"),
   "payment instructions should include total"
 );
 assert(!confirmedTurn.orderId, "payment instructions should not create order yet");
@@ -289,7 +289,7 @@ assert(
   "off-topic response should keep payment instructions visible"
 );
 assert(
-  String(offTopicTurn.responseText).includes("Total: 21000"),
+  String(offTopicTurn.responseText).includes("Total: $21,000"),
   "off-topic response should keep total visible"
 );
 assert(!offTopicTurn.orderId, "off-topic message should not create review order");
@@ -450,7 +450,7 @@ async function assertPaymentMethodInstructions(
     `${paymentMethod} instructions should include ${expectedLine}`
   );
   assert(
-    String(turn.responseText).includes("Total: 21000"),
+    String(turn.responseText).includes("Total: $21,000"),
     `${paymentMethod} instructions should include total`
   );
   assert(!turn.orderId, `${paymentMethod} instructions should not create order yet`);

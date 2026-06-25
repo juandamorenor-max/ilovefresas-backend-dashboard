@@ -1,6 +1,7 @@
 import { demoStore } from "../data/demoStore.js";
 import { persistRuntimeStore } from "../data/runtime-store.js";
 import type { Conversation, Message, ModifierOption, OrderDraft, OrderItem, Product } from "../types/index.js";
+import { formatCurrency } from "../utils/http.js";
 import { createId, nowIso } from "../utils/id.js";
 import { CatalogService } from "./catalog.service.js";
 import { OrderService } from "./order.service.js";
@@ -178,7 +179,6 @@ export class BotIntegrationService {
       return null;
     }
 
-    const total = draft.pricing.total;
     const method = this.findPaymentMethodSetting(draft.paymentMethod);
     if (!method?.requiresProof || !method.accountLabel || !method.accountValue) {
       return null;
@@ -188,7 +188,7 @@ export class BotIntegrationService {
       `Perfecto 😊 Para continuar con la revision del pedido, puedes hacer la transferencia por ${method.name}:`,
       "",
       `${method.accountLabel}: ${method.accountValue}`,
-      `Total: ${total}`,
+      `Total: ${this.money(draft.pricing.total)}`,
       "",
       "Cuando la hagas, enviame el comprobante por aqui 🍓"
     ].join("\n");
@@ -581,6 +581,6 @@ export class BotIntegrationService {
   }
 
   private money(value: number) {
-    return `$${value.toLocaleString("es-CO")}`;
+    return formatCurrency(value);
   }
 }

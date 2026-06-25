@@ -1,5 +1,6 @@
 import { demoStore } from "../data/demoStore.js";
 import { persistRuntimeStore } from "../data/runtime-store.js";
+import { formatCurrency } from "../utils/http.js";
 import { createId } from "../utils/id.js";
 import { resolveBarranquillaZone } from "../data/geo/barranquilla-zone-resolver.js";
 import type {
@@ -287,7 +288,7 @@ export class CatalogService {
 
     return Object.entries(grouped)
       .map(([category, products]) => {
-        const lines = products.map((product) => `- ${product.name}: $${product.basePrice.toLocaleString("es-CO")}`);
+        const lines = products.map((product) => `- ${product.name}: ${formatCurrency(product.basePrice)}`);
         return `${category}\n${lines.join("\n")}`;
       })
       .join("\n\n");
