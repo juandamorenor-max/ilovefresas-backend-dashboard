@@ -139,13 +139,14 @@ export class PaymentProofValidationService {
           env.TELEGRAM_CLIENT_BOT_TOKEN,
           input.attachmentFileId
         );
-        if (!file.mimeType.startsWith("image/")) {
+        const mimeType = this.resolveDownloadedImageMimeType(input, file.mimeType);
+        if (!mimeType) {
           return null;
         }
 
         return {
-          mimeType: file.mimeType,
-          dataUrl: `data:${file.mimeType};base64,${Buffer.from(file.bytes).toString("base64")}`
+          mimeType,
+          dataUrl: `data:${mimeType};base64,${Buffer.from(file.bytes).toString("base64")}`
         };
       } catch (error) {
         logger.warn("Telegram proof attachment download failed", {
@@ -157,6 +158,26 @@ export class PaymentProofValidationService {
 
     // WhatsApp Business support is intentionally centralized here. The order
     // flow does not change when we add Graph media download for this branch.
+    return null;
+  }
+
+  private resolveDownloadedImageMimeType(
+    input: PaymentProofValidationInput,
+    downloadedMimeType: string
+  ) {
+    if (downloadedMimeType.startsWith("image/")) {
+      return downloadedMimeType;
+    }
+
+    const declaredMimeType = input.mimeType?.toLowerCase() ?? "";
+    if (declaredMimeType.startsWith("image/")) {
+      return declaredMimeType === "image/telegram-photo" ? "image/jpeg" : declaredMimeType;
+    }
+
+    if (input.attachmentType === "image" && downloadedMimeType === "application/octet-stream") {
+      return "image/jpeg";
+    }
+
     return null;
   }
 
