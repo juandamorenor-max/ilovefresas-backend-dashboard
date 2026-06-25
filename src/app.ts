@@ -32,8 +32,19 @@ export function createApp() {
   app.use(adminRouter);
 
   app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
-    if (error instanceof HttpError) {
-      response.status(error.statusCode).json({ error: error.message });
+    const statusCode = error instanceof HttpError
+      ? error.statusCode
+      : typeof error === "object" &&
+          error !== null &&
+          "statusCode" in error &&
+          typeof error.statusCode === "number"
+        ? error.statusCode
+        : null;
+
+    if (statusCode) {
+      response.status(statusCode).json({
+        error: error instanceof Error ? error.message : "Application error"
+      });
       return;
     }
 
