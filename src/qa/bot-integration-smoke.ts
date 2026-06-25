@@ -194,6 +194,47 @@ assert(order.pricing.deliveryFee === 5000, "default delivery fee should be 5000"
 assert(order.pricing.total === 23000, "total should include item, topping and delivery fee");
 assert(order.paymentProofReceived, "created review order should keep payment proof flag");
 
+const noAfterAddMoreChatId = "payment-no-after-add-more-test";
+const noAfterAddMoreConversation = service.startNewConversation("telegram", noAfterAddMoreChatId);
+service.updateConversationState(noAfterAddMoreConversation.id, {
+  items: [
+    {
+      producto: "Fresas con crema tradicional",
+      cantidad: 1
+    }
+  ],
+  nombre: "Juan Pepito",
+  direccion: "Cra 39A #41-99",
+  barrio: "Miramar",
+  referencia: "Casa",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio",
+  botMessage: "Perfecto, guardé: Nombre: Juan Pepito, Referencia: casa, Método de pago: nequi. ¿Algo más?",
+  mensaje_cliente: "Perfecto, guardé: Nombre: Juan Pepito, Referencia: casa, Método de pago: nequi. ¿Algo más?"
+});
+const noAfterAddMoreTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: noAfterAddMoreChatId,
+  text: "no"
+});
+assert(
+  noAfterAddMoreTurn.source === "backend_payment_instructions",
+  "no after add-more question should advance to backend payment instructions"
+);
+assert(
+  String(noAfterAddMoreTurn.responseText).includes("Nequi: 3000000000"),
+  "no after add-more should include Nequi account"
+);
+assert(
+  String(noAfterAddMoreTurn.responseText).includes("Total: 21000"),
+  "no after add-more should include total"
+);
+assert(
+  String(noAfterAddMoreTurn.responseText).toLowerCase().includes("comprobante"),
+  "no after add-more should ask for payment proof"
+);
+assert(!noAfterAddMoreTurn.orderId, "no after add-more should not create review order before proof");
+
 const turnChatId = "payment-turn-test";
 const turnConversation = service.startNewConversation("telegram", turnChatId);
 service.updateConversationState(turnConversation.id, {

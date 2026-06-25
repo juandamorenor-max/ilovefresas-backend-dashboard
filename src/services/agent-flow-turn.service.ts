@@ -125,7 +125,40 @@ export class AgentFlowTurnService {
 
     if (
       conversation.conversationState.next_expected === "confirmacion" &&
-      this.isCustomerConfirmation(text) &&
+      this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
+      !this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
+    ) {
+      const order = this.botIntegrationService.createOrderForReview(conversation.id);
+      const responseText = order
+        ? "Listo 😊 Tu pedido quedó en revisión con el equipo. Te confirmamos antes de prepararlo 🍓"
+        : "Antes de pasarlo a revisión necesito que completemos los datos pendientes del pedido.";
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          pedido_confirmado_por_cliente: Boolean(order),
+          needs_human: Boolean(order),
+          next_expected: order ? "humano" : "datos"
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: order ? "backend_order_review" : "backend_missing_review_data",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: order?.id ?? updatedConversation?.activeOrderId ?? null,
+        reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
+      };
+    }
+
+    if (
+      conversation.conversationState.next_expected === "confirmacion" &&
+      this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
     ) {
       const responseText =
@@ -285,12 +318,27 @@ export class AgentFlowTurnService {
       order = this.botIntegrationService.createOrderForReview(conversation.id);
     }
 
+    const guardedContinuation = this.buildBackendContinuationIfNeeded(
+      conversation.id,
+      text,
+      responseText,
+      String(updatedConversation?.conversationState?.next_expected ?? "")
+    );
+    const finalResponseText = guardedContinuation?.responseText ?? responseText;
+    if (guardedContinuation) {
+      this.botIntegrationService.updateConversationState(conversation.id, {
+        botMessage: finalResponseText,
+        mensaje_cliente: finalResponseText,
+        next_expected: guardedContinuation.nextExpected
+      });
+    }
+
     const result: Record<string, unknown> = {
       conversationId: conversation.id,
       sessionId,
-      responseText,
-      shouldSendReply: Boolean(responseText.trim()),
-      source: "flowise_agentflow",
+      responseText: finalResponseText,
+      shouldSendReply: Boolean(finalResponseText.trim()),
+      source: guardedContinuation?.source ?? "flowise_agentflow",
       responseSourceField: this.extractResponseSource(rawFlowiseResponse, flowisePatch),
       state: updatedConversation?.state ?? conversation.state,
       orderId: order?.id ?? updatedConversation?.activeOrderId ?? null,
@@ -462,11 +510,76 @@ export class AgentFlowTurnService {
     );
   }
 
+  private buildBackendContinuationIfNeeded(
+    conversationId: string,
+    customerText: string,
+    responseText: string,
+    nextExpected: string
+  ) {
+    const normalizedResponse = this.normalize(responseText);
+    const normalizedCustomerText = this.normalize(customerText);
+    const noMoreResponse = ["no", "nope", "nada mas", "solo eso", "eso es todo"].some(
+      (phrase) => normalizedCustomerText === phrase || normalizedCustomerText.includes(phrase)
+    );
+    const actionlessTransition =
+      /seguimos con (la )?confirmacion/.test(normalizedResponse) ||
+      (/^perfecto\b/.test(normalizedResponse) &&
+        !/[?¿]/.test(responseText) &&
+        !/\b(comprobante|pago|nequi|bancolombia|bre|envia|enviame|mandame|confirma|confirmame|necesito|compartes)\b/.test(
+          normalizedResponse
+        ));
+
+    if (
+      this.botIntegrationService.requiresPaymentProofForConversation(conversationId) &&
+      ((nextExpected === "confirmacion" && noMoreResponse && actionlessTransition) ||
+        (nextExpected === "comprobante_pago" &&
+          !/\b(comprobante|pago|nequi|bancolombia|bre|envia|enviame|mandame)\b/.test(
+            normalizedResponse
+          )))
+    ) {
+      return {
+        responseText:
+          this.botIntegrationService.buildPaymentInstructionsForConversation(conversationId) ??
+          "Para continuar con la revision del pedido, enviame el comprobante del pago por aqui 😊",
+        nextExpected: "comprobante_pago",
+        source: "backend_next_action_guardrail"
+      };
+    }
+
+    return null;
+  }
+
   private isCustomerConfirmation(text: string) {
     const normalized = this.normalize(text);
     return ["si", "correcto", "listo", "asi esta bien", "confirmo"].some(
       (phrase) => normalized === phrase || normalized.includes(phrase)
     );
+  }
+
+  private shouldProceedFromConfirmation(text: string, lastBotQuestion: unknown) {
+    return (
+      this.isCustomerConfirmation(text) ||
+      this.isNoMoreItemsResponseToAddMoreQuestion(text, lastBotQuestion)
+    );
+  }
+
+  private isNoMoreItemsResponseToAddMoreQuestion(text: string, lastBotQuestion: unknown) {
+    const normalized = this.normalize(text);
+    const normalizedQuestion = this.normalize(String(lastBotQuestion ?? ""));
+    const isNoMore = [
+      "no",
+      "nope",
+      "nada mas",
+      "solo eso",
+      "eso es todo",
+      "asi esta bien"
+    ].some((phrase) => normalized === phrase || normalized.includes(phrase));
+    const wasAddMoreQuestion =
+      /\b(algo mas|agregar|agregas|anadir|añadir|otro producto|otra cosa)\b/.test(
+        normalizedQuestion
+      );
+
+    return isNoMore && wasAddMoreQuestion;
   }
 
   private isPaymentProof(text: string) {
