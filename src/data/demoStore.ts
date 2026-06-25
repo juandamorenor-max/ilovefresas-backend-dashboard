@@ -303,7 +303,7 @@ export const demoStore: {
       updatedAt: baseTimestamp,
       businessId,
       name: "Mix Oreo",
-      aliases: ["mix oreo", "mix de oreo"],
+      aliases: ["mix oreo", "mix de oreo", "oreo mix"],
       category: "fresas-con-crema",
       description: "Fresa, kiwi y durazno con Oreo.",
       basePrice: 20000,

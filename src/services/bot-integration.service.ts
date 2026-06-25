@@ -87,15 +87,71 @@ export class BotIntegrationService {
   }
 
   startNewConversation(channel: BotChannel, chatId: string) {
-    const active = this.findActiveConversation(channel, chatId);
-    if (active) {
-      active.state = "post_order_closed";
-      active.activeOrderId = null;
-      active.draftOrder = null;
-      active.updatedAt = nowIso();
+    for (const active of this.findActiveConversations(channel, chatId)) {
+      this.closeConversation(active);
     }
 
     return this.toBotConversation(this.createConversation(channel, chatId));
+  }
+
+  buildOneLineOrderPatch(text: string): BotConversationStatePatch | null {
+    const products = this.catalogService.findProductsMentioned(text);
+    const address = this.extractAddress(text);
+    const neighborhood = this.extractNeighborhood(text);
+    const customerName = this.extractCustomerName(text);
+    const addressReference = this.extractReference(text);
+    const paymentMethod = this.extractPaymentMethod(text);
+
+    if (!products.length || !address || !neighborhood || !customerName || !paymentMethod) {
+      return null;
+    }
+
+    return {
+      items: products.map((product) => ({
+        producto: product.name,
+        cantidad: 1,
+        precio_unitario: product.basePrice
+      })),
+      nombre: customerName,
+      direccion: address,
+      barrio: neighborhood,
+      referencia: addressReference ?? "Sin referencia",
+      metodo_pago: paymentMethod,
+      modalidad_entrega: "domicilio",
+      next_expected: "confirmacion"
+    };
+  }
+
+  buildConfirmationSummary(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!draft) {
+      return null;
+    }
+
+    const itemLines = draft.items.map(
+      (item) => `- ${item.quantity} x ${item.productName}: ${this.money(item.unitBasePrice * item.quantity)}`
+    );
+
+    return [
+      "Resumen de tu pedido:",
+      "",
+      "Producto:",
+      ...itemLines,
+      "",
+      "Tus datos:",
+      `- Nombre: ${draft.customerName ?? "Por confirmar"}`,
+      `- Direccion: ${draft.address ?? "Por confirmar"}`,
+      `- Barrio: ${draft.neighborhood ?? "Por confirmar"}`,
+      `- Referencia: ${draft.addressReference ?? "Por confirmar"}`,
+      `- Metodo de pago: ${draft.paymentMethod ?? "Por confirmar"}`,
+      "",
+      `Subtotal productos: ${this.money(draft.pricing.subtotal)}`,
+      `Domicilio: ${this.money(draft.pricing.deliveryFee)}`,
+      `Total: ${this.money(draft.pricing.total)}`,
+      "",
+      "Esta correcto para dejarlo en revision con el equipo?"
+    ].join("\n");
   }
 
   updateConversationState(conversationId: string, patch: BotConversationStatePatch) {
@@ -210,13 +266,31 @@ export class BotIntegrationService {
   }
 
   private findActiveConversation(channel: BotChannel, chatId: string) {
+    const active = this.findActiveConversations(channel, chatId);
+    const [latest, ...duplicates] = active;
+    for (const duplicate of duplicates) {
+      this.closeConversation(duplicate);
+    }
+    if (duplicates.length > 0) {
+      persistRuntimeStore();
+    }
+
+    return latest ?? null;
+  }
+
+  private findActiveConversations(channel: BotChannel, chatId: string) {
     const customerPhone = this.customerPhone(channel, chatId);
-    return (
-      demoStore.conversations
-        .filter((conversation) => conversation.customerPhone === customerPhone)
-        .filter((conversation) => !CLOSED_STATES.has(conversation.state))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null
-    );
+    return demoStore.conversations
+      .filter((conversation) => conversation.customerPhone === customerPhone)
+      .filter((conversation) => !CLOSED_STATES.has(conversation.state))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  private closeConversation(conversation: Conversation) {
+    conversation.state = "post_order_closed";
+    conversation.activeOrderId = null;
+    conversation.draftOrder = null;
+    conversation.updatedAt = nowIso();
   }
 
   private findConversation(conversationId: string) {
@@ -544,6 +618,47 @@ export class BotIntegrationService {
     if (normalized.includes("bre")) return "Bre-B";
     if (normalized.includes("efectivo") || normalized.includes("contra")) return "Contra entrega";
     return value.trim();
+  }
+
+  private extractPaymentMethod(text: string) {
+    const normalized = text.toLowerCase();
+    if (normalized.includes("nequi")) return "Nequi";
+    if (normalized.includes("bancolombia") || normalized.includes("banco")) return "Bancolombia";
+    if (normalized.includes("bre")) return "Bre-B";
+    if (normalized.includes("efectivo") || normalized.includes("contra")) return "Contra entrega";
+    return null;
+  }
+
+  private extractAddress(text: string) {
+    const match = text.match(
+      /\b(cra|carrera|calle|cll|cl|avenida|av|diagonal|transversal)\.?\s+(.+?)(?=\s+(?:a|en)\s+[\p{L}\s]+,|,\s*[\p{Lu}][\p{L}]+|\s+y\s+te\s+pago|$)/iu
+    );
+    if (!match) {
+      return null;
+    }
+
+    return `${match[1]} ${match[2]}`.replace(/\s+/g, " ").trim();
+  }
+
+  private extractNeighborhood(text: string) {
+    const match = text.match(/\b(?:a|en)\s+([\p{L}\s]+?)(?:,|$)/iu);
+    return match?.[1]?.replace(/\s+/g, " ").trim() || null;
+  }
+
+  private extractCustomerName(text: string) {
+    const match = text.match(/,\s*([\p{Lu}][\p{L}]+(?:\s+[\p{Lu}][\p{L}]+)+)\s*,/u);
+    return match?.[1]?.trim() || null;
+  }
+
+  private extractReference(text: string) {
+    const match = text.match(/\b(es|referencia|ref)\s+(.+?)(?:\s+y\s+te\s+pago|\s+te\s+pago|$)/iu);
+    if (!match?.[2]) {
+      return null;
+    }
+
+    return match[1].toLowerCase() === "es"
+      ? `es ${match[2].trim()}`
+      : match[2].trim();
   }
 
   private requiresPaymentProof(paymentMethod?: string | null) {

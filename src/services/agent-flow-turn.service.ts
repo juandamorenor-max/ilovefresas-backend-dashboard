@@ -291,6 +291,39 @@ export class AgentFlowTurnService {
       };
     }
 
+    const oneLineOrderPatch = this.botIntegrationService.buildOneLineOrderPatch(text);
+    if (
+      oneLineOrderPatch &&
+      String(conversation.conversationState.items ?? "[]") === "[]"
+    ) {
+      this.botIntegrationService.updateConversationState(conversation.id, {
+        ...oneLineOrderPatch,
+        customerMessage: text
+      });
+      const responseText =
+        this.botIntegrationService.buildConfirmationSummary(conversation.id) ??
+        "Listo, ya tengo tu pedido y tus datos. Confirmame si esta correcto.";
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          next_expected: "confirmacion"
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_one_line_order",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null,
+        reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
+      };
+    }
+
     const catalogoDisponible = this.botIntegrationService.getAvailableCatalog();
     const sessionId = this.sessionId(input.channel, input.chatId, conversation.id);
     const rawFlowiseResponse = await this.callFlowise({

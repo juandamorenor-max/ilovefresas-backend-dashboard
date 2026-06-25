@@ -99,6 +99,40 @@ assert(
   "premature text proof response should explain proof is only after total"
 );
 
+const oneLineOrderTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "one-line-order-test",
+  text: "oreo mix para cra 39a # 41-99 a miramar, Juan Pepito, es una casa y te pago por nequi"
+});
+assert(
+  oneLineOrderTurn.source === "backend_one_line_order",
+  "product, address, name and payment in one line should be handled by backend"
+);
+assert(
+  String(oneLineOrderTurn.responseText).includes("1 x Mix Oreo"),
+  "one-line order should recognize Oreo Mix as Mix Oreo"
+);
+assert(
+  String(oneLineOrderTurn.responseText).includes("Nombre: Juan Pepito"),
+  "one-line order should extract customer name"
+);
+assert(
+  String(oneLineOrderTurn.responseText).includes("Direccion: cra 39a # 41-99"),
+  "one-line order should extract address"
+);
+assert(
+  String(oneLineOrderTurn.responseText).includes("Barrio: miramar"),
+  "one-line order should extract neighborhood"
+);
+assert(
+  String(oneLineOrderTurn.responseText).includes("Metodo de pago: Nequi"),
+  "one-line order should extract payment method"
+);
+assert(
+  String(oneLineOrderTurn.responseText).includes("Total: $25,000"),
+  "one-line order should include total with comma thousands"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;
