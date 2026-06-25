@@ -99,6 +99,37 @@ assert(
   "premature text proof response should explain proof is only after total"
 );
 
+const mixOreoProduct = demoStore.products.find((product) => product.name === "Mix Oreo");
+assert(mixOreoProduct, "Mix Oreo product should exist");
+const originalMixOreoAliases = [...mixOreoProduct.aliases];
+mixOreoProduct.aliases = originalMixOreoAliases.filter(
+  (alias) => alias.toLowerCase() !== "oreo mix"
+);
+
+const oneLineOrderNoPersistedAliasTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "one-line-order-no-alias-test",
+  text: "oreo mix para cra 39a #41-99 a miramar, Juan Pepito, es una casa y te pago por nequi"
+});
+assert(
+  oneLineOrderNoPersistedAliasTurn.source === "backend_one_line_order",
+  "one-line order should not depend on persisted Oreo Mix alias"
+);
+assert(
+  String(oneLineOrderNoPersistedAliasTurn.responseText).includes("1 x Mix Oreo"),
+  "one-line order without alias should still recognize Mix Oreo"
+);
+assert(
+  String(oneLineOrderNoPersistedAliasTurn.responseText).includes("Direccion: cra 39a #41-99"),
+  "one-line order should extract address without requiring a space after #"
+);
+assert(
+  String(oneLineOrderNoPersistedAliasTurn.responseText).includes("Total: $25,000"),
+  "one-line order without alias should include confirmation summary"
+);
+
+mixOreoProduct.aliases = originalMixOreoAliases;
+
 const oneLineOrderTurn = await agentFlowTurnService.handleTurn({
   channel: "telegram",
   chatId: "one-line-order-test",
@@ -131,6 +162,29 @@ assert(
 assert(
   String(oneLineOrderTurn.responseText).includes("Total: $25,000"),
   "one-line order should include total with comma thousands"
+);
+
+const guardrailConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "actionless-flowise-reply-test"
+);
+service.updateConversationState(guardrailConversation.id, {
+  items: [{ producto: "Mix Oreo", cantidad: 1, precio_unitario: 20000 }],
+  nombre: "Juan Pepito",
+  direccion: "cra 39a #41-99",
+  barrio: "miramar",
+  referencia: "es una casa",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio"
+});
+const guardrailNextStep = service.buildNextOrderStepReply(guardrailConversation.id);
+assert(
+  guardrailNextStep?.nextExpected === "confirmacion",
+  "complete draft should continue to confirmation instead of stopping"
+);
+assert(
+  String(guardrailNextStep?.responseText).includes("Resumen de tu pedido:"),
+  "complete draft guardrail should generate a summary"
 );
 
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");

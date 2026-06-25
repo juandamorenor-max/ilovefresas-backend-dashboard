@@ -78,8 +78,8 @@ export class CatalogService {
     const lowerValue = this.normalizeForMatching(value);
     return (
       this.listActiveProducts().find((product) =>
-        [product.name, ...product.aliases].some(
-          (candidate) => this.normalizeForMatching(candidate) === lowerValue
+        this.buildNormalizedCandidates([product.name, ...product.aliases]).some(
+          (candidate) => candidate === lowerValue
         )
       ) ?? null
     );
@@ -96,9 +96,7 @@ export class CatalogService {
   private findProductsMentionedIn(products: Product[], text: string): Product[] {
     const lowerText = this.normalizeForMatching(text);
     const matches = products.flatMap((product) => {
-      const candidates = [product.name, ...product.aliases].map((candidate) =>
-        this.normalizeForMatching(candidate)
-      );
+      const candidates = this.buildNormalizedCandidates([product.name, ...product.aliases]);
 
       return candidates.flatMap((candidate) =>
         this.findCandidateOccurrences(lowerText, candidate).map((occurrence) => ({
@@ -173,9 +171,7 @@ export class CatalogService {
   private findModifierOptionsMentionedIn(modifiers: ModifierOption[], text: string): ModifierOption[] {
     const lowerText = this.normalizeForMatching(text);
     const matches = modifiers.flatMap((modifier) => {
-      const candidates = [modifier.name, ...modifier.aliases].map((candidate) =>
-        this.normalizeForMatching(candidate)
-      );
+      const candidates = this.buildNormalizedCandidates([modifier.name, ...modifier.aliases]);
 
       return candidates.flatMap((candidate) =>
         this.findCandidateOccurrences(lowerText, candidate).map((occurrence) => ({
@@ -215,8 +211,8 @@ export class CatalogService {
     const lowerValue = this.normalizeForMatching(value);
     return (
       this.listModifierOptions().find((option) =>
-        [option.name, ...option.aliases].some(
-          (candidate) => this.normalizeForMatching(candidate) === lowerValue
+        this.buildNormalizedCandidates([option.name, ...option.aliases]).some(
+          (candidate) => candidate === lowerValue
         )
       ) ?? null
     );
@@ -371,6 +367,26 @@ export class CatalogService {
       .replace(/\boreoo+\b/g, "oreo")
       .replace(/\bneqi\b/g, "nequi")
       .replace(/\bneky\b/g, "nequi");
+  }
+
+  private buildNormalizedCandidates(values: string[]) {
+    const candidates = new Set<string>();
+
+    for (const value of values) {
+      const normalized = this.normalizeForMatching(value);
+      if (!normalized) {
+        continue;
+      }
+
+      candidates.add(normalized);
+
+      const words = normalized.split(/\s+/);
+      if (words.length === 2) {
+        candidates.add([...words].reverse().join(" "));
+      }
+    }
+
+    return [...candidates];
   }
 
   private toBotCatalogProduct(product: Product) {

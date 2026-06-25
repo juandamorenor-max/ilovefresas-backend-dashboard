@@ -154,6 +154,52 @@ export class BotIntegrationService {
     ].join("\n");
   }
 
+  buildNextOrderStepReply(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!draft) {
+      return null;
+    }
+
+    if (draft.items.length === 0) {
+      return {
+        responseText: "Perfecto. Que producto quieres pedir? ðŸ“",
+        nextExpected: "pedido",
+        source: "backend_next_action_guardrail"
+      };
+    }
+
+    if (draft.items.some((item) => item.unitBasePrice <= 0)) {
+      return {
+        responseText:
+          "Tengo el pedido, pero necesito que el equipo revise un precio antes de darte el total.",
+        nextExpected: "humano",
+        source: "backend_next_action_guardrail"
+      };
+    }
+
+    const missingFields = this.buildReviewReadiness(draft).missingFields.filter(
+      (field) => field !== "comprobante_pago" && field !== "precios" && field !== "productos"
+    );
+
+    if (missingFields.length === 0) {
+      const summary = this.buildConfirmationSummary(conversationId);
+      return summary
+        ? {
+            responseText: summary,
+            nextExpected: "confirmacion",
+            source: "backend_next_action_guardrail"
+          }
+        : null;
+    }
+
+    return {
+      responseText: this.buildMissingDataTemplate(missingFields),
+      nextExpected: "datos",
+      source: "backend_next_action_guardrail"
+    };
+  }
+
   updateConversationState(conversationId: string, patch: BotConversationStatePatch) {
     const conversation = this.findConversation(conversationId);
     if (!conversation) {
@@ -627,6 +673,23 @@ export class BotIntegrationService {
     if (normalized.includes("bre")) return "Bre-B";
     if (normalized.includes("efectivo") || normalized.includes("contra")) return "Contra entrega";
     return null;
+  }
+
+  private buildMissingDataTemplate(missingFields: string[]) {
+    const lines = [
+      "Perfecto. Para el domicilio me compartes estos datos, por favor:",
+      ""
+    ];
+
+    if (missingFields.includes("nombre")) lines.push("Nombre:");
+    if (missingFields.includes("direccion")) lines.push("Direccion:");
+    if (missingFields.includes("barrio")) lines.push("Barrio:");
+    if (missingFields.includes("referencia")) lines.push("Referencia:");
+    if (missingFields.includes("metodo_pago")) {
+      lines.push("Metodo de pago: Nequi, Bancolombia, Bre-B o efectivo");
+    }
+
+    return lines.join("\n");
   }
 
   private extractAddress(text: string) {

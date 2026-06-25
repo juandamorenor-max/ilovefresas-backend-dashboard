@@ -556,9 +556,9 @@ export class AgentFlowTurnService {
     );
     const actionlessTransition =
       /seguimos con (la )?confirmacion/.test(normalizedResponse) ||
-      (/^perfecto\b/.test(normalizedResponse) &&
+      (/^(perfecto|listo|ok)\b/.test(normalizedResponse) &&
         !/[?¿]/.test(responseText) &&
-        !/\b(comprobante|pago|nequi|bancolombia|bre|envia|enviame|mandame|confirma|confirmame|necesito|compartes)\b/.test(
+        !/\b(resumen|total|domicilio|direccion|barrio|referencia|comprobante|pago|nequi|bancolombia|bre|envia|enviame|mandame|confirma|confirmame|necesito|compartes)\b/.test(
           normalizedResponse
         ));
 
@@ -577,6 +577,10 @@ export class AgentFlowTurnService {
         nextExpected: "comprobante_pago",
         source: "backend_next_action_guardrail"
       };
+    }
+
+    if (nextExpected !== "humano" && actionlessTransition) {
+      return this.botIntegrationService.buildNextOrderStepReply(conversationId);
     }
 
     return null;
