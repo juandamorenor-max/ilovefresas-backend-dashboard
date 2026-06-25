@@ -7,7 +7,9 @@ export const botIntegrationRouter = Router();
 
 botIntegrationRouter.get("/bot/menu/pdf", controller.getMenuPdf.bind(controller));
 botIntegrationRouter.get("/bot/catalog/available", controller.getAvailableCatalog.bind(controller));
-botIntegrationRouter.post("/bot/turn", controller.handleTurn.bind(controller));
+botIntegrationRouter.post("/bot/turn", (request, response, next) => {
+  controller.handleTurn(request, response).catch(next);
+});
 botIntegrationRouter.get(
   "/bot/conversations/:channel/:chatId/active",
   controller.getOrCreateActiveConversation.bind(controller)
