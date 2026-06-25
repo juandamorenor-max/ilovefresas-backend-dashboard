@@ -5219,6 +5219,9 @@ export class ConversationService {
       draft.fulfillmentType === "delivery" &&
       Boolean(draft.neighborhood?.trim()) &&
       !this.isValidBarranquillaNeighborhood(draft.neighborhood);
+    const neighborhoodResolution = neighborhoodNeedsCorrection
+      ? resolveBarranquillaZone(draft.neighborhood ?? "")
+      : null;
     const labels: Record<string, string> = {
       customerName: "Nombre completo",
       address: "Direccion completa",
@@ -5235,6 +5238,16 @@ export class ConversationService {
     };
 
     const visibleMissing = this.simplifyVisibleDeliveryFields(missing, draft);
+
+    if (neighborhoodResolution?.status === "ambiguous" && !draft.blockingIssue) {
+      return [
+        `Ese barrio puede referirse a varias opciones: ${neighborhoodResolution.candidates
+          .map((candidate) => candidate.name)
+          .slice(0, 6)
+          .join(", ")}.`,
+        "Me confirmas cual es, por favor?"
+      ].join("\n");
+    }
 
     if (neighborhoodNeedsCorrection && !draft.blockingIssue) {
       return [

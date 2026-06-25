@@ -147,6 +147,50 @@ await check("Los Angeles numero arabigo resuelve romano", () => {
   expectMatch("Los Angeles 2", "Los Angeles II");
 });
 
+await check("Los Angeles sin sector pide desambiguacion", () => {
+  const resolution = resolveBarranquillaZone("Los Angeles");
+  assert.equal(resolution.status, "ambiguous");
+  if (resolution.status === "ambiguous") {
+    assert.deepEqual(
+      resolution.candidates.map((candidate) => candidate.name),
+      ["Los Angeles I", "Los Angeles II", "Los Angeles III"]
+    );
+  }
+});
+
+await check("Universal sin sector pide desambiguacion", () => {
+  const resolution = resolveBarranquillaZone("Universal");
+  assert.equal(resolution.status, "ambiguous");
+  if (resolution.status === "ambiguous") {
+    assert.deepEqual(
+      resolution.candidates.map((candidate) => candidate.name),
+      ["Universal I", "Universal II"]
+    );
+  }
+});
+
+await check("Los Olivos sin sector pide desambiguacion", () => {
+  const resolution = resolveBarranquillaZone("Los Olivos");
+  assert.equal(resolution.status, "ambiguous");
+  if (resolution.status === "ambiguous") {
+    assert.deepEqual(
+      resolution.candidates.map((candidate) => candidate.name),
+      ["Los Olivos I", "Los Olivos II"]
+    );
+  }
+});
+
+await check("San Pedro sin apellido pide desambiguacion", () => {
+  const resolution = resolveBarranquillaZone("San Pedro");
+  assert.equal(resolution.status, "ambiguous");
+  if (resolution.status === "ambiguous") {
+    assert.deepEqual(
+      resolution.candidates.map((candidate) => candidate.name),
+      ["San Pedro Alejandrino", "San Pedro Sector I"]
+    );
+  }
+});
+
 await check("Las Colinas existe como barrio y se acepta", () => {
   expectMatch("Las Colinas", "Las Colinas");
 });

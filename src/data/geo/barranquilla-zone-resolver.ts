@@ -49,6 +49,7 @@ const FORBIDDEN_FINAL_ZONES = new Set([
 ]);
 
 const OUTSIDE_CITY_TERMS = ["soledad", "galapa", "malambo", "puerto colombia"];
+const AMBIGUOUS_SINGLE_WORD_PREFIXES = new Set(["universal"]);
 
 const aliasMap = new Map<string, string[]>();
 for (const entry of barranquillaZoneAliases) {
@@ -130,6 +131,21 @@ function fuzzyMatches(input: string) {
         return distance > 0 && distance <= maxDistance;
       });
     })
+  );
+}
+
+function ambiguousPrefixMatches(input: string) {
+  if (
+    input.split(/\s+/).filter(Boolean).length < 2 &&
+    !AMBIGUOUS_SINGLE_WORD_PREFIXES.has(input)
+  ) {
+    return [];
+  }
+
+  return uniqueNeighborhoods(
+    barranquillaNeighborhoods.filter((neighborhood) =>
+      candidatesFor(neighborhood).some((candidate) => candidate.startsWith(`${input} `))
+    )
   );
 }
 
@@ -215,6 +231,15 @@ export function resolveBarranquillaZone(input: string): BarranquillaZoneResoluti
       status: "ambiguous",
       candidates: aliasOrContainedMatches,
       reason: "multiple_alias_or_contained_matches"
+    };
+  }
+
+  const ambiguousPrefix = ambiguousPrefixMatches(searchText);
+  if (ambiguousPrefix.length > 1) {
+    return {
+      status: "ambiguous",
+      candidates: ambiguousPrefix,
+      reason: "incomplete_similar_neighborhood_family"
     };
   }
 

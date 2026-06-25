@@ -83,6 +83,24 @@ await check("rechaza barrio inventado y pide correccion", async () => {
   assert.match(reply, /barrio correcto de Barranquilla/i);
 });
 
+await check("pide aclaracion cuando el barrio pertenece a familia parecida", async () => {
+  const { conversation, order, reply } = await runConversation(
+    [
+      "quiero una oblea nutella",
+      "Juan Perez, calle 10 #20-30 Los Angeles, contra entrega"
+    ],
+    "qa_baq_ambiguous_family"
+  );
+
+  assert.equal(order, undefined);
+  assert.equal(conversation?.state, "collecting_delivery_details");
+  assert.equal(conversation?.draftOrder?.inferredZoneId, null);
+  assert.match(reply, /varias opciones/i);
+  assert.match(reply, /Los Angeles I/i);
+  assert.match(reply, /Los Angeles II/i);
+  assert.match(reply, /Los Angeles III/i);
+});
+
 await check("escala a humano despues de insistir con barrios no reconocidos", async () => {
   const { conversation, order, reply } = await runConversation(
     [
