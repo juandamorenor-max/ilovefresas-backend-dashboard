@@ -3,7 +3,6 @@ import { HttpError } from "../utils/http.js";
 import { logger } from "../utils/logger.js";
 import { BotIntegrationService } from "./bot-integration.service.js";
 import { PaymentProofValidationService } from "./payment-proof-validation.service.js";
-import { TelegramService } from "./telegram.service.js";
 
 type BotChannel = "telegram" | "whatsapp";
 
@@ -35,8 +34,7 @@ const fallbackReply =
 export class AgentFlowTurnService {
   constructor(
     private readonly botIntegrationService = new BotIntegrationService(),
-    private readonly paymentProofValidationService = new PaymentProofValidationService(),
-    private readonly telegramService = new TelegramService()
+    private readonly paymentProofValidationService = new PaymentProofValidationService()
   ) {}
 
   async handleTurn(input: BotTurnInput) {
@@ -210,7 +208,6 @@ export class AgentFlowTurnService {
     if (this.isMenuPdfRequest(text)) {
       const responseText = "Claro 😊 Te envio el Menu 2026 por aqui 🍓";
       const menuAttachment = this.buildMenuAttachment(input.appBaseUrl);
-      const menuPdfSent = await this.sendMenuPdfIfPossible(input.channel, input.chatId, menuAttachment);
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
         {
@@ -227,7 +224,7 @@ export class AgentFlowTurnService {
         responseText,
         shouldSendReply: true,
         source: "backend_menu_pdf",
-        menuPdfSent,
+        menuPdfSent: false,
         attachments: menuAttachment ? [menuAttachment] : [],
         state: updatedConversation?.state ?? conversation.state,
         orderId: updatedConversation?.activeOrderId ?? null
@@ -537,33 +534,6 @@ export class AgentFlowTurnService {
   private publicMenuPdfUrl(appBaseUrl?: string) {
     const baseUrl = appBaseUrl?.trim() || env.APP_BASE_URL;
     return `${baseUrl.replace(/\/+$/, "")}/bot/menu/pdf`;
-  }
-
-  private async sendMenuPdfIfPossible(
-    channel: BotChannel,
-    chatId: string,
-    attachment: ReturnType<AgentFlowTurnService["buildMenuAttachment"]>
-  ) {
-    if (channel !== "telegram" || !attachment || !env.TELEGRAM_CLIENT_BOT_TOKEN) {
-      return false;
-    }
-
-    try {
-      await this.telegramService.sendDocument(
-        env.TELEGRAM_CLIENT_BOT_TOKEN,
-        chatId,
-        attachment.pathOrUrl,
-        attachment.caption
-      );
-      return true;
-    } catch (error) {
-      logger.warn("Menu PDF send failed", {
-        channel,
-        chatId,
-        error: error instanceof Error ? error.message : "unknown"
-      });
-      return false;
-    }
   }
 
   private normalize(text: string) {
