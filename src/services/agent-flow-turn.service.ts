@@ -612,6 +612,15 @@ export class AgentFlowTurnService {
     ) {
       return requiredContinuation;
     }
+    if (
+      nextExpected === "confirmacion" &&
+      requiredContinuation?.nextExpected === "confirmacion"
+    ) {
+      return {
+        ...requiredContinuation,
+        source: "backend_confirmation_summary_guardrail"
+      };
+    }
 
     const noMoreResponse = ["no", "nope", "nada mas", "solo eso", "eso es todo"].some(
       (phrase) => normalizedCustomerText === phrase || normalizedCustomerText.includes(phrase)
