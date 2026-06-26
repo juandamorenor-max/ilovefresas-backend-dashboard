@@ -248,6 +248,44 @@ assert(
   "summary should include selected required options for waffles and strawberries"
 );
 
+const waffleVariantConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "waffle-variant-before-options-test"
+);
+service.updateConversationState(waffleVariantConversation.id, {
+  customerMessage: "te voy a pedir 3 waffles y unas fresas tradicionales con helado",
+  items: [
+    { producto: "Waffle Tradicional", cantidad: 3, precio_unitario: 15000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const waffleVariantQuestion = service.buildNextOrderStepReply(waffleVariantConversation.id);
+assert(
+  waffleVariantQuestion?.source === "backend_waffle_variant_guardrail",
+  "generic waffle quantity should ask how many are traditional or chocolate before options"
+);
+assert(
+  String(waffleVariantQuestion?.responseText).includes("3 waffles") &&
+    String(waffleVariantQuestion?.responseText).includes("tradicionales") &&
+    String(waffleVariantQuestion?.responseText).includes("chocolate"),
+  "waffle variant question should mention total and both variants"
+);
+const waffleVariantAnswer = service.handleRequiredOptionsTurn(
+  waffleVariantConversation.id,
+  "dos tradicionales y 1 chocolate"
+);
+assert(
+  waffleVariantAnswer?.source === "backend_required_options_guardrail",
+  "after waffle variant split, bot should ask required options"
+);
+assert(
+  String(waffleVariantAnswer?.responseText).includes("2 x Waffle Tradicional") &&
+    String(waffleVariantAnswer?.responseText).includes("1 x Waffle Chocolate") &&
+    String(waffleVariantAnswer?.responseText).includes("1 x Fresas con helado"),
+  "required options prompt should reflect split waffle variants"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;

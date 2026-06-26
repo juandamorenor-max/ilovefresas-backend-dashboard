@@ -183,6 +183,15 @@ export class BotIntegrationService {
       };
     }
 
+    const waffleVariantQuestion = this.buildWaffleVariantQuestionIfNeeded(conversation, draft);
+    if (waffleVariantQuestion) {
+      return {
+        responseText: waffleVariantQuestion,
+        nextExpected: "pedido",
+        source: "backend_waffle_variant_guardrail"
+      };
+    }
+
     const requiredOptionsQuestion = this.buildRequiredOptionsQuestion(draft);
     if (requiredOptionsQuestion) {
       return {
@@ -225,7 +234,10 @@ export class BotIntegrationService {
       return null;
     }
 
-    this.applyRequiredOptionAnswers(draft, customerText);
+    const appliedWaffleVariantCounts = this.applyWaffleVariantCounts(draft, customerText);
+    if (!appliedWaffleVariantCounts) {
+      this.applyRequiredOptionAnswers(draft, customerText);
+    }
     conversation.draftOrder = this.orderService.refreshDraft(draft);
 
     const nextStep = this.buildNextOrderStepReply(conversationId) ?? {
@@ -817,6 +829,113 @@ export class BotIntegrationService {
         }
       }
     }
+  }
+
+  private buildWaffleVariantQuestionIfNeeded(conversation: Conversation, draft: OrderDraft) {
+    const latestCustomerText = [...conversation.memory.recentMessages]
+      .reverse()
+      .find((message) => message.role === "customer")?.text ?? "";
+    const normalizedText = this.normalizeForMatching(latestCustomerText);
+    const mentionedWaffleVariant =
+      /\bwaffles?\s+(?:tradicional(?:es)?|chocolate)\b/.test(normalizedText) ||
+      /\b(?:\d+|un|uno|una|dos|tres|cuatro|cinco)\s+(?:waffles?\s+)?(?:tradicional(?:es)?|chocolate)\b/.test(
+        normalizedText
+      );
+    const mentionedGenericWaffles =
+      /\bwaffles?\b/.test(normalizedText) &&
+      !mentionedWaffleVariant;
+    if (!mentionedGenericWaffles) {
+      return null;
+    }
+
+    const traditionalWaffle = draft.items.find((item) => item.productName === "Waffle Tradicional");
+    const chocolateWaffle = draft.items.find((item) => item.productName === "Waffle Chocolate");
+    if (!traditionalWaffle || chocolateWaffle || traditionalWaffle.quantity < 2) {
+      return null;
+    }
+
+    return `Perfecto. Para los ${traditionalWaffle.quantity} waffles, cuantos son tradicionales y cuantos de chocolate?`;
+  }
+
+  private applyWaffleVariantCounts(draft: OrderDraft, text: string) {
+    const counts = this.extractWaffleVariantCounts(text);
+    if (!counts || counts.traditional + counts.chocolate === 0) {
+      return false;
+    }
+
+    const waffleItems = draft.items.filter((item) =>
+      item.productName === "Waffle Tradicional" || item.productName === "Waffle Chocolate"
+    );
+    const currentTotal = waffleItems.reduce((sum, item) => sum + item.quantity, 0);
+    if (currentTotal === 0) {
+      return false;
+    }
+
+    const requestedTotal = counts.traditional + counts.chocolate;
+    if (requestedTotal !== currentTotal) {
+      return false;
+    }
+
+    draft.items = draft.items.filter(
+      (item) => item.productName !== "Waffle Tradicional" && item.productName !== "Waffle Chocolate"
+    );
+
+    const nextWaffleItems = [
+      counts.traditional > 0
+        ? this.toOrderItem({
+            producto: "Waffle Tradicional",
+            cantidad: counts.traditional
+          })
+        : null,
+      counts.chocolate > 0
+        ? this.toOrderItem({
+            producto: "Waffle Chocolate",
+            cantidad: counts.chocolate
+          })
+        : null
+    ].filter((item): item is OrderItem => Boolean(item));
+
+    draft.items = [...nextWaffleItems, ...draft.items];
+    return true;
+  }
+
+  private extractWaffleVariantCounts(text: string) {
+    const normalized = this.normalizeForMatching(text);
+    const traditional = this.extractCountBeforeVariant(normalized, "tradicional");
+    const chocolate = this.extractCountBeforeVariant(normalized, "chocolate");
+    if (traditional === null && chocolate === null) {
+      return null;
+    }
+
+    return {
+      traditional: traditional ?? 0,
+      chocolate: chocolate ?? 0
+    };
+  }
+
+  private extractCountBeforeVariant(text: string, variant: "tradicional" | "chocolate") {
+    const match = text.match(
+      new RegExp(`(?:^|\\s)(\\d+|un|uno|una|dos|tres|cuatro|cinco)\\s+(?:waffles?\\s+)?${variant}(?:es)?\\b`)
+    );
+    if (!match?.[1]) {
+      return null;
+    }
+
+    return this.parseSmallCount(match[1]);
+  }
+
+  private parseSmallCount(value: string) {
+    const normalized = this.normalizeForMatching(value);
+    const words: Record<string, number> = {
+      un: 1,
+      uno: 1,
+      una: 1,
+      dos: 2,
+      tres: 3,
+      cuatro: 4,
+      cinco: 5
+    };
+    return words[normalized] ?? Number(normalized);
   }
 
   private extractRequiredOptionAnswers(text: string) {
