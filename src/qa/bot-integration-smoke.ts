@@ -292,6 +292,41 @@ assert(
   "required options prompt should reflect split waffle variants"
 );
 
+const allChocolateWafflesConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "all-chocolate-waffles-from-screenshot-test"
+);
+service.updateConversationState(allChocolateWafflesConversation.id, {
+  customerMessage: "unas fresas tradicionales con helado y dos waffles",
+  items: [
+    { producto: "Waffle Tradicional", cantidad: 2, precio_unitario: 15000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const allChocolateWafflesQuestion = service.buildNextOrderStepReply(allChocolateWafflesConversation.id);
+assert(
+  allChocolateWafflesQuestion?.source === "backend_waffle_variant_guardrail",
+  "two generic waffles should ask variant split before required options"
+);
+const allChocolateWafflesAnswer = service.handleRequiredOptionsTurn(
+  allChocolateWafflesConversation.id,
+  "los dos de chocolate"
+);
+assert(
+  allChocolateWafflesAnswer?.source === "backend_required_options_guardrail",
+  "'los dos de chocolate' should resolve waffle variants and ask required options"
+);
+assert(
+  ((String(allChocolateWafflesAnswer?.responseText).match(/1 x Waffle Chocolate/g) ?? []).length === 2) &&
+    !String(allChocolateWafflesAnswer?.responseText).includes("Waffle Tradicional") &&
+    String(allChocolateWafflesAnswer?.responseText).includes("1 x Fresas con helado") &&
+    String(allChocolateWafflesAnswer?.responseText).includes("fruta") &&
+    String(allChocolateWafflesAnswer?.responseText).includes("sabor de helado") &&
+    String(allChocolateWafflesAnswer?.responseText).includes("salsa"),
+  "required options prompt should keep chocolate waffles and ask all waffle/strawberry options"
+);
+
 const perWaffleOptionsConversation = service.getOrCreateActiveConversation(
   "telegram",
   "per-waffle-options-test"

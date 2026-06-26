@@ -1257,7 +1257,7 @@ export class BotIntegrationService {
 
   private extractCountBeforeVariant(text: string, variant: "tradicional" | "chocolate") {
     const match = text.match(
-      new RegExp(`(?:^|\\s)(\\d+|un|uno|una|dos|tres|cuatro|cinco)\\s+(?:waffles?\\s+)?${variant}(?:es)?\\b`)
+      new RegExp(`(?:^|\\s)(\\d+|un|uno|una|dos|tres|cuatro|cinco)\\s+(?:waffles?\\s+)?(?:de\\s+)?${variant}(?:es)?\\b`)
     );
     if (!match?.[1]) {
       return null;
