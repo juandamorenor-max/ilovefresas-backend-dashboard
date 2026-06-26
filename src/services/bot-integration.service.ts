@@ -270,6 +270,7 @@ export class BotIntegrationService {
 
     const safePatch = this.sanitizePrematurePaymentProofPatch(conversation, patch);
     this.applyDraftPatch(conversation.draftOrder, safePatch);
+    this.recoverMentionedProducts(conversation.draftOrder, safePatch.customerMessage);
     this.captureMessages(conversation, safePatch);
     this.captureMemory(conversation, safePatch);
 
@@ -537,6 +538,28 @@ export class BotIntegrationService {
       selectedOptions: this.normalizeSelectedOptions(product, item),
       notes: [item.variante, item.observaciones].filter(Boolean).join(" ") || null
     };
+  }
+
+  private recoverMentionedProducts(draft: OrderDraft, customerMessage?: string) {
+    if (!customerMessage || draft.items.length === 0) {
+      return;
+    }
+
+    const mentionedProducts = this.catalogService.findProductsMentioned(customerMessage);
+    for (const product of mentionedProducts) {
+      if (draft.items.some((item) => item.productId === product.id)) {
+        continue;
+      }
+
+      const item = this.toOrderItem({
+        producto: product.name,
+        cantidad: 1,
+        precio_unitario: product.basePrice
+      });
+      if (item) {
+        draft.items.push(item);
+      }
+    }
   }
 
   private captureMessages(conversation: Conversation, patch: BotConversationStatePatch) {

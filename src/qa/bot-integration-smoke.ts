@@ -255,8 +255,7 @@ const waffleVariantConversation = service.getOrCreateActiveConversation(
 service.updateConversationState(waffleVariantConversation.id, {
   customerMessage: "te voy a pedir 3 waffles y unas fresas tradicionales con helado",
   items: [
-    { producto: "Waffle Tradicional", cantidad: 3, precio_unitario: 15000 },
-    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+    { producto: "Waffle Tradicional", cantidad: 3, precio_unitario: 15000 }
   ],
   modalidad_entrega: "domicilio"
 });
