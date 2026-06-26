@@ -304,6 +304,24 @@ assert(
   "recovered generic waffles question should preserve requested quantity"
 );
 
+const waffleVariantPriorityConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "waffle-variant-priority-test"
+);
+service.updateConversationState(waffleVariantPriorityConversation.id, {
+  customerMessage: "quiero tres waffles y unas fresas tradicionales con helado",
+  items: [
+    { producto: "Waffle Tradicional", cantidad: 3, precio_unitario: 15000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const waffleVariantPriorityQuestion = service.buildNextOrderStepReply(waffleVariantPriorityConversation.id);
+assert(
+  waffleVariantPriorityQuestion?.source === "backend_waffle_variant_guardrail",
+  "generic waffles should ask variant even when text contains traditional strawberries"
+);
+
 const heladoConflictConversation = service.getOrCreateActiveConversation(
   "telegram",
   "traditional-with-helado-conflict-test"

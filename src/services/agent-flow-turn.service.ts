@@ -608,7 +608,8 @@ export class AgentFlowTurnService {
     const requiredContinuation = this.botIntegrationService.buildNextOrderStepReply(conversationId);
     if (
       nextExpected !== "humano" &&
-      requiredContinuation?.source === "backend_required_options_guardrail"
+      (requiredContinuation?.source === "backend_required_options_guardrail" ||
+        requiredContinuation?.source === "backend_waffle_variant_guardrail")
     ) {
       return requiredContinuation;
     }
