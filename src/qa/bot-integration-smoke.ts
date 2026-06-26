@@ -226,12 +226,12 @@ assert(
   "missing required options should be handled by backend guardrail"
 );
 assert(
-  String(requiredOptionsQuestion?.responseText).includes("Waffle Tradicional") &&
-    String(requiredOptionsQuestion?.responseText).includes("Waffle Chocolate") &&
-    String(requiredOptionsQuestion?.responseText).includes("Fresas con helado") &&
-    String(requiredOptionsQuestion?.responseText).includes("sabor de helado") &&
-    String(requiredOptionsQuestion?.responseText).includes("salsa"),
-  "required options question should list all missing waffle and ice cream options"
+  String(requiredOptionsQuestion?.responseText).includes("primer waffle") &&
+    String(requiredOptionsQuestion?.responseText).includes("fruta quieres") &&
+    String(requiredOptionsQuestion?.responseText).includes("Opciones: Fresa, Durazno, Banano") &&
+    !String(requiredOptionsQuestion?.responseText).includes("Me las compartes en un mensaje") &&
+    !String(requiredOptionsQuestion?.responseText).includes("Fresas con helado"),
+  "required options question should ask only the next focused option"
 );
 const requiredOptionsAnswer = service.handleRequiredOptionsTurn(
   requiredOptionsConversation.id,
@@ -286,10 +286,10 @@ assert(
   "after waffle variant split, bot should ask required options"
 );
 assert(
-  ((String(waffleVariantAnswer?.responseText).match(/1 x Waffle Tradicional/g) ?? []).length === 2) &&
-    String(waffleVariantAnswer?.responseText).includes("1 x Waffle Chocolate") &&
-    String(waffleVariantAnswer?.responseText).includes("1 x Fresas con helado"),
-  "required options prompt should reflect split waffle variants"
+  String(waffleVariantAnswer?.responseText).includes("primer waffle") &&
+    String(waffleVariantAnswer?.responseText).includes("fruta quieres") &&
+    !String(waffleVariantAnswer?.responseText).includes("1 x Fresas con helado"),
+  "required options prompt should focus on the first missing waffle option"
 );
 
 const allChocolateWafflesConversation = service.getOrCreateActiveConversation(
@@ -318,13 +318,12 @@ assert(
   "'los dos de chocolate' should resolve waffle variants and ask required options"
 );
 assert(
-  ((String(allChocolateWafflesAnswer?.responseText).match(/1 x Waffle Chocolate/g) ?? []).length === 2) &&
+  String(allChocolateWafflesAnswer?.responseText).includes("los 2 waffles de chocolate") &&
+    String(allChocolateWafflesAnswer?.responseText).includes("primer waffle") &&
+    String(allChocolateWafflesAnswer?.responseText).includes("fruta quieres") &&
     !String(allChocolateWafflesAnswer?.responseText).includes("Waffle Tradicional") &&
-    String(allChocolateWafflesAnswer?.responseText).includes("1 x Fresas con helado") &&
-    String(allChocolateWafflesAnswer?.responseText).includes("fruta") &&
-    String(allChocolateWafflesAnswer?.responseText).includes("sabor de helado") &&
-    String(allChocolateWafflesAnswer?.responseText).includes("salsa"),
-  "required options prompt should keep chocolate waffles and ask all waffle/strawberry options"
+    !String(allChocolateWafflesAnswer?.responseText).includes("Fresas con helado"),
+  "required options prompt should keep chocolate waffles and ask only the first focused option"
 );
 
 const perWaffleOptionsConversation = service.getOrCreateActiveConversation(

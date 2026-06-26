@@ -51,6 +51,11 @@ type MissingRequiredOption = {
   option: NonNullable<Product["requiredOptions"]>[number];
 };
 
+type RequiredOptionFocus = MissingRequiredOption & {
+  missingForItem: MissingRequiredOption[];
+  itemIndex: number;
+};
+
 export class BotIntegrationService {
   constructor(
     private readonly catalogService = new CatalogService(),
@@ -252,8 +257,26 @@ export class BotIntegrationService {
       return nextStep;
     }
 
+    const ambiguousRequiredOptionQuestion = this.buildAmbiguousRequiredOptionQuestion(draft, customerText);
+    if (ambiguousRequiredOptionQuestion) {
+      const nextStep = {
+        responseText: ambiguousRequiredOptionQuestion,
+        nextExpected: "pedido",
+        source: "backend_required_options_guardrail"
+      };
+      this.saveMessage(conversation, "customer", customerText);
+      this.saveMessage(conversation, "bot", nextStep.responseText);
+      conversation.state = this.nextConversationState(conversation, {
+        next_expected: nextStep.nextExpected
+      });
+      conversation.updatedAt = nowIso();
+
+      persistRuntimeStore();
+      return nextStep;
+    }
+
     const appliedWaffleVariantCounts = this.applyWaffleVariantCounts(draft, customerText);
-    if (!appliedWaffleVariantCounts) {
+    if (!appliedWaffleVariantCounts && !this.applySameRequiredOptionsAsPrevious(draft, customerText)) {
       this.applyRequiredOptionAnswers(draft, customerText);
     }
     conversation.draftOrder = this.orderService.refreshDraft(draft);
@@ -928,6 +951,13 @@ export class BotIntegrationService {
   }
 
   private buildRequiredOptionsQuestion(draft: OrderDraft) {
+    const focus = this.getRequiredOptionFocus(draft);
+    if (!focus) {
+      return null;
+    }
+
+    return this.buildRequiredOptionFocusQuestion(draft, focus);
+
     const missing = this.getMissingRequiredOptions(draft);
     if (missing.length === 0) {
       return null;
@@ -954,6 +984,152 @@ export class BotIntegrationService {
       "",
       "Me las compartes en un mensaje? 🍓"
     ].join("\n");
+  }
+
+  private getRequiredOptionFocus(draft: OrderDraft): RequiredOptionFocus | null {
+    const missing = this.getMissingRequiredOptions(draft);
+    const current = missing[0];
+    if (!current) {
+      return null;
+    }
+
+    return {
+      ...current,
+      missingForItem: missing.filter((entry) => entry.item.id === current.item.id),
+      itemIndex: draft.items.findIndex((item) => item.id === current.item.id)
+    };
+  }
+
+  private buildRequiredOptionFocusQuestion(draft: OrderDraft, focus: RequiredOptionFocus) {
+    const prefix = this.buildCompletedRequiredOptionPrefix(draft, focus);
+    const question = this.buildRequiredOptionQuestionText(draft, focus);
+    const choices = this.buildRequiredOptionChoiceLine(focus.option);
+    return [prefix, question, choices].filter(Boolean).join("\n\n");
+  }
+
+  private buildRequiredOptionQuestionText(draft: OrderDraft, focus: RequiredOptionFocus) {
+    if (this.isWaffleItem(focus.item)) {
+      const waffleLabel = this.requiredOptionItemLabel(draft, focus.item);
+      if (focus.option.key === "fruit") {
+        const sameProductCount = draft.items.filter((item) => item.productName === focus.item.productName).length;
+        const variant = focus.item.productName === "Waffle Chocolate" ? "de chocolate" : "tradicional";
+        const firstWaffleIndex = draft.items.findIndex((item) => this.isWaffleItem(item));
+
+        if (focus.itemIndex === firstWaffleIndex) {
+          return sameProductCount > 1
+            ? `Listo, los ${sameProductCount} waffles ${variant}. Empecemos con el ${waffleLabel}: ¿qué fruta quieres?`
+            : `Listo. Para el ${waffleLabel}, ¿qué fruta quieres?`;
+        }
+
+        return `Vamos con el ${waffleLabel}: ¿qué fruta quieres?`;
+      }
+      if (focus.option.key === "iceCreamFlavor") {
+        return `Perfecto 😊 ¿Qué sabor de helado para el ${waffleLabel}?`;
+      }
+      if (focus.option.key === "sauce") {
+        return `¿Qué salsa le ponemos al ${waffleLabel}?`;
+      }
+    }
+
+    if (focus.product.name === "Fresas con helado" && focus.option.key === "iceCreamFlavor") {
+      return "Para las fresas con helado, ¿qué sabor de helado quieres?";
+    }
+
+    return `Para ${focus.item.productName}, ¿qué ${focus.option.label} quieres?`;
+  }
+
+  private buildRequiredOptionChoiceLine(option: NonNullable<Product["requiredOptions"]>[number]) {
+    if (option.key === "fruit") {
+      return "Opciones: Fresa, Durazno, Banano, Kiwi, Mango o Maracuya.";
+    }
+    if (option.key === "iceCreamFlavor") {
+      return "Opciones: Fresa, Chocolate, Vainilla u Oreo.";
+    }
+    if (option.key === "sauce") {
+      return "Opciones: Arequipe, Leche Condensada, Salsa Hershey, Dulce de mora o Nutella.";
+    }
+    if (option.key === "includedTopping") {
+      return "Opciones: Oreo, Brownie, Milo, Merengue, Chips de Chocolate, Krispi, Mym, Chokis o Coco.";
+    }
+    return option.options.length ? `Opciones: ${this.formatHumanList(option.options)}.` : "";
+  }
+
+  private buildCompletedRequiredOptionPrefix(draft: OrderDraft, focus: RequiredOptionFocus) {
+    if (!this.isFirstMissingOptionForItem(focus)) {
+      return "";
+    }
+
+    const previousItem = draft.items
+      .slice(0, focus.itemIndex)
+      .reverse()
+      .find((item) => this.hasRequiredOptions(item) && this.itemRequiredOptionsAreComplete(item));
+    if (!previousItem) {
+      return "";
+    }
+
+    const label = this.requiredOptionItemLabel(draft, previousItem);
+    const options = this.formatSelectedRequiredOptions(previousItem);
+    if (!options) {
+      return "";
+    }
+
+    return this.isWaffleItem(previousItem)
+      ? `${this.capitalizeFirst(label)} listo: ${options}.`
+      : `${previousItem.productName} listo: ${options}.`;
+  }
+
+  private isFirstMissingOptionForItem(focus: RequiredOptionFocus) {
+    return focus.missingForItem[0]?.option.key === focus.option.key;
+  }
+
+  private hasRequiredOptions(item: OrderItem) {
+    return Boolean(this.catalogService.findProductById(item.productId)?.requiredOptions?.length);
+  }
+
+  private itemRequiredOptionsAreComplete(item: OrderItem) {
+    const product = this.catalogService.findProductById(item.productId);
+    return (product?.requiredOptions ?? [])
+      .filter((option) => option.required)
+      .every((option) => (item.selectedOptions?.[option.key]?.length ?? 0) >= option.minSelections);
+  }
+
+  private formatSelectedRequiredOptions(item: OrderItem) {
+    const product = this.catalogService.findProductById(item.productId);
+    return (product?.requiredOptions ?? [])
+      .flatMap((option) => item.selectedOptions?.[option.key] ?? [])
+      .join(", ");
+  }
+
+  private requiredOptionItemLabel(draft: OrderDraft, item: OrderItem) {
+    if (!this.isWaffleItem(item)) {
+      return item.productName.toLowerCase();
+    }
+
+    const waffleItems = draft.items.filter((candidate) => this.isWaffleItem(candidate));
+    const index = waffleItems.findIndex((candidate) => candidate.id === item.id);
+    return `${this.ordinalWord(index + 1)} waffle`;
+  }
+
+  private ordinalWord(value: number) {
+    const words: Record<number, string> = {
+      1: "primer",
+      2: "segundo",
+      3: "tercer",
+      4: "cuarto",
+      5: "quinto"
+    };
+    return words[value] ?? `${value}.`;
+  }
+
+  private capitalizeFirst(value: string) {
+    return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
+  }
+
+  private formatHumanList(values: string[]) {
+    if (values.length <= 1) {
+      return values.join("");
+    }
+    return `${values.slice(0, -1).join(", ")} o ${values[values.length - 1]}`;
   }
 
   private buildRequiredOptionChoices(optionKeys: string[]) {
@@ -1032,6 +1208,62 @@ export class BotIntegrationService {
         }
       }
     }
+  }
+
+  private applySameRequiredOptionsAsPrevious(draft: OrderDraft, text: string) {
+    const normalized = this.normalizeForMatching(text);
+    if (!/\b(igual|lo mismo|mismo)\b/.test(normalized)) {
+      return false;
+    }
+
+    const focus = this.getRequiredOptionFocus(draft);
+    if (!focus) {
+      return false;
+    }
+
+    const source = draft.items
+      .slice(0, focus.itemIndex)
+      .reverse()
+      .find(
+        (item) =>
+          item.productId === focus.item.productId &&
+          this.itemRequiredOptionsAreComplete(item)
+      );
+    if (!source?.selectedOptions) {
+      return false;
+    }
+
+    const product = this.catalogService.findProductById(focus.item.productId);
+    focus.item.selectedOptions ??= {};
+    for (const option of product?.requiredOptions ?? []) {
+      if (option.required && source.selectedOptions[option.key]?.length) {
+        focus.item.selectedOptions[option.key] = [...source.selectedOptions[option.key]].slice(
+          0,
+          option.maxSelections
+        );
+      }
+    }
+
+    return this.itemRequiredOptionsAreComplete(focus.item);
+  }
+
+  private buildAmbiguousRequiredOptionQuestion(draft: OrderDraft, text: string) {
+    const focus = this.getRequiredOptionFocus(draft);
+    if (!focus || focus.option.key !== "sauce") {
+      return null;
+    }
+
+    const normalized = this.normalizeForMatching(text);
+    const answers = this.extractRequiredOptionAnswers(text);
+    if (
+      answers.sauce ||
+      !/\bchocolate\b/.test(normalized) ||
+      /\b(hershey|nutella|salsa)\b/.test(normalized)
+    ) {
+      return null;
+    }
+
+    return "Cuando dices chocolate, ¿te refieres a Salsa Hershey o Nutella?";
   }
 
   private findImplicitRequiredOptionTarget(

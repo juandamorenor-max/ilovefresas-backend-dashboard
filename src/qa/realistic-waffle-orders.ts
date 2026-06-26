@@ -165,9 +165,11 @@ function runPartialRealisticOrder() {
   logs.push(unknownOptions);
 
   const variantSplit = runRequiredOptionTurn(chatId, conversationId, "uno tradicional y dos chocolate");
-  assertIncludes(variantSplit.bot, "Frutas:", "required option choices");
-  assertIncludes(variantSplit.bot, "Helados:", "required option choices");
-  assertIncludes(variantSplit.bot, "Salsas:", "required option choices");
+  assertIncludes(variantSplit.bot, "primer waffle", "guided required option question");
+  assertIncludes(variantSplit.bot, "fruta quieres", "guided required option question");
+  assertIncludes(variantSplit.bot, "Opciones: Fresa, Durazno, Banano", "guided fruit choices");
+  assertNotIncludes(variantSplit.bot, "Me las compartes en un mensaje", "guided required option question");
+  assertNotIncludes(variantSplit.bot, "sabor de helado, salsa", "guided required option question");
   assertOrderIsSplit(chatId);
   logs.push(variantSplit);
 
@@ -185,6 +187,8 @@ function runPartialRealisticOrder() {
 
   const sauceTypo = runRequiredOptionTurn(chatId, conversationId, "arekipe");
   assert.deepEqual(selected(itemAt(chatId, 0), "sauce"), ["Arequipe"]);
+  assertIncludes(sauceTypo.bot, "Primer waffle listo", "completed first waffle transition");
+  assertIncludes(sauceTypo.bot, "segundo waffle", "next waffle transition");
   assertNoDeliveryPrompt(sauceTypo, "sauce typo reply");
   logs.push(sauceTypo);
 
@@ -219,6 +223,12 @@ function runPartialRealisticOrder() {
   assertNoDeliveryPrompt(secondChocolateFlavor, "second chocolate ice cream");
   logs.push(secondChocolateFlavor);
 
+  const ambiguousSauce = runRequiredOptionTurn(chatId, conversationId, "chocolate");
+  assertIncludes(ambiguousSauce.bot, "Salsa Hershey o Nutella", "ambiguous chocolate sauce");
+  assert.deepEqual(selected(itemAt(chatId, 2), "sauce"), []);
+  assertNoDeliveryPrompt(ambiguousSauce, "ambiguous chocolate sauce");
+  logs.push(ambiguousSauce);
+
   const secondChocolateSauce = runRequiredOptionTurn(chatId, conversationId, "salsa arequipe");
   assert.deepEqual(selected(itemAt(chatId, 2), "sauce"), ["Arequipe"]);
   assertNoDeliveryPrompt(secondChocolateSauce, "second chocolate sauce");
@@ -252,6 +262,39 @@ function runPartialRealisticOrder() {
   logs.push(summary);
 
   return { chatId, conversationId, logs };
+}
+
+function runSameAsPreviousOrder() {
+  const chatId = "qa-realistic-waffle-same-as-previous";
+  const conversation = service.getOrCreateActiveConversation("telegram", chatId);
+  service.updateConversationState(conversation.id, {
+    items: [
+      { producto: "Waffle Chocolate", cantidad: 1, precio_unitario: 15000 },
+      { producto: "Waffle Chocolate", cantidad: 1, precio_unitario: 15000 }
+    ],
+    modalidad_entrega: "domicilio"
+  });
+  const logs: TurnLog[] = [];
+
+  const firstWaffle = runRequiredOptionTurn(chatId, conversation.id, "fresa vainilla arequipe");
+  assert.deepEqual(selected(itemAt(chatId, 0), "fruit"), ["Fresa"]);
+  assert.deepEqual(selected(itemAt(chatId, 0), "iceCreamFlavor"), ["Vainilla"]);
+  assert.deepEqual(selected(itemAt(chatId, 0), "sauce"), ["Arequipe"]);
+  assertNoDeliveryPrompt(firstWaffle, "first waffle full answer");
+  logs.push(firstWaffle);
+
+  const sameAsPrevious = runRequiredOptionTurn(chatId, conversation.id, "igual al anterior");
+  assert.deepEqual(selected(itemAt(chatId, 1), "fruit"), ["Fresa"]);
+  assert.deepEqual(selected(itemAt(chatId, 1), "iceCreamFlavor"), ["Vainilla"]);
+  assert.deepEqual(selected(itemAt(chatId, 1), "sauce"), ["Arequipe"]);
+  assertIncludes(sameAsPrevious.bot, "Nombre:", "same-as-previous should move to delivery data");
+  assert(
+    !sameAsPrevious.missingFields.includes("opciones_obligatorias"),
+    "same-as-previous should complete required options"
+  );
+  logs.push(sameAsPrevious);
+
+  return { chatId, conversationId: conversation.id, logs };
 }
 
 function runDirectRealisticOrder() {
@@ -296,6 +339,7 @@ function runDirectRealisticOrder() {
 
 const partialOrder = runPartialRealisticOrder();
 const directOrder = runDirectRealisticOrder();
+const sameAsPreviousOrder = runSameAsPreviousOrder();
 
 console.log(
   JSON.stringify(
@@ -313,6 +357,12 @@ console.log(
           chatId: directOrder.chatId,
           conversationId: directOrder.conversationId,
           turns: directOrder.logs
+        },
+        {
+          name: "same-as-previous-order",
+          chatId: sameAsPreviousOrder.chatId,
+          conversationId: sameAsPreviousOrder.conversationId,
+          turns: sameAsPreviousOrder.logs
         }
       ]
     },
