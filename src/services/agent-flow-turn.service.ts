@@ -125,6 +125,38 @@ export class AgentFlowTurnService {
 
     if (
       conversation.conversationState.next_expected === "confirmacion" &&
+      this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot)
+    ) {
+      const requiredContinuation = this.botIntegrationService.buildNextOrderStepReply(conversation.id);
+      if (
+        requiredContinuation?.source === "backend_required_options_guardrail" ||
+        requiredContinuation?.nextExpected === "datos"
+      ) {
+        const updatedConversation = this.botIntegrationService.updateConversationState(
+          conversation.id,
+          {
+            customerMessage: text,
+            botMessage: requiredContinuation.responseText,
+            mensaje_cliente: requiredContinuation.responseText,
+            next_expected: requiredContinuation.nextExpected
+          }
+        );
+
+        return {
+          conversationId: conversation.id,
+          sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+          responseText: requiredContinuation.responseText,
+          shouldSendReply: true,
+          source: requiredContinuation.source,
+          state: updatedConversation?.state ?? conversation.state,
+          orderId: updatedConversation?.activeOrderId ?? null,
+          reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
+        };
+      }
+    }
+
+    if (
+      conversation.conversationState.next_expected === "confirmacion" &&
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       !this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
     ) {
@@ -264,6 +296,28 @@ export class AgentFlowTurnService {
         attachments: menuAttachment ? [menuAttachment] : [],
         state: updatedConversation?.state ?? conversation.state,
         orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
+
+    const requiredOptionsTurn = this.botIntegrationService.handleRequiredOptionsTurn(
+      conversation.id,
+      text
+    );
+    if (requiredOptionsTurn) {
+      const updatedConversation = this.botIntegrationService.getOrCreateActiveConversation(
+        input.channel,
+        input.chatId
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText: requiredOptionsTurn.responseText,
+        shouldSendReply: true,
+        source: requiredOptionsTurn.source,
+        state: updatedConversation.state,
+        orderId: updatedConversation.activeOrderId ?? null,
+        reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
       };
     }
 
@@ -551,6 +605,14 @@ export class AgentFlowTurnService {
   ) {
     const normalizedResponse = this.normalize(responseText);
     const normalizedCustomerText = this.normalize(customerText);
+    const requiredContinuation = this.botIntegrationService.buildNextOrderStepReply(conversationId);
+    if (
+      nextExpected !== "humano" &&
+      requiredContinuation?.source === "backend_required_options_guardrail"
+    ) {
+      return requiredContinuation;
+    }
+
     const noMoreResponse = ["no", "nope", "nada mas", "solo eso", "eso es todo"].some(
       (phrase) => normalizedCustomerText === phrase || normalizedCustomerText.includes(phrase)
     );

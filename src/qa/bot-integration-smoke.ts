@@ -187,6 +187,67 @@ assert(
   "complete draft guardrail should generate a summary"
 );
 
+const requiredOptionsConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "required-options-waffles-fresas-test"
+);
+service.updateConversationState(requiredOptionsConversation.id, {
+  items: [
+    { producto: "Waffle Tradicional", cantidad: 2, precio_unitario: 15000 },
+    { producto: "Waffle Chocolate", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  nombre: "Juan Moreno",
+  direccion: "cra 39a # 41-99",
+  barrio: "miramar",
+  referencia: "casa",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio"
+});
+const blockedRequiredOptions = service.getOrderReviewReadiness(requiredOptionsConversation.id);
+assert(
+  blockedRequiredOptions.missingFields.includes("opciones_obligatorias"),
+  "order with waffles and ice cream strawberries should require missing options before review"
+);
+assert(
+  !service.createOrderForReview(requiredOptionsConversation.id),
+  "order with missing required options must not be sent to review"
+);
+const requiredOptionsQuestion = service.buildNextOrderStepReply(requiredOptionsConversation.id);
+assert(
+  requiredOptionsQuestion?.source === "backend_required_options_guardrail",
+  "missing required options should be handled by backend guardrail"
+);
+assert(
+  String(requiredOptionsQuestion?.responseText).includes("Waffle Tradicional") &&
+    String(requiredOptionsQuestion?.responseText).includes("Waffle Chocolate") &&
+    String(requiredOptionsQuestion?.responseText).includes("Fresas con helado") &&
+    String(requiredOptionsQuestion?.responseText).includes("sabor de helado") &&
+    String(requiredOptionsQuestion?.responseText).includes("salsa"),
+  "required options question should list all missing waffle and ice cream options"
+);
+const requiredOptionsAnswer = service.handleRequiredOptionsTurn(
+  requiredOptionsConversation.id,
+  "para los waffles fruta fresa, helado vainilla y salsa arequipe; las fresas con helado de chocolate"
+);
+assert(
+  requiredOptionsAnswer?.nextExpected === "confirmacion",
+  "after required options and delivery data are complete, bot should continue to confirmation"
+);
+const readyForPaymentProof = service.getOrderReviewReadiness(requiredOptionsConversation.id);
+assert(
+  !readyForPaymentProof.missingFields.includes("opciones_obligatorias"),
+  "required options should be resolved from customer answer"
+);
+const requiredOptionsSummary = service.buildConfirmationSummary(requiredOptionsConversation.id);
+assert(
+  String(requiredOptionsSummary).includes("fruta: Fresa") &&
+    String(requiredOptionsSummary).includes("sabor de helado: Vainilla") &&
+    String(requiredOptionsSummary).includes("sabor de helado: Chocolate") &&
+    String(requiredOptionsSummary).includes("salsa: Arequipe"),
+  "summary should include selected required options for waffles and strawberries"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;

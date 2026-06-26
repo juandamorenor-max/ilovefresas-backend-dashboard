@@ -14,6 +14,7 @@ interface FlowisePedidoItem {
   cantidad?: number;
   variante?: string;
   sabor?: string;
+  selectedOptions?: Record<string, string[]>;
   toppings?: string[];
   adiciones?: string[];
   observaciones?: string;
@@ -44,6 +45,12 @@ interface BotConversationStatePatch {
 }
 
 const CLOSED_STATES = new Set(["post_order_closed", "completed", "cancelled"]);
+type MissingRequiredOption = {
+  item: OrderItem;
+  product: Product;
+  option: NonNullable<Product["requiredOptions"]>[number];
+};
+
 export class BotIntegrationService {
   constructor(
     private readonly catalogService = new CatalogService(),
@@ -129,9 +136,7 @@ export class BotIntegrationService {
       return null;
     }
 
-    const itemLines = draft.items.map(
-      (item) => `- ${item.quantity} x ${item.productName}: ${this.money(item.unitBasePrice * item.quantity)}`
-    );
+    const itemLines = draft.items.map((item) => this.formatSummaryItemLine(item));
 
     return [
       "Resumen de tu pedido:",
@@ -178,8 +183,21 @@ export class BotIntegrationService {
       };
     }
 
+    const requiredOptionsQuestion = this.buildRequiredOptionsQuestion(draft);
+    if (requiredOptionsQuestion) {
+      return {
+        responseText: requiredOptionsQuestion,
+        nextExpected: "pedido",
+        source: "backend_required_options_guardrail"
+      };
+    }
+
     const missingFields = this.buildReviewReadiness(draft).missingFields.filter(
-      (field) => field !== "comprobante_pago" && field !== "precios" && field !== "productos"
+      (field) =>
+        field !== "comprobante_pago" &&
+        field !== "precios" &&
+        field !== "productos" &&
+        field !== "opciones_obligatorias"
     );
 
     if (missingFields.length === 0) {
@@ -198,6 +216,33 @@ export class BotIntegrationService {
       nextExpected: "datos",
       source: "backend_next_action_guardrail"
     };
+  }
+
+  handleRequiredOptionsTurn(conversationId: string, customerText: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!conversation || !draft || this.getMissingRequiredOptions(draft).length === 0) {
+      return null;
+    }
+
+    this.applyRequiredOptionAnswers(draft, customerText);
+    conversation.draftOrder = this.orderService.refreshDraft(draft);
+
+    const nextStep = this.buildNextOrderStepReply(conversationId) ?? {
+      responseText: "Perfecto. Sigamos con tu pedido.",
+      nextExpected: "pedido",
+      source: "backend_required_options_guardrail"
+    };
+
+    this.saveMessage(conversation, "customer", customerText);
+    this.saveMessage(conversation, "bot", nextStep.responseText);
+    conversation.state = this.nextConversationState(conversation, {
+      next_expected: nextStep.nextExpected
+    });
+    conversation.updatedAt = nowIso();
+
+    persistRuntimeStore();
+    return nextStep;
   }
 
   updateConversationState(conversationId: string, patch: BotConversationStatePatch) {
@@ -477,7 +522,7 @@ export class BotIntegrationService {
           priceDelta: modifier.priceDelta
         }))
       ],
-      selectedOptions: item.sabor ? { sabor: [item.sabor] } : undefined,
+      selectedOptions: this.normalizeSelectedOptions(product, item),
       notes: [item.variante, item.observaciones].filter(Boolean).join(" ") || null
     };
   }
@@ -542,6 +587,12 @@ export class BotIntegrationService {
       return "awaiting_payment_proof";
     }
     if (patch.needs_human === true || patch.needs_human === "true") return "pending_human";
+    if (
+      conversation.draftOrder?.items.length &&
+      this.getMissingRequiredOptions(conversation.draftOrder).length > 0
+    ) {
+      return "collecting_items";
+    }
     if (patch.pedido_confirmado === true || patch.pedido_confirmado === "true") return "confirming_order";
     if (
       patch.pedido_confirmado_por_cliente === true ||
@@ -575,6 +626,9 @@ export class BotIntegrationService {
 
     if (draft.items.length === 0) missingFields.push("productos");
     if (draft.items.some((item) => item.unitBasePrice <= 0)) missingFields.push("precios");
+    if (this.getMissingRequiredOptions(draft).length > 0) {
+      missingFields.push("opciones_obligatorias");
+    }
     if (!draft.customerName) missingFields.push("nombre");
     if (!draft.paymentMethod) missingFields.push("metodo_pago");
     if (this.requiresPaymentProof(draft.paymentMethod) && !draft.paymentProofReceived) {
@@ -673,6 +727,194 @@ export class BotIntegrationService {
     if (normalized.includes("bre")) return "Bre-B";
     if (normalized.includes("efectivo") || normalized.includes("contra")) return "Contra entrega";
     return null;
+  }
+
+  private normalizeSelectedOptions(product: Product, item: FlowisePedidoItem) {
+    const selectedOptions: Record<string, string[]> = {};
+    const incoming = item.selectedOptions ?? {};
+
+    for (const option of product.requiredOptions ?? []) {
+      const rawValues = [
+        ...(incoming[option.key] ?? []),
+        ...(option.key === "iceCreamFlavor" && item.sabor ? [item.sabor] : [])
+      ];
+      const values = rawValues
+        .map((value) => this.canonicalRequiredOptionValue(option, value))
+        .filter((value): value is string => Boolean(value));
+
+      if (values.length > 0) {
+        selectedOptions[option.key] = [...new Set(values)].slice(0, option.maxSelections);
+      }
+    }
+
+    return Object.keys(selectedOptions).length ? selectedOptions : undefined;
+  }
+
+  private getMissingRequiredOptions(draft: OrderDraft): MissingRequiredOption[] {
+    return draft.items.flatMap((item) => {
+      const product = this.catalogService.findProductById(item.productId);
+      if (!product) {
+        return [];
+      }
+
+      return (product.requiredOptions ?? [])
+        .filter((option) => option.required)
+        .filter((option) => (item.selectedOptions?.[option.key]?.length ?? 0) < option.minSelections)
+        .map((option) => ({ item, product, option }));
+    });
+  }
+
+  private buildRequiredOptionsQuestion(draft: OrderDraft) {
+    const missing = this.getMissingRequiredOptions(draft);
+    if (missing.length === 0) {
+      return null;
+    }
+
+    const grouped = new Map<string, MissingRequiredOption[]>();
+    for (const entry of missing) {
+      grouped.set(entry.item.id, [...(grouped.get(entry.item.id) ?? []), entry]);
+    }
+
+    const lines = [...grouped.values()].map((entries) => {
+      const item = entries[0].item;
+      const labels = entries.map((entry) => entry.option.label).join(", ");
+      return `- Para ${item.quantity} x ${item.productName}: ${labels}.`;
+    });
+
+    return [
+      "Perfecto. Antes de tomar los datos me faltan estas opciones del pedido:",
+      ...lines,
+      "",
+      "Me las compartes en un mensaje? ðŸ“"
+    ].join("\n");
+  }
+
+  private applyRequiredOptionAnswers(draft: OrderDraft, text: string) {
+    const globalAnswers = this.extractRequiredOptionAnswers(text);
+
+    for (const item of draft.items) {
+      const product = this.catalogService.findProductById(item.productId);
+      if (!product?.requiredOptions?.length) {
+        continue;
+      }
+
+      const scopedText = this.scopeTextForRequiredOptions(item, text);
+      const scopedAnswers = scopedText ? this.extractRequiredOptionAnswers(scopedText) : {};
+      const answers = { ...globalAnswers, ...scopedAnswers };
+
+      item.selectedOptions ??= {};
+      for (const option of product.requiredOptions) {
+        if (!option.required) {
+          continue;
+        }
+        if ((item.selectedOptions[option.key]?.length ?? 0) >= option.minSelections) {
+          continue;
+        }
+
+        const answer = answers[option.key];
+        if (answer) {
+          item.selectedOptions[option.key] = [answer].slice(0, option.maxSelections);
+        }
+      }
+    }
+  }
+
+  private extractRequiredOptionAnswers(text: string) {
+    const allOptions = this.catalogService
+      .listProducts()
+      .flatMap((product) => product.requiredOptions ?? []);
+    const uniqueOptions = new Map(allOptions.map((option) => [option.key, option]));
+    const answers: Record<string, string> = {};
+
+    for (const option of uniqueOptions.values()) {
+      const matches = option.options
+        .map((value) => ({
+          value,
+          index: this.findOptionMentionIndex(text, value)
+        }))
+        .filter((match) => match.index >= 0)
+        .sort((a, b) => a.index - b.index);
+
+      if (matches.length === 0) {
+        continue;
+      }
+
+      const selected =
+        option.key === "iceCreamFlavor"
+          ? matches[matches.length - 1]
+          : matches[0];
+      answers[option.key] = selected.value;
+    }
+
+    return answers;
+  }
+
+  private scopeTextForRequiredOptions(item: OrderItem, text: string) {
+    const normalizedProduct = this.normalizeForMatching(item.productName);
+    const normalizedText = this.normalizeForMatching(text);
+
+    if (normalizedProduct.includes("waffle")) {
+      const match = normalizedText.match(
+        /\bwaffles?\b(.+?)(?=\b(?:las|unas?|los)?\s*fresas\s+(?:con\s+helado|tradicionales?\s+con\s+helado)\b|$)/
+      );
+      return match?.[0] ?? null;
+    }
+
+    if (normalizedProduct.includes("fresas con helado")) {
+      const match = normalizedText.match(
+        /\b(?:las|unas?)?\s*fresas\s+(?:con\s+helado|tradicionales?\s+con\s+helado)\b.+$/
+      );
+      return match?.[0] ?? null;
+    }
+
+    return null;
+  }
+
+  private findOptionMentionIndex(text: string, value: string) {
+    const normalizedText = this.normalizeForMatching(text);
+    const normalizedValue = this.normalizeForMatching(value);
+    const match = normalizedText.match(new RegExp(`(^|\\s)${this.escapeRegExp(normalizedValue)}(\\s|$)`));
+    return match?.index ?? -1;
+  }
+
+  private canonicalRequiredOptionValue(
+    option: NonNullable<Product["requiredOptions"]>[number],
+    value: string
+  ) {
+    const normalizedValue = this.normalizeForMatching(value);
+    return option.options.find(
+      (candidate) => this.normalizeForMatching(candidate) === normalizedValue
+    ) ?? null;
+  }
+
+  private formatSummaryItemLine(item: OrderItem) {
+    const product = this.catalogService.findProductById(item.productId);
+    const options = Object.entries(item.selectedOptions ?? {})
+      .flatMap(([key, values]) => {
+        const label = product?.requiredOptions?.find((option) => option.key === key)?.label ?? key;
+        return values.map((value) => `${label}: ${value}`);
+      })
+      .join("; ");
+    const optionsText = options ? ` (${options})` : "";
+
+    return `- ${item.quantity} x ${item.productName}${optionsText}: ${this.money(
+      item.unitBasePrice * item.quantity
+    )}`;
+  }
+
+  private normalizeForMatching(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\p{L}0-9]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private escapeRegExp(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   private buildMissingDataTemplate(missingFields: string[]) {
