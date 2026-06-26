@@ -60,6 +60,8 @@ const envSchema = z.object({
   TELEGRAM_ADMIN_BOT_TOKEN: z.string().optional(),
   TELEGRAM_ADMIN_CHAT_ID: z.string().optional(),
   TELEGRAM_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1500),
+  DASHBOARD_ACCESS_PASSWORD: z.string().optional(),
+  DASHBOARD_SESSION_SECRET: z.string().optional(),
   MENU_PDF_PATH: stringDefaultWhenBlank("assets/menu/Menu 2026.pdf"),
   SPEC_ASSETS_DIR: z.string().default("assets/specifications"),
   RUNTIME_STORE_PATH: z.string().optional(),

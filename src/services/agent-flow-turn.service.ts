@@ -30,7 +30,7 @@ interface FlowisePredictionResponse {
 }
 
 const fallbackReply =
-  "Perdon, tuve un problema conectando el asistente. Te paso con el equipo para ayudarte.";
+  "Perdón, tuve un problema conectando el asistente. Te paso con el equipo para ayudarte.";
 
 export class AgentFlowTurnService {
   constructor(
@@ -63,7 +63,7 @@ export class AgentFlowTurnService {
       return {
         conversationId: conversation.id,
         sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
-        responseText: "Escribeme tu pedido o dime si quieres ver el menu 🍓",
+        responseText: "Escríbeme tu pedido o dime si quieres ver el menú 🍓",
         shouldSendReply: true,
         source: "empty_message",
         state: conversation.state,
@@ -195,7 +195,7 @@ export class AgentFlowTurnService {
     ) {
       const responseText =
         this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
-        "Para continuar con la revision del pedido, enviame el comprobante del pago por aqui 😊";
+        "Para continuar con la revisión del pedido, envíame el comprobante del pago por aquí 😊";
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
         {
@@ -233,11 +233,11 @@ export class AgentFlowTurnService {
       });
       const paymentProofReceived = proofValidation.isLikelyPaymentProof;
       const responseText = paymentProofReceived
-        ? "Comprobante recibido! 😊 Un operario te va a confirmar cuando tu pedido este enviado."
+        ? "Comprobante recibido 😊 Un operario te va a confirmar cuando tu pedido esté enviado."
         : hasAttachment
-          ? "Recibi la imagen, pero no alcanzo a validar que sea un comprobante de pago. Enviame una captura donde se vea el valor, estado exitoso y referencia 😊"
+          ? "Recibí la imagen, pero no alcanzo a validar que sea un comprobante de pago. Envíame una captura donde se vea el valor, estado exitoso y referencia 😊"
         : this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
-          "Para continuar con tu pedido, enviame el comprobante del pago por aqui.";
+          "Para continuar con tu pedido, envíame el comprobante del pago por aquí.";
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
         {
@@ -273,7 +273,7 @@ export class AgentFlowTurnService {
     }
 
     if (this.isMenuPdfRequest(text)) {
-      const responseText = "Claro 😊 Te envio el Menu 2026 por aqui 🍓";
+      const responseText = "Claro 😊 Te envío el Menu 2026 por aquí 🍓";
       const menuAttachment = this.buildMenuAttachment(input.appBaseUrl);
       const menuPdfSent = await this.sendMenuPdfIfPossible(input.channel, input.chatId, menuAttachment);
       const updatedConversation = this.botIntegrationService.updateConversationState(
@@ -641,7 +641,7 @@ export class AgentFlowTurnService {
       return {
         responseText:
           this.botIntegrationService.buildPaymentInstructionsForConversation(conversationId) ??
-          "Para continuar con la revision del pedido, enviame el comprobante del pago por aqui 😊",
+          "Para continuar con la revisión del pedido, envíame el comprobante del pago por aquí 😊",
         nextExpected: "comprobante_pago",
         source: "backend_next_action_guardrail"
       };
@@ -706,25 +706,25 @@ export class AgentFlowTurnService {
   ) {
     return [
       input.text.trim() || input.caption?.trim() || `Comprobante recibido por ${input.attachmentType ?? "archivo"} desde ${input.channel}.`,
-      `Validacion: ${proofValidation.source}, confianza ${proofValidation.confidence.toFixed(2)}.`,
+      `Validación: ${proofValidation.source}, confianza ${proofValidation.confidence.toFixed(2)}.`,
       proofValidation.reason
     ].filter(Boolean).join(" ");
   }
 
   private buildUnexpectedAttachmentReply(nextExpected: string) {
-    return "Recibi la imagen, pero todavia no puedo recibir comprobantes. Primero cerramos el pedido, te doy el total y despues te pido el comprobante 😊";
+    return "Recibí la imagen, pero todavía no puedo recibir comprobantes. Primero cerramos el pedido, te doy el total y después te pido el comprobante 😊";
   }
 
   private buildPrematurePaymentProofReply(nextExpected: string) {
     if (nextExpected === "confirmacion") {
-      return "Todavia no puedo recibir comprobantes. Primero confirmame si el resumen esta correcto; despues te doy el total y te pido el comprobante 😊";
+      return "Todavía no puedo recibir comprobantes. Primero confírmame si el resumen está correcto; después te doy el total y te pido el comprobante 😊";
     }
 
     if (nextExpected === "datos") {
-      return "Todavia no puedo recibir comprobantes. Primero terminamos los datos del pedido, luego te muestro el total y ahi si te pido el comprobante 😊";
+      return "Todavía no puedo recibir comprobantes. Primero terminamos los datos del pedido, luego te muestro el total y ahí sí te pido el comprobante 😊";
     }
 
-    return "Todavia no puedo recibir comprobantes. Primero armamos y cerramos el pedido; despues te doy el total y te pido el comprobante 😊";
+    return "Todavía no puedo recibir comprobantes. Primero armamos y cerramos el pedido; después te doy el total y te pido el comprobante 😊";
   }
 
   private isMenuPdfRequest(text: string) {

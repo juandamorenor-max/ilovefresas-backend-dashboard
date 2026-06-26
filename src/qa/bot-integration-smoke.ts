@@ -9,6 +9,13 @@ function assert(condition: unknown, message: string): asserts condition {
   }
 }
 
+function normalized(value: unknown) {
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 demoStore.conversations = [];
 demoStore.messages = [];
 demoStore.orders = [];
@@ -95,7 +102,7 @@ assert(
 );
 assert(!prematureTextProofTurn.orderId, "premature text proof should not create review order");
 assert(
-  String(prematureTextProofTurn.responseText).toLowerCase().includes("todavia no puedo recibir comprobantes"),
+  normalized(prematureTextProofTurn.responseText).includes("todavia no puedo recibir comprobantes"),
   "premature text proof response should explain proof is only after total"
 );
 
@@ -120,7 +127,7 @@ assert(
   "one-line order without alias should still recognize Mix Oreo"
 );
 assert(
-  String(oneLineOrderNoPersistedAliasTurn.responseText).includes("Direccion: cra 39a #41-99"),
+  normalized(oneLineOrderNoPersistedAliasTurn.responseText).includes("direccion: cra 39a #41-99"),
   "one-line order should extract address without requiring a space after #"
 );
 assert(
@@ -148,7 +155,7 @@ assert(
   "one-line order should extract customer name"
 );
 assert(
-  String(oneLineOrderTurn.responseText).includes("Direccion: cra 39a # 41-99"),
+  normalized(oneLineOrderTurn.responseText).includes("direccion: cra 39a # 41-99"),
   "one-line order should extract address"
 );
 assert(
@@ -156,7 +163,7 @@ assert(
   "one-line order should extract neighborhood"
 );
 assert(
-  String(oneLineOrderTurn.responseText).includes("Metodo de pago: Nequi"),
+  normalized(oneLineOrderTurn.responseText).includes("metodo de pago: nequi"),
   "one-line order should extract payment method"
 );
 assert(
@@ -821,7 +828,7 @@ const invalidWhatsAppAttachment = await conversationService.handleIncomingAttach
   mimeType: "image/jpeg"
 });
 assert(
-  invalidWhatsAppAttachment.reply.toLowerCase().includes("todavia no puedo recibir comprobantes"),
+  normalized(invalidWhatsAppAttachment.reply).includes("todavia no puedo recibir comprobantes"),
   "WhatsApp image before payment proof step should be rejected"
 );
 
@@ -834,7 +841,7 @@ const prematureWhatsAppProofAttachment = await conversationService.handleIncomin
   mimeType: "image/jpeg"
 });
 assert(
-  prematureWhatsAppProofAttachment.reply.toLowerCase().includes("todavia no puedo recibir comprobantes"),
+  normalized(prematureWhatsAppProofAttachment.reply).includes("todavia no puedo recibir comprobantes"),
   "WhatsApp image with proof caption should still be rejected before order total"
 );
 

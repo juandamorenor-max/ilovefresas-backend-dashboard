@@ -36,6 +36,13 @@ function assertNotIncludes(text: unknown, unexpected: string, label: string) {
   );
 }
 
+function normalized(text: unknown) {
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function startWaffleConversation(chatId: string, text: string) {
   const conversation = service.getOrCreateActiveConversation("telegram", chatId);
   service.updateConversationState(conversation.id, {
@@ -275,7 +282,10 @@ function runDirectRealisticOrder() {
   assertIncludes(summary.bot, "1 x Waffle Chocolate (fruta: Kiwi; sabor de helado: Vainilla; salsa: Arequipe): $15,000", "direct summary");
   assertIncludes(summary.bot, "1 x Waffle Chocolate (fruta: Mango; sabor de helado: Chocolate; salsa: Nutella): $15,000", "direct summary");
   assertIncludes(summary.bot, "1 x Fresas con helado (sabor de helado: Oreo): $18,000", "direct summary");
-  assertIncludes(summary.bot, "Metodo de pago: Bancolombia", "bankolombia typo normalization");
+  assert(
+    normalized(summary.bot).includes("metodo de pago: bancolombia"),
+    "bankolombia typo normalization"
+  );
   assertIncludes(summary.bot, "Total: $68,000", "direct summary");
   assertNotIncludes(summary.bot, "Fresas con crema tradicional", "direct summary");
   assertNotIncludes(summary.bot, "2 x Waffle Chocolate", "direct summary");

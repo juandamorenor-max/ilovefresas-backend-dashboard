@@ -128,8 +128,130 @@ export class AccountingLedgerService {
     }
   }
 
+  async listDispatchedOrders(filters: { from?: string | null; to?: string | null } = {}) {
+    if (!this.db.configured) {
+      return this.buildLedgerResponse(false, []);
+    }
+
+    await this.ensureSchema();
+    const rows = await this.db.query<{
+      order_id: string;
+      customer_phone: string;
+      customer_name: string | null;
+      fulfillment_type: string;
+      address: string | null;
+      neighborhood: string | null;
+      address_reference: string | null;
+      payment_method: string | null;
+      subtotal: number;
+      delivery_fee: number;
+      discount_total: number;
+      total: number;
+      status: string;
+      dispatched_at: string;
+      order_created_at: string;
+      order_updated_at: string;
+      order_snapshot: unknown;
+    }>(
+      `
+      select
+        order_id,
+        customer_phone,
+        customer_name,
+        fulfillment_type,
+        address,
+        neighborhood,
+        address_reference,
+        payment_method,
+        subtotal,
+        delivery_fee,
+        discount_total,
+        total,
+        status,
+        dispatched_at,
+        order_created_at,
+        order_updated_at,
+        order_snapshot
+      from accounting_dispatched_orders
+      where ($1::timestamptz is null or dispatched_at >= $1::timestamptz)
+        and ($2::timestamptz is null or dispatched_at <= $2::timestamptz)
+      order by dispatched_at desc
+      limit 500
+      `,
+      [filters.from || null, filters.to || null]
+    );
+
+    return this.buildLedgerResponse(true, rows.map((row) => ({
+      orderId: row.order_id,
+      customerPhone: row.customer_phone,
+      customerName: row.customer_name,
+      fulfillmentType: row.fulfillment_type,
+      address: row.address,
+      neighborhood: row.neighborhood,
+      addressReference: row.address_reference,
+      paymentMethod: row.payment_method,
+      subtotal: Number(row.subtotal),
+      deliveryFee: Number(row.delivery_fee),
+      discountTotal: Number(row.discount_total),
+      total: Number(row.total),
+      status: row.status,
+      dispatchedAt: row.dispatched_at,
+      orderCreatedAt: row.order_created_at,
+      orderUpdatedAt: row.order_updated_at,
+      orderSnapshot: row.order_snapshot
+    })));
+  }
+
+  toCsv(rows: Array<Record<string, unknown>>) {
+    const columns = [
+      "orderId",
+      "dispatchedAt",
+      "customerPhone",
+      "customerName",
+      "address",
+      "neighborhood",
+      "addressReference",
+      "paymentMethod",
+      "subtotal",
+      "deliveryFee",
+      "discountTotal",
+      "total",
+      "status"
+    ];
+    return [
+      columns.join(","),
+      ...rows.map((row) => columns.map((column) => this.csvCell(row[column])).join(","))
+    ].join("\n");
+  }
+
   private async ensureSchema() {
     this.schemaReady ??= this.db.query(createAccountingTableSql).then(() => undefined);
     return this.schemaReady;
+  }
+
+  private buildLedgerResponse(configured: boolean, rows: Array<Record<string, unknown>>) {
+    const byPaymentMethod = rows.reduce<Record<string, { count: number; total: number }>>((acc, row) => {
+      const method = String(row.paymentMethod ?? "Sin metodo");
+      const total = Number(row.total ?? 0);
+      acc[method] ??= { count: 0, total: 0 };
+      acc[method].count += 1;
+      acc[method].total += total;
+      return acc;
+    }, {});
+
+    return {
+      configured,
+      rows,
+      summary: {
+        orderCount: rows.length,
+        totalSales: rows.reduce((sum, row) => sum + Number(row.total ?? 0), 0),
+        byPaymentMethod
+      }
+    };
+  }
+
+  private csvCell(value: unknown) {
+    const text = value === null || value === undefined ? "" : String(value);
+    return `"${text.replace(/"/g, '""')}"`;
   }
 }

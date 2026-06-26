@@ -75,6 +75,8 @@ Claves relevantes:
 - `GEMINI_MODEL`: por defecto `gemini-3.5-flash`.
 - `RUNTIME_STORE_PATH`: ruta del snapshot JSON operativo.
 - `DATABASE_URL`: URL Postgres. En V1 se usa para el ledger contable de pedidos despachados.
+- `DASHBOARD_ACCESS_PASSWORD`: password unico para proteger el dashboard V0.
+- `DASHBOARD_SESSION_SECRET`: secreto usado para firmar la cookie HttpOnly del dashboard.
 
 ## Como correr localmente
 
@@ -137,6 +139,9 @@ Para usarlo crea dos bots con BotFather: uno para clientes y otro para admin. Pr
 
 ### Admin
 
+- `GET /admin/session`
+- `POST /admin/session/login`
+- `POST /admin/session/logout`
 - `GET /admin/orders`
 - `GET /admin/orders/:id`
 - `PATCH /admin/orders/:id/status`
@@ -164,6 +169,8 @@ Para usarlo crea dos bots con BotFather: uno para clientes y otro para admin. Pr
 - `GET /admin/special-closures`
 - `POST /admin/special-closures`
 - `DELETE /admin/special-closures/:id`
+- `GET /admin/dashboard/accounting/dispatched-orders`
+- `GET /admin/dashboard/accounting/dispatched-orders.csv`
 
 ### Bot integration
 

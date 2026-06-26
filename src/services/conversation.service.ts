@@ -4600,7 +4600,7 @@ export class ConversationService {
     product?: Product
   ) {
     const normalized = this.normalizeForMatching(text);
-      (this.catalogService.findProductsMentioned(text).length > 0 && !/[?Â¿]/.test(text));
+      (this.catalogService.findProductsMentioned(text).length > 0 && !/[?¿]/.test(text));
     const productTextRemoved = product
       ? this.removeProductMentionFromText(normalized, product)
       : normalized;
@@ -5472,7 +5472,7 @@ export class ConversationService {
 
   private normalizedNameWords(value: string) {
     return this.normalizeForMatching(value)
-      .replace(/[^a-zÃ±\s]/g, " ")
+      .replace(/[^a-zñ\s]/g, " ")
       .replace(/\s+/g, " ")
       .trim()
       .split(" ")
@@ -5932,7 +5932,7 @@ export class ConversationService {
   private isDeliveryZoneInfoQuestion(text: string) {
     const normalized = this.normalizeForMatching(text);
     return (
-      /[?Â¿]/.test(text) ||
+      /[?¿]/.test(text) ||
       /\b(cuales|que|como|cuanto|cuanta|manejan|cubren|llegan|hacen|vale|cuesta|domicilio|envio|zona|zonas|barrios|cobertura)\b/.test(
         normalized
       )
@@ -7432,7 +7432,7 @@ export class ConversationService {
     const normalized = this.normalizeForMatching(text);
     const hasClearOrderRequest =
       this.containsOrderIntent(text) ||
-      (this.catalogService.findProductsMentioned(text).length > 0 && !/[?Â¿]/.test(text));
+      (this.catalogService.findProductsMentioned(text).length > 0 && !/[?¿]/.test(text));
     if (hasClearOrderRequest) {
       return false;
     }

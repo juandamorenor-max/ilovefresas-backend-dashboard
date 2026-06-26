@@ -6,6 +6,8 @@ import { OrderService } from "../services/order.service.js";
 import { BusinessService } from "../services/business.service.js";
 import { AdminDashboardService } from "../services/admin-dashboard.service.js";
 import { ManualQaService } from "../services/manual-qa.service.js";
+import { DashboardAuthService } from "../services/dashboard-auth.service.js";
+import { AccountingLedgerService } from "../services/accounting-ledger.service.js";
 
 export class AdminController {
   constructor(
@@ -14,8 +16,27 @@ export class AdminController {
     private readonly adminService = new AdminService(),
     private readonly businessService = new BusinessService(),
     private readonly adminDashboardService = new AdminDashboardService(),
-    private readonly manualQaService = new ManualQaService()
+    private readonly manualQaService = new ManualQaService(),
+    private readonly dashboardAuthService = new DashboardAuthService(),
+    private readonly accountingLedgerService = new AccountingLedgerService()
   ) {}
+
+  getDashboardSession(request: Request, response: Response) {
+    response.json(this.dashboardAuthService.getSession(request));
+  }
+
+  loginDashboard(request: Request, response: Response) {
+    const session = this.dashboardAuthService.login(String(request.body.password ?? ""), response);
+    if (!session.authenticated) {
+      throw new HttpError(401, "Invalid dashboard password");
+    }
+
+    response.json(session);
+  }
+
+  logoutDashboard(_request: Request, response: Response) {
+    response.json(this.dashboardAuthService.logout(response));
+  }
 
   listOrders(_request: Request, response: Response) {
     response.json(this.orderService.listOrders());
@@ -227,6 +248,40 @@ export class AdminController {
   async getManualQaReport(_request: Request, response: Response, next: NextFunction) {
     try {
       response.json(await this.manualQaService.buildReport());
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listAccountingDispatchedOrders(
+    request: Request,
+    response: Response,
+    next: NextFunction
+  ) {
+    try {
+      response.json(await this.accountingLedgerService.listDispatchedOrders({
+        from: typeof request.query.from === "string" ? request.query.from : null,
+        to: typeof request.query.to === "string" ? request.query.to : null
+      }));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async exportAccountingDispatchedOrdersCsv(
+    request: Request,
+    response: Response,
+    next: NextFunction
+  ) {
+    try {
+      const result = await this.accountingLedgerService.listDispatchedOrders({
+        from: typeof request.query.from === "string" ? request.query.from : null,
+        to: typeof request.query.to === "string" ? request.query.to : null
+      });
+      response
+        .type("text/csv")
+        .setHeader("Content-Disposition", 'attachment; filename="pedidos-enviados.csv"');
+      response.send(this.accountingLedgerService.toCsv(result.rows));
     } catch (error) {
       next(error);
     }

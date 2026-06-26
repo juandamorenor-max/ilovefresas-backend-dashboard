@@ -26,6 +26,7 @@
     "qa:barranquilla-neighborhoods": "npm run build && node dist/qa/barranquilla-neighborhood-validation.js",
     "qa:payment-proof": "npm run build && node dist/qa/payment-proof-validation.js",
     "qa:accounting-ledger": "npm run build && node dist/qa/accounting-ledger.js",
+    "qa:dashboard-auth": "npm run build && node dist/qa/dashboard-auth.js",
     "qa:reset-conversations": "npm run build && node dist/qa/reset-conversations.js",
     "qa:realistic-waffle-orders": "npm run build && node dist/qa/realistic-waffle-orders.js",
     "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",

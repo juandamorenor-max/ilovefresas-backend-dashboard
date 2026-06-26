@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import type { Server } from "node:http";
 
+process.env.NODE_ENV = "production";
 process.env.BOT_INTEGRATION_SECRET = "qa-dashboard-secret";
 process.env.TELEGRAM_CLIENT_BOT_TOKEN = "";
 process.env.TELEGRAM_ADMIN_BOT_TOKEN = "";
@@ -251,7 +252,7 @@ try {
   const dashboardOrder = dashboardOrders.find((entry) => entry.id === order.id);
   assert(dashboardOrder, "Created review order should be visible in dashboard orders");
   assert.equal(dashboardOrder.paymentProofReceived, true);
-  assert.equal(dashboardOrder.paymentStatusLabel, "Comprobante recibido, pendiente de verificacion");
+  assert.equal(dashboardOrder.paymentStatusLabel, "Comprobante recibido, pendiente de verificación");
 
   const dispatchedOrder = await request(`/admin/dashboard/orders/${order.id}/notify-dispatched`, {
     method: "POST",
@@ -262,7 +263,7 @@ try {
     demoStore.messages.some((message) =>
       message.conversationId === conversation.id &&
       message.role === "bot" &&
-      message.text === "Tu pedido ha sido despachado! 🍓"
+      message.text === "Tu pedido ha sido despachado 🍓"
     ),
     "dispatch notification should save exact customer message"
   );

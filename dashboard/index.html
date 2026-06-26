@@ -18,6 +18,9 @@
         <option value="admin">Admin</option>
         <option value="demo">Demo</option>
       </select>
+      <label for="passwordInput">Password del dashboard</label>
+      <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Solo si está configurado">
+      <p id="loginError" class="form-error hidden">Password incorrecto.</p>
       <button id="enterBtn" class="primary-btn">Entrar al panel</button>
     </div>
   </section>
@@ -37,6 +40,7 @@
         <button data-view="orders">Pedidos</button>
         <button data-view="availability">Disponibilidad</button>
         <button data-view="catalog" data-admin-only>Catalogo</button>
+        <button data-view="accounting" data-admin-only>Contabilidad</button>
       </nav>
       <div class="status-box">
         <span>Bot</span>
@@ -54,6 +58,7 @@
         <div class="top-actions">
           <input id="globalSearch" class="search" placeholder="Buscar cliente, pedido, zona o producto">
           <button id="refreshBtn" class="secondary-btn">Actualizar</button>
+          <button id="logoutBtn" class="secondary-btn">Salir</button>
         </div>
       </header>
 
@@ -213,6 +218,25 @@
           <div id="catalogModifiers" class="catalog-list compact-list"></div>
           <h4>Datos de pago del bot</h4>
           <div id="paymentMethods" class="payment-settings"></div>
+        </section>
+      </section>
+
+      <section id="accounting" class="view" data-admin-only>
+        <section class="panel">
+          <div class="panel-header wrap">
+            <div>
+              <h3>Pedidos enviados</h3>
+              <span>Ledger contable de pedidos despachados.</span>
+            </div>
+            <a id="accountingCsvLink" class="secondary-btn" href="/admin/dashboard/accounting/dispatched-orders.csv">Descargar CSV</a>
+          </div>
+          <div class="metrics compact-metrics">
+            <article class="metric"><span>Pedidos enviados</span><strong id="accountingOrderCount">0</strong></article>
+            <article class="metric"><span>Total vendido</span><strong id="accountingTotalSales">$0</strong></article>
+            <article class="metric"><span>Base de datos</span><strong id="accountingDbStatus">Sin configurar</strong></article>
+          </div>
+          <div id="accountingByPayment" class="accounting-summary"></div>
+          <div id="accountingRows" class="accounting-table"></div>
         </section>
       </section>
     </main>

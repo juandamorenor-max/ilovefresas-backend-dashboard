@@ -85,4 +85,33 @@ const noDb = await noDbService.recordDispatchedOrder(order);
 assert.equal(noDb.saved, false);
 assert.equal(noDb.reason, "database_not_configured");
 
+queries.length = 0;
+const listed = await service.listDispatchedOrders({
+  from: "2026-06-25T00:00:00.000Z",
+  to: "2026-06-26T00:00:00.000Z"
+});
+assert.equal(listed.configured, true);
+assert.equal(listed.rows.length, 1);
+assert.equal(queries.length, 1, "list should query dispatched ledger after schema is ready");
+
+const csv = service.toCsv([
+  {
+    orderId: "order_test",
+    dispatchedAt: "2026-06-25T20:05:00.000Z",
+    customerPhone: "telegram:531515729",
+    customerName: "Cliente QA",
+    address: "Cra 39A #41-99",
+    neighborhood: "Cabecera del Llano",
+    addressReference: "Porteria",
+    paymentMethod: "Nequi",
+    subtotal: 16000,
+    deliveryFee: 5000,
+    discountTotal: 0,
+    total: 21000,
+    status: "dispatched"
+  }
+]);
+assert(csv.includes("orderId,dispatchedAt,customerPhone"));
+assert(csv.includes('"order_test"'));
+
 console.log("accounting-ledger smoke OK");

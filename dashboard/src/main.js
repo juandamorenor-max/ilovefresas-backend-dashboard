@@ -8,6 +8,7 @@ const state = {
   products: [],
   modifiers: [],
   paymentMethods: [],
+  accounting: { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } },
   botCatalog: null,
   businessStatus: {},
   integrationStatus: null,
@@ -109,6 +110,11 @@ const demoData = {
       isActive: true
     }
   ],
+  accounting: {
+    configured: false,
+    rows: [],
+    summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} }
+  },
   modifiers: [
     { id: "demo_modifier_1", name: "Oreo", price: 2500, isActive: true },
     { id: "demo_modifier_2", name: "Arequipe", price: 2000, isActive: true }
@@ -134,7 +140,8 @@ const titles = {
   orders: ["Pedidos", "Flujo operativo de cocina y despacho"],
   detail: ["Detalle del pedido", "Validacion y acciones del operario"],
   availability: ["Disponibilidad", "Productos y adiciones que el bot puede ofrecer"],
-  catalog: ["Catalogo y pagos", "Edicion de productos, toppings y datos de transferencia"]
+  catalog: ["Catalogo y pagos", "Edicion de productos, toppings y datos de transferencia"],
+  accounting: ["Contabilidad", "Pedidos enviados y resumen de pagos"]
 };
 
 const statusLabels = {
@@ -158,12 +165,22 @@ const nextStatuses = {
 };
 
 const adminApi = {
+  getSession: () => apiFetch("/admin/session"),
+  login: (password) => apiFetch("/admin/session/login", {
+    method: "POST",
+    body: JSON.stringify({ password })
+  }),
+  logout: () => apiFetch("/admin/session/logout", {
+    method: "POST",
+    body: JSON.stringify({})
+  }),
   listOrders: () => apiFetch("/admin/dashboard/orders"),
   listConversations: () => apiFetch("/admin/dashboard/conversations"),
   listProducts: () => apiFetch("/admin/dashboard/products"),
   listModifiers: () => apiFetch("/admin/dashboard/modifiers"),
   getBotCatalog: () => apiFetch("/admin/dashboard/bot-catalog"),
   listPaymentMethods: () => apiFetch("/admin/dashboard/payment-methods"),
+  listAccounting: () => apiFetch("/admin/dashboard/accounting/dispatched-orders"),
   getBusinessStatus: () => apiFetch("/admin/dashboard/business-status"),
   getIntegrationStatus: () => apiFetch("/health/integration"),
   updateOrder: (order, patch) => apiFetch(`/admin/dashboard/orders/${encodeURIComponent(order.id)}`, {
@@ -226,6 +243,7 @@ const adminApi = {
 
 async function apiFetch(url, options = {}) {
   const response = await fetch(url, {
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options
   });
@@ -296,6 +314,19 @@ function replaceById(collection, item) {
 
 async function enterDashboard() {
   state.role = $("roleSelect").value;
+  $("loginError").classList.add("hidden");
+  if (!isDemoMode()) {
+    try {
+      const session = await adminApi.getSession();
+      if (session.enabled && !session.authenticated) {
+        await adminApi.login($("passwordInput").value);
+      }
+    } catch (error) {
+      console.error(error);
+      $("loginError").classList.remove("hidden");
+      return;
+    }
+  }
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
   $("demoBanner").classList.toggle("hidden", !isDemoMode());
@@ -325,6 +356,7 @@ function loadDemoData() {
   state.products = structuredClone(demoData.products);
   state.modifiers = structuredClone(demoData.modifiers);
   state.paymentMethods = structuredClone(demoData.paymentMethods);
+  state.accounting = structuredClone(demoData.accounting);
   state.botCatalog = structuredClone(demoData.botCatalog);
   state.businessStatus = structuredClone(demoData.businessStatus);
   state.integrationStatus = structuredClone(demoData.integrationStatus);
@@ -338,6 +370,7 @@ function clearData() {
   state.products = [];
   state.modifiers = [];
   state.paymentMethods = [];
+  state.accounting = { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } };
   state.botCatalog = null;
   state.businessStatus = {};
   state.integrationStatus = null;
@@ -351,7 +384,7 @@ async function refreshData({ quiet = true } = {}) {
     return;
   }
   try {
-    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus] = await Promise.all([
+    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus, accounting] = await Promise.all([
       adminApi.listOrders(),
       adminApi.listConversations(),
       adminApi.listProducts(),
@@ -359,7 +392,8 @@ async function refreshData({ quiet = true } = {}) {
       adminApi.getBotCatalog(),
       adminApi.listPaymentMethods(),
       adminApi.getBusinessStatus(),
-      adminApi.getIntegrationStatus()
+      adminApi.getIntegrationStatus(),
+      isAdminRole() ? adminApi.listAccounting() : Promise.resolve(state.accounting)
     ]);
     state.orders = Array.isArray(orders) ? orders : [];
     state.conversations = Array.isArray(conversations) ? conversations : [];
@@ -367,6 +401,7 @@ async function refreshData({ quiet = true } = {}) {
     state.modifiers = Array.isArray(modifiers) ? modifiers.map(adaptModifier) : [];
     state.botCatalog = botCatalog || null;
     state.paymentMethods = Array.isArray(paymentMethods) ? paymentMethods : [];
+    state.accounting = accounting || { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } };
     state.businessStatus = businessStatus || {};
     state.integrationStatus = integrationStatus || null;
     state.selectedOrderId = state.orders.some((order) => order.id === state.selectedOrderId)
@@ -414,8 +449,8 @@ function stopPolling() {
 }
 
 function setView(view) {
-  if (view === "catalog" && !isAdminRole()) {
-    showToast("Catalogo esta disponible solo para Admin.");
+  if ((view === "catalog" || view === "accounting") && !isAdminRole()) {
+    showToast("Esta seccion esta disponible solo para Admin.");
     return;
   }
   state.view = view;
@@ -474,6 +509,7 @@ function renderAll() {
   renderConversations();
   renderAvailability();
   renderCatalog();
+  renderAccounting();
 }
 
 function renderShell() {
@@ -517,6 +553,8 @@ function renderSystemStatus() {
   const storage = integration.storage || {};
   const flowise = integration.flowise || {};
   const botIntegration = integration.botIntegration || {};
+  const accounting = integration.accountingDatabase || {};
+  const dashboardAuth = integration.dashboardAuth || {};
   $("systemUpdatedAt").textContent = integration.timestamp
     ? `Actualizado ${new Date(integration.timestamp).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}`
     : "Actualizado";
@@ -551,6 +589,18 @@ function renderSystemStatus() {
       value: botIntegration.secretEnabled ? "Protegida" : "Sin secreto",
       detail: botIntegration.secretEnabled ? "x-bot-secret activo" : "Configura BOT_INTEGRATION_SECRET",
       status: botIntegration.secretEnabled ? "ok" : "warn"
+    },
+    {
+      label: "Dashboard",
+      value: dashboardAuth.configured ? "Con password" : "Sin password",
+      detail: dashboardAuth.configured ? "Sesion protegida" : "Configura DASHBOARD_ACCESS_PASSWORD",
+      status: dashboardAuth.configured ? "ok" : "warn"
+    },
+    {
+      label: "Contabilidad",
+      value: accounting.configured ? "Postgres" : "Sin DB",
+      detail: accounting.configured ? "Ledger activo" : "Configura DATABASE_URL para pedidos enviados",
+      status: accounting.configured ? "ok" : "warn"
     }
   ];
 
@@ -805,6 +855,48 @@ function renderPaymentMethods() {
       </article>
     `).join("")
     : emptyState("No hay metodos de pago configurados.");
+}
+
+function renderAccounting() {
+  const accounting = state.accounting || {};
+  const summary = accounting.summary || { orderCount: 0, totalSales: 0, byPaymentMethod: {} };
+  const rows = Array.isArray(accounting.rows) ? accounting.rows : [];
+  $("accountingOrderCount").textContent = summary.orderCount ?? rows.length;
+  $("accountingTotalSales").textContent = money(summary.totalSales || 0);
+  $("accountingDbStatus").textContent = accounting.configured ? "Activa" : "Pendiente";
+  $("accountingCsvLink").classList.toggle("disabled", !accounting.configured);
+
+  const byPayment = summary.byPaymentMethod || {};
+  $("accountingByPayment").innerHTML = Object.keys(byPayment).length
+    ? Object.entries(byPayment).map(([method, data]) => `
+      <article class="system-item ok">
+        <span>${escapeHtml(method)}</span>
+        <strong>${money(data.total)}</strong>
+        <small>${escapeHtml(data.count)} pedidos</small>
+      </article>
+    `).join("")
+    : emptyState(accounting.configured ? "Sin pedidos enviados en el ledger." : "Configura DATABASE_URL en Railway para activar el ledger contable.");
+
+  $("accountingRows").innerHTML = rows.length
+    ? `
+      <div class="table-row header">
+        <span>Fecha</span>
+        <span>Cliente</span>
+        <span>Barrio</span>
+        <span>Pago</span>
+        <span>Total</span>
+      </div>
+      ${rows.map((row) => `
+        <div class="table-row">
+          <span>${escapeHtml(row.dispatchedAt ? new Date(row.dispatchedAt).toLocaleString("es-CO") : "")}</span>
+          <span>${escapeHtml(row.customerName || row.customerPhone || "")}</span>
+          <span>${escapeHtml(row.neighborhood || "")}</span>
+          <span>${escapeHtml(row.paymentMethod || "")}</span>
+          <strong>${money(row.total)}</strong>
+        </div>
+      `).join("")}
+    `
+    : emptyState("No hay pedidos enviados para mostrar.");
 }
 
 function emptyState(text) {
@@ -1103,9 +1195,26 @@ async function savePaymentMethod(methodId) {
   }
 }
 
+async function logoutDashboard() {
+  try {
+    if (!isDemoMode()) {
+      await adminApi.logout();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+  stopPolling();
+  clearData();
+  $("app").classList.add("hidden");
+  $("login").classList.remove("hidden");
+  $("passwordInput").value = "";
+  $("loginError").classList.add("hidden");
+}
+
 function bindEvents() {
   $("enterBtn").addEventListener("click", enterDashboard);
   $("refreshBtn").addEventListener("click", () => refreshData({ quiet: false }));
+  $("logoutBtn").addEventListener("click", logoutDashboard);
   $("globalBotToggle").addEventListener("click", toggleGlobalBot);
   $("globalSearch").addEventListener("input", (event) => {
     state.search = event.target.value;

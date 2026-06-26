@@ -151,7 +151,7 @@ export class AdminDashboardService {
       return null;
     }
 
-    const customerMessage = "Tu pedido ha sido despachado! 🍓";
+    const customerMessage = "Tu pedido ha sido despachado 🍓";
     await this.sendCustomerMessage(order.customerPhone, customerMessage);
     this.saveBotMessageForOrder(order, customerMessage);
 
@@ -269,26 +269,26 @@ export class AdminDashboardService {
     const paymentNote = this.buildDashboardPaymentNote(order.paymentMethod);
 
     return [
-      `Confirmado, ${customerFirstName}.`,
+      `Confirmado, ${customerFirstName} 😊`,
       "",
-      "Tu pedido quedo confirmado asi:",
+      "Tu pedido quedó confirmado así:",
       "",
       "Pedido",
       ...summaryItems,
       "",
       "Datos",
       `Nombre: ${order.customerName ?? "Por confirmar"}`,
-      order.fulfillmentType === "delivery" ? `Direccion: ${order.address ?? "Por confirmar"}` : "Entrega: Recoger en punto",
+      order.fulfillmentType === "delivery" ? `Dirección: ${order.address ?? "Por confirmar"}` : "Entrega: Recoger en punto",
       order.fulfillmentType === "delivery" ? `Barrio: ${order.zoneName ?? "Por confirmar"}` : null,
       order.fulfillmentType === "delivery" ? `Referencia: ${order.addressReference ?? "Por confirmar"}` : null,
-      `Metodo de pago: ${order.paymentMethod ?? "Por confirmar"}`,
+      `Método de pago: ${order.paymentMethod ?? "Por confirmar"}`,
       "",
       `Productos: ${this.money(order.pricing.subtotal)}`,
       order.fulfillmentType === "delivery" ? `Domicilio: ${this.money(order.pricing.deliveryFee)}` : null,
       `Total final: ${this.money(order.pricing.total)}`,
       "",
       paymentNote,
-      "Gracias por tu pedido. Te avisamos cuando salga a despacho."
+      "Gracias por tu pedido 🍓 Te avisamos cuando salga a despacho."
     ].filter(Boolean).join("\n");
   }
 
@@ -303,10 +303,10 @@ export class AdminDashboardService {
   private buildDashboardPaymentNote(paymentMethod: string | null) {
     const normalized = paymentMethod?.toLowerCase() ?? "";
     if (normalized.includes("nequi")) {
-      return "Cuando realices el pago por Nequi, envianos el comprobante para continuar con el despacho.";
+      return "Cuando realices el pago por Nequi, envíanos el comprobante para continuar con el despacho.";
     }
     if (normalized.includes("bancolombia") || normalized.includes("banco")) {
-      return "Cuando realices el pago por Bancolombia, envianos el comprobante para continuar con el despacho.";
+      return "Cuando realices el pago por Bancolombia, envíanos el comprobante para continuar con el despacho.";
     }
     if (normalized.includes("contra entrega") || normalized.includes("efectivo")) {
       return "Recuerda que tu pedido es contraentrega. Te avisaremos una vez sea enviado.";
@@ -324,7 +324,7 @@ export class AdminDashboardService {
     }
 
     return order.paymentProofReceived
-      ? "Comprobante recibido, pendiente de verificacion"
+      ? "Comprobante recibido, pendiente de verificación"
       : "Falta comprobante";
   }
 
@@ -415,7 +415,7 @@ export class AdminDashboardService {
       customer: order.customerName ?? "Cliente pendiente",
       phone: order.customerPhone,
       channel: this.inferChannel(order.customerPhone),
-      address: order.address ?? "Direccion pendiente",
+      address: order.address ?? "Dirección pendiente",
       zone: order.zoneName ?? "Por confirmar",
       addressReference: order.addressReference ?? null,
       payment: order.paymentMethod ?? "Pendiente",
@@ -590,7 +590,7 @@ export class AdminDashboardService {
     }
 
     if (!order.address || !order.zoneName || !order.addressReference) {
-      return "Direccion";
+      return "Dirección";
     }
 
     if (!order.paymentMethod) {

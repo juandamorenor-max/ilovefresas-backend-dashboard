@@ -146,16 +146,16 @@ export class BotIntegrationService {
       "",
       "Tus datos:",
       `- Nombre: ${draft.customerName ?? "Por confirmar"}`,
-      `- Direccion: ${draft.address ?? "Por confirmar"}`,
+      `- Dirección: ${draft.address ?? "Por confirmar"}`,
       `- Barrio: ${draft.neighborhood ?? "Por confirmar"}`,
       `- Referencia: ${draft.addressReference ?? "Por confirmar"}`,
-      `- Metodo de pago: ${draft.paymentMethod ?? "Por confirmar"}`,
+      `- Método de pago: ${draft.paymentMethod ?? "Por confirmar"}`,
       "",
       `Subtotal productos: ${this.money(draft.pricing.subtotal)}`,
       `Domicilio: ${this.money(draft.pricing.deliveryFee)}`,
       `Total: ${this.money(draft.pricing.total)}`,
       "",
-      "Esta correcto para dejarlo en revision con el equipo?"
+      "¿Está correcto para dejarlo en revisión con el equipo?"
     ].join("\n");
   }
 
@@ -168,7 +168,7 @@ export class BotIntegrationService {
 
     if (draft.items.length === 0) {
       return {
-        responseText: "Perfecto. Que producto quieres pedir? ðŸ“",
+        responseText: "Perfecto. ¿Qué producto quieres pedir? 🍓",
         nextExpected: "pedido",
         source: "backend_next_action_guardrail"
       };
@@ -364,7 +364,7 @@ export class BotIntegrationService {
     }
 
     return [
-      `Perfecto 😊 Para continuar con la revision del pedido, puedes hacer la transferencia por ${method.name}:`,
+      `Perfecto 😊 Para continuar con la revisión del pedido, puedes hacer la transferencia por ${method.name}:`,
       "",
       `${method.accountLabel}: ${method.accountValue}`,
       `Total: ${this.money(draft.pricing.total)}`,
@@ -952,7 +952,7 @@ export class BotIntegrationService {
       ...lines,
       ...optionLines,
       "",
-      "Me las compartes en un mensaje? ðŸ“"
+      "Me las compartes en un mensaje? 🍓"
     ].join("\n");
   }
 
@@ -1399,11 +1399,11 @@ export class BotIntegrationService {
     ];
 
     if (missingFields.includes("nombre")) lines.push("Nombre:");
-    if (missingFields.includes("direccion")) lines.push("Direccion:");
+    if (missingFields.includes("direccion")) lines.push("Dirección:");
     if (missingFields.includes("barrio")) lines.push("Barrio:");
     if (missingFields.includes("referencia")) lines.push("Referencia:");
     if (missingFields.includes("metodo_pago")) {
-      lines.push("Metodo de pago: Nequi, Bancolombia, Bre-B o efectivo");
+      lines.push("Método de pago: Nequi, Bancolombia, Bre-B o efectivo");
     }
 
     return lines.join("\n");

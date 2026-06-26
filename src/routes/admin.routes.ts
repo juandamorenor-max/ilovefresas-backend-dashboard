@@ -1,9 +1,24 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { AdminController } from "../controllers/admin.controller.js";
+import { DashboardAuthService } from "../services/dashboard-auth.service.js";
 
 const controller = new AdminController();
+const dashboardAuth = new DashboardAuthService();
 
 export const adminRouter = Router();
+
+adminRouter.get("/admin/session", controller.getDashboardSession.bind(controller));
+adminRouter.post("/admin/session/login", controller.loginDashboard.bind(controller));
+adminRouter.post("/admin/session/logout", controller.logoutDashboard.bind(controller));
+
+adminRouter.use((request: Request, response: Response, next: NextFunction) => {
+  if (!dashboardAuth.isEnabled() || dashboardAuth.getSession(request).authenticated) {
+    next();
+    return;
+  }
+
+  response.status(401).json({ error: "Dashboard session required" });
+});
 
 adminRouter.get("/admin/dashboard/orders", controller.listDashboardOrders.bind(controller));
 adminRouter.get("/admin/dashboard/orders/:id", controller.getDashboardOrder.bind(controller));
@@ -62,6 +77,14 @@ adminRouter.post(
 adminRouter.get(
   "/admin/dashboard/manual-qa/report",
   controller.getManualQaReport.bind(controller)
+);
+adminRouter.get(
+  "/admin/dashboard/accounting/dispatched-orders",
+  controller.listAccountingDispatchedOrders.bind(controller)
+);
+adminRouter.get(
+  "/admin/dashboard/accounting/dispatched-orders.csv",
+  controller.exportAccountingDispatchedOrdersCsv.bind(controller)
 );
 
 adminRouter.get("/admin/orders", controller.listOrders.bind(controller));

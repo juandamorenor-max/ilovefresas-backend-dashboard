@@ -77,8 +77,15 @@ button {
 }
 
 .login-card select,
+.login-card input,
 .login-card button {
   width: 100%;
+}
+
+.form-error {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 .app {
@@ -252,13 +259,17 @@ textarea {
   margin-bottom: 16px;
 }
 
+.compact-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .system-panel {
   margin-bottom: 16px;
 }
 
 .system-status {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
 }
 
@@ -555,6 +566,41 @@ textarea {
   gap: 10px;
 }
 
+.accounting-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.accounting-table {
+  display: grid;
+  gap: 6px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.2fr 1fr 1fr .8fr;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.table-row.header {
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.secondary-btn.disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
 .payment-row {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -669,6 +715,10 @@ textarea {
     grid-template-columns: 1fr 1fr;
   }
 
+  .table-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -695,6 +745,10 @@ textarea {
   .orders-board,
   .nav,
   .payment-row {
+    grid-template-columns: 1fr;
+  }
+
+  .table-row {
     grid-template-columns: 1fr;
   }
 
