@@ -876,10 +876,21 @@ export class BotIntegrationService {
 
   private applyRequiredOptionAnswers(draft: OrderDraft, text: string) {
     const globalAnswers = this.extractRequiredOptionAnswers(text);
+    const targetedWaffleItemIds = this.findTargetedWaffleItemIds(draft, text);
 
     for (const item of draft.items) {
       const product = this.catalogService.findProductById(item.productId);
       if (!product?.requiredOptions?.length) {
+        continue;
+      }
+      if (
+        targetedWaffleItemIds &&
+        this.isWaffleItem(item) &&
+        !targetedWaffleItemIds.has(item.id)
+      ) {
+        continue;
+      }
+      if (targetedWaffleItemIds && !this.isWaffleItem(item)) {
         continue;
       }
 
@@ -902,6 +913,63 @@ export class BotIntegrationService {
         }
       }
     }
+  }
+
+  private findTargetedWaffleItemIds(draft: OrderDraft, text: string) {
+    const normalized = this.normalizeForMatching(text);
+    if (!/\bwaffles?\b/.test(normalized)) {
+      return null;
+    }
+
+    const waffleSegment = normalized.match(
+      /\bwaffles?\b(.+?)(?=\b(?:las|unas?|los)?\s*fresas\s+(?:con\s+helado|tradicionales?\s+con\s+helado)\b|$)/
+    )?.[0] ?? normalized;
+    const ordinal = this.extractOrdinal(normalized);
+    const mentionsTraditional = /\btradicional(?:es)?\b/.test(waffleSegment);
+    const mentionsChocolate = /\bchocolate\b/.test(waffleSegment);
+    let candidates = draft.items.filter((item) => this.isWaffleItem(item));
+
+    if (mentionsTraditional && !mentionsChocolate) {
+      candidates = candidates.filter((item) => item.productName === "Waffle Tradicional");
+    }
+    if (mentionsChocolate && !mentionsTraditional) {
+      candidates = candidates.filter((item) => item.productName === "Waffle Chocolate");
+    }
+
+    if (ordinal !== null) {
+      const target = candidates[ordinal - 1];
+      return target ? new Set([target.id]) : new Set<string>();
+    }
+
+    if (candidates.length === 1) {
+      return new Set([candidates[0].id]);
+    }
+
+    return null;
+  }
+
+  private extractOrdinal(text: string) {
+    const match = text.match(/\b(primer|primero|1|1er|segundo|2|tercer|tercero|3)\b/);
+    if (!match?.[1]) {
+      return null;
+    }
+
+    const ordinals: Record<string, number> = {
+      primer: 1,
+      primero: 1,
+      "1": 1,
+      "1er": 1,
+      segundo: 2,
+      "2": 2,
+      tercer: 3,
+      tercero: 3,
+      "3": 3
+    };
+    return ordinals[match[1]] ?? null;
+  }
+
+  private isWaffleItem(item: OrderItem) {
+    return item.productName === "Waffle Tradicional" || item.productName === "Waffle Chocolate";
   }
 
   private buildWaffleVariantQuestionIfNeeded(conversation: Conversation, draft: OrderDraft) {
@@ -954,18 +1022,18 @@ export class BotIntegrationService {
     );
 
     const nextWaffleItems = [
-      counts.traditional > 0
-        ? this.toOrderItem({
-            producto: "Waffle Tradicional",
-            cantidad: counts.traditional
-          })
-        : null,
-      counts.chocolate > 0
-        ? this.toOrderItem({
-            producto: "Waffle Chocolate",
-            cantidad: counts.chocolate
-          })
-        : null
+      ...Array.from({ length: counts.traditional }, () =>
+        this.toOrderItem({
+          producto: "Waffle Tradicional",
+          cantidad: 1
+        })
+      ),
+      ...Array.from({ length: counts.chocolate }, () =>
+        this.toOrderItem({
+          producto: "Waffle Chocolate",
+          cantidad: 1
+        })
+      )
     ].filter((item): item is OrderItem => Boolean(item));
 
     draft.items = [...nextWaffleItems, ...draft.items];

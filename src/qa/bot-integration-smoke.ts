@@ -279,10 +279,57 @@ assert(
   "after waffle variant split, bot should ask required options"
 );
 assert(
-  String(waffleVariantAnswer?.responseText).includes("2 x Waffle Tradicional") &&
+  ((String(waffleVariantAnswer?.responseText).match(/1 x Waffle Tradicional/g) ?? []).length === 2) &&
     String(waffleVariantAnswer?.responseText).includes("1 x Waffle Chocolate") &&
     String(waffleVariantAnswer?.responseText).includes("1 x Fresas con helado"),
   "required options prompt should reflect split waffle variants"
+);
+
+const perWaffleOptionsConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "per-waffle-options-test"
+);
+service.updateConversationState(perWaffleOptionsConversation.id, {
+  items: [
+    { producto: "Waffle Tradicional", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Waffle Tradicional", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Waffle Chocolate", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  nombre: "Carlos Diaz",
+  direccion: "calle 84 # 50-20",
+  barrio: "riomar",
+  referencia: "torre 2",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio"
+});
+service.handleRequiredOptionsTurn(
+  perWaffleOptionsConversation.id,
+  "el primer waffle tradicional con fruta fresa, helado vainilla y salsa arequipe"
+);
+service.handleRequiredOptionsTurn(
+  perWaffleOptionsConversation.id,
+  "el segundo waffle tradicional con fruta banano, helado chocolate y salsa hershey"
+);
+service.handleRequiredOptionsTurn(
+  perWaffleOptionsConversation.id,
+  "el waffle chocolate con fruta mango, helado oreo y salsa nutella"
+);
+const perWaffleFinalTurn = service.handleRequiredOptionsTurn(
+  perWaffleOptionsConversation.id,
+  "las fresas con helado de fresa"
+);
+assert(
+  perWaffleFinalTurn?.nextExpected === "confirmacion",
+  "separate waffle option messages should finish in confirmation when data is complete"
+);
+const perWaffleSummary = service.buildConfirmationSummary(perWaffleOptionsConversation.id);
+assert(
+  String(perWaffleSummary).includes("1 x Waffle Tradicional (fruta: Fresa; sabor de helado: Vainilla; salsa: Arequipe)") &&
+    String(perWaffleSummary).includes("1 x Waffle Tradicional (fruta: Banano; sabor de helado: Chocolate; salsa: Salsa Hershey)") &&
+    String(perWaffleSummary).includes("1 x Waffle Chocolate (fruta: Mango; sabor de helado: Oreo; salsa: Nutella)") &&
+    String(perWaffleSummary).includes("1 x Fresas con helado (sabor de helado: Fresa)"),
+  "summary should preserve different fruit, ice cream flavor and sauce per waffle"
 );
 
 const recoveredWafflesConversation = service.getOrCreateActiveConversation(
