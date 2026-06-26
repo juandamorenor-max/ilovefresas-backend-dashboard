@@ -304,6 +304,32 @@ assert(
   "recovered generic waffles question should preserve requested quantity"
 );
 
+const heladoConflictConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "traditional-with-helado-conflict-test"
+);
+service.updateConversationState(heladoConflictConversation.id, {
+  customerMessage: "quiero tres waffles y unas fresas tradicionales con helado",
+  items: [
+    { producto: "Fresas con crema tradicional", cantidad: 1, precio_unitario: 16000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const refreshedHeladoConflict = service.getOrCreateActiveConversation(
+  "telegram",
+  "traditional-with-helado-conflict-test"
+);
+assert(refreshedHeladoConflict.draftOrder, "helado conflict draft should exist");
+assert(
+  !refreshedHeladoConflict.draftOrder.items.some((item) => item.productName === "Fresas con crema tradicional"),
+  "fresas tradicionales con helado should not create an extra traditional strawberries item"
+);
+assert(
+  refreshedHeladoConflict.draftOrder.items.some((item) => item.productName === "Fresas con helado"),
+  "fresas tradicionales con helado should keep Fresas con helado"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;

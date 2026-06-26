@@ -271,6 +271,7 @@ export class BotIntegrationService {
     const safePatch = this.sanitizePrematurePaymentProofPatch(conversation, patch);
     this.applyDraftPatch(conversation.draftOrder, safePatch);
     this.recoverMentionedProducts(conversation.draftOrder, safePatch.customerMessage);
+    this.normalizeSingleProductHeladoMentions(conversation.draftOrder, safePatch.customerMessage);
     this.captureMessages(conversation, safePatch);
     this.captureMemory(conversation, safePatch);
 
@@ -587,6 +588,28 @@ export class BotIntegrationService {
     if (item) {
       draft.items.push(item);
     }
+  }
+
+  private normalizeSingleProductHeladoMentions(draft: OrderDraft, customerMessage?: string) {
+    if (!customerMessage) {
+      return;
+    }
+
+    const normalized = this.normalizeForMatching(customerMessage);
+    const singleTraditionalWithHelado =
+      /\bfresas tradicionales con helado\b/.test(normalized) ||
+      /\btradicionales con helado\b/.test(normalized) ||
+      /\bfresas con crema tradicional con helado\b/.test(normalized);
+    if (!singleTraditionalWithHelado) {
+      return;
+    }
+
+    const hasFresasConHelado = draft.items.some((item) => item.productName === "Fresas con helado");
+    if (!hasFresasConHelado) {
+      return;
+    }
+
+    draft.items = draft.items.filter((item) => item.productName !== "Fresas con crema tradicional");
   }
 
   private captureMessages(conversation: Conversation, patch: BotConversationStatePatch) {
