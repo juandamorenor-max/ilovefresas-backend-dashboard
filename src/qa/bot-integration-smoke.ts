@@ -331,6 +331,30 @@ assert(
     String(perWaffleSummary).includes("1 x Fresas con helado (sabor de helado: Fresa)"),
   "summary should preserve different fruit, ice cream flavor and sauce per waffle"
 );
+service.updateConversationState(perWaffleOptionsConversation.id, {
+  items: [
+    { producto: "Waffle Tradicional", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Waffle Tradicional", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Waffle Chocolate", cantidad: 1, precio_unitario: 15000 },
+    { producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }
+  ],
+  nombre: "Carlos Diaz",
+  direccion: "calle 84 # 50-20",
+  barrio: "riomar",
+  referencia: "torre 2",
+  metodo_pago: "Nequi",
+  modalidad_entrega: "domicilio"
+});
+const afterLossyFlowisePatchSummary = service.buildConfirmationSummary(
+  perWaffleOptionsConversation.id
+);
+assert(
+  String(afterLossyFlowisePatchSummary).includes("1 x Waffle Tradicional (fruta: Fresa; sabor de helado: Vainilla; salsa: Arequipe)") &&
+    String(afterLossyFlowisePatchSummary).includes("1 x Waffle Tradicional (fruta: Banano; sabor de helado: Chocolate; salsa: Salsa Hershey)") &&
+    String(afterLossyFlowisePatchSummary).includes("1 x Waffle Chocolate (fruta: Mango; sabor de helado: Oreo; salsa: Nutella)") &&
+    String(afterLossyFlowisePatchSummary).includes("1 x Fresas con helado (sabor de helado: Fresa)"),
+  "lossy Flowise item patches must not erase validated required options"
+);
 
 const recoveredWafflesConversation = service.getOrCreateActiveConversation(
   "telegram",

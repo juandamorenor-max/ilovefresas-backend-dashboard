@@ -614,7 +614,6 @@ export class AgentFlowTurnService {
       return requiredContinuation;
     }
     if (
-      nextExpected === "confirmacion" &&
       requiredContinuation?.nextExpected === "confirmacion"
     ) {
       return {

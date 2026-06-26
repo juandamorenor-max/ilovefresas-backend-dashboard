@@ -433,9 +433,10 @@ export class BotIntegrationService {
   private applyDraftPatch(draft: OrderDraft, patch: BotConversationStatePatch) {
     const items = this.parseItems(patch.items);
     if (items.length > 0) {
-      draft.items = items
+      const nextItems = items
         .map((item) => this.toOrderItem(item))
         .filter((item): item is OrderItem => Boolean(item));
+      draft.items = this.mergeExistingItemDetails(draft.items, nextItems);
     }
 
     if (patch.nombre) draft.customerName = patch.nombre.trim();
@@ -539,6 +540,38 @@ export class BotIntegrationService {
       selectedOptions: this.normalizeSelectedOptions(product, item),
       notes: [item.variante, item.observaciones].filter(Boolean).join(" ") || null
     };
+  }
+
+  private mergeExistingItemDetails(existingItems: OrderItem[], nextItems: OrderItem[]) {
+    const usedExistingIndexes = new Set<number>();
+
+    return nextItems.map((item) => {
+      const existingIndex = existingItems.findIndex(
+        (existingItem, index) =>
+          !usedExistingIndexes.has(index) &&
+          existingItem.productName === item.productName
+      );
+      if (existingIndex < 0) {
+        return item;
+      }
+
+      usedExistingIndexes.add(existingIndex);
+      const existingItem = existingItems[existingIndex];
+      const itemHasAddedComponents = item.components.some((component) => component.type === "added");
+      const existingHasAddedComponents = existingItem.components.some(
+        (component) => component.type === "added"
+      );
+
+      return {
+        ...item,
+        unitBasePrice: item.unitBasePrice > 0 ? item.unitBasePrice : existingItem.unitBasePrice,
+        components:
+          itemHasAddedComponents || !existingHasAddedComponents
+            ? item.components
+            : existingItem.components,
+        selectedOptions: item.selectedOptions ?? existingItem.selectedOptions
+      };
+    });
   }
 
   private recoverMentionedProducts(draft: OrderDraft, customerMessage?: string) {
@@ -761,7 +794,8 @@ export class BotIntegrationService {
             precio_unitario: item.unitBasePrice,
             toppings: item.components
               .filter((component) => component.type === "added")
-              .map((component) => component.name)
+              .map((component) => component.name),
+            selectedOptions: item.selectedOptions ?? {}
           })) ?? []
         ),
         nombre: draft?.customerName ?? "",
