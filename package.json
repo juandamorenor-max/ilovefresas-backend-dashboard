@@ -27,6 +27,7 @@
     "qa:payment-proof": "npm run build && node dist/qa/payment-proof-validation.js",
     "qa:accounting-ledger": "npm run build && node dist/qa/accounting-ledger.js",
     "qa:reset-conversations": "npm run build && node dist/qa/reset-conversations.js",
+    "qa:realistic-waffle-orders": "npm run build && node dist/qa/realistic-waffle-orders.js",
     "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",
     "qa:catalog-matrix": "npm run build && node dist/qa/catalog-matrix.js",
     "qa:ai-smoke": "npm run build && node dist/qa/ai-smoke.js",

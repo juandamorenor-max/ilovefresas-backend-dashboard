@@ -234,6 +234,24 @@ export class BotIntegrationService {
       return null;
     }
 
+    const waffleVariantHelp = this.buildWaffleVariantHelpIfNeeded(draft, customerText);
+    if (waffleVariantHelp) {
+      const nextStep = {
+        responseText: waffleVariantHelp,
+        nextExpected: "pedido",
+        source: "backend_waffle_variant_guardrail"
+      };
+      this.saveMessage(conversation, "customer", customerText);
+      this.saveMessage(conversation, "bot", nextStep.responseText);
+      conversation.state = this.nextConversationState(conversation, {
+        next_expected: nextStep.nextExpected
+      });
+      conversation.updatedAt = nowIso();
+
+      persistRuntimeStore();
+      return nextStep;
+    }
+
     const appliedWaffleVariantCounts = this.applyWaffleVariantCounts(draft, customerText);
     if (!appliedWaffleVariantCounts) {
       this.applyRequiredOptionAnswers(draft, customerText);
@@ -857,7 +875,7 @@ export class BotIntegrationService {
   }
 
   private normalizePaymentMethod(value: string) {
-    const normalized = value.trim().toLowerCase();
+    const normalized = this.normalizeForMatching(value);
     if (normalized.includes("nequi")) return "Nequi";
     if (normalized.includes("bancolombia") || normalized.includes("banco")) return "Bancolombia";
     if (normalized.includes("bre")) return "Bre-B";
@@ -866,7 +884,7 @@ export class BotIntegrationService {
   }
 
   private extractPaymentMethod(text: string) {
-    const normalized = text.toLowerCase();
+    const normalized = this.normalizeForMatching(text);
     if (normalized.includes("nequi")) return "Nequi";
     if (normalized.includes("bancolombia") || normalized.includes("banco")) return "Bancolombia";
     if (normalized.includes("bre")) return "Bre-B";
@@ -926,17 +944,43 @@ export class BotIntegrationService {
       return `- Para ${item.quantity} x ${item.productName}: ${labels}.`;
     });
 
+    const missingOptionKeys = [...new Set(missing.map((entry) => entry.option.key))];
+    const optionLines = this.buildRequiredOptionChoices(missingOptionKeys);
+
     return [
       "Perfecto. Antes de tomar los datos me faltan estas opciones del pedido:",
       ...lines,
+      ...optionLines,
       "",
       "Me las compartes en un mensaje? ðŸ“"
     ].join("\n");
   }
 
+  private buildRequiredOptionChoices(optionKeys: string[]) {
+    const lines: string[] = [];
+    if (optionKeys.includes("fruit")) {
+      lines.push("- Frutas: Fresa, Durazno, Banano, Kiwi, Mango, Maracuya.");
+    }
+    if (optionKeys.includes("iceCreamFlavor")) {
+      lines.push("- Helados: Fresa, Chocolate, Vainilla, Oreo.");
+    }
+    if (optionKeys.includes("sauce")) {
+      lines.push("- Salsas: Arequipe, Leche Condensada, Salsa Hershey, Dulce de mora, Nutella.");
+    }
+    if (optionKeys.includes("includedTopping")) {
+      lines.push("- Toppings: Oreo, Brownie, Milo, Merengue, Chips de Chocolate, Krispi, Mym, Chokis, Coco.");
+    }
+
+    return lines.length ? ["", "Opciones disponibles:", ...lines] : [];
+  }
+
   private applyRequiredOptionAnswers(draft: OrderDraft, text: string) {
     const globalAnswers = this.extractRequiredOptionAnswers(text);
     const targetedWaffleItemIds = this.findTargetedWaffleItemIds(draft, text);
+    const implicitTarget = targetedWaffleItemIds
+      ? null
+      : this.findImplicitRequiredOptionTarget(draft, text, globalAnswers);
+    const allowOverwrite = this.isCorrectionText(text);
 
     for (const item of draft.items) {
       const product = this.catalogService.findProductById(item.productId);
@@ -953,17 +997,32 @@ export class BotIntegrationService {
       if (targetedWaffleItemIds && !this.isWaffleItem(item)) {
         continue;
       }
+      if (implicitTarget && item.id !== implicitTarget.item.id) {
+        continue;
+      }
 
       const scopedText = this.scopeTextForRequiredOptions(item, text);
       const scopedAnswers = scopedText ? this.extractRequiredOptionAnswers(scopedText) : {};
-      const answers = { ...globalAnswers, ...scopedAnswers };
+      const answers = implicitTarget?.item.id === item.id
+        ? globalAnswers
+        : { ...globalAnswers, ...scopedAnswers };
+      this.removeProductVariantFlavorCollision(item, text, answers);
+      const allowedOptionKeys = implicitTarget?.item.id === item.id
+        ? implicitTarget.optionKeys
+        : null;
 
       item.selectedOptions ??= {};
       for (const option of product.requiredOptions) {
         if (!option.required) {
           continue;
         }
-        if ((item.selectedOptions[option.key]?.length ?? 0) >= option.minSelections) {
+        if (allowedOptionKeys && !allowedOptionKeys.has(option.key)) {
+          continue;
+        }
+        if (
+          !allowOverwrite &&
+          (item.selectedOptions[option.key]?.length ?? 0) >= option.minSelections
+        ) {
           continue;
         }
 
@@ -975,16 +1034,80 @@ export class BotIntegrationService {
     }
   }
 
+  private findImplicitRequiredOptionTarget(
+    draft: OrderDraft,
+    text: string,
+    answers: Record<string, string>
+  ) {
+    const normalized = this.normalizeForMatching(text);
+    if (
+      !Object.keys(answers).length ||
+      /\bwaffles?\b/.test(normalized) ||
+      /\bfresas\b/.test(normalized)
+    ) {
+      return null;
+    }
+
+    const target = this.getMissingRequiredOptions(draft)
+      .filter((entry) => answers[entry.option.key])
+      .find((entry, index, list) => list.findIndex((item) => item.item.id === entry.item.id) === index)
+      ?.item;
+    if (!target) {
+      return null;
+    }
+
+    const product = this.catalogService.findProductById(target.productId);
+    const missingOptions = (product?.requiredOptions ?? [])
+      .filter((option) => option.required)
+      .filter((option) => (target.selectedOptions?.[option.key]?.length ?? 0) < option.minSelections)
+      .filter((option) => answers[option.key]);
+    if (missingOptions.length === 0) {
+      return null;
+    }
+
+    const distinctValues = new Set(missingOptions.map((option) => answers[option.key]));
+    const optionKeys =
+      distinctValues.size === 1
+        ? new Set([missingOptions[0].key])
+        : new Set(missingOptions.map((option) => option.key));
+
+    return {
+      item: target,
+      optionKeys
+    };
+  }
+
+  private isCorrectionText(text: string) {
+    const normalized = this.normalizeForMatching(text);
+    return /\b(mejor|cambia|cambiar|corrige|corregir|que sea|no)\b/.test(normalized);
+  }
+
+  private removeProductVariantFlavorCollision(
+    item: OrderItem,
+    text: string,
+    answers: Record<string, string>
+  ) {
+    const normalized = this.normalizeForMatching(text);
+    if (
+      item.productName === "Waffle Chocolate" &&
+      answers.iceCreamFlavor === "Chocolate" &&
+      /\bwaffles?\s+chocolate\b/.test(normalized) &&
+      !/\b(helado|sabor)\s+(de\s+)?chocolate\b/.test(normalized)
+    ) {
+      delete answers.iceCreamFlavor;
+    }
+  }
+
   private findTargetedWaffleItemIds(draft: OrderDraft, text: string) {
     const normalized = this.normalizeForMatching(text);
-    if (!/\bwaffles?\b/.test(normalized)) {
+    const ordinal = this.extractOrdinal(normalized);
+    if (!/\bwaffles?\b/.test(normalized) && !(this.isCorrectionText(text) && ordinal !== null)) {
       return null;
     }
 
     const waffleSegment = normalized.match(
       /\bwaffles?\b(.+?)(?=\b(?:las|unas?|los)?\s*fresas\s+(?:con\s+helado|tradicionales?\s+con\s+helado)\b|$)/
     )?.[0] ?? normalized;
-    const ordinal = this.extractOrdinal(normalized);
     const mentionsTraditional = /\btradicional(?:es)?\b/.test(waffleSegment);
     const mentionsChocolate = /\bchocolate\b/.test(waffleSegment);
     let candidates = draft.items.filter((item) => this.isWaffleItem(item));
@@ -1030,6 +1153,24 @@ export class BotIntegrationService {
 
   private isWaffleItem(item: OrderItem) {
     return item.productName === "Waffle Tradicional" || item.productName === "Waffle Chocolate";
+  }
+
+  private buildWaffleVariantHelpIfNeeded(draft: OrderDraft, text: string) {
+    const normalized = this.normalizeForMatching(text);
+    const asksOptions =
+      /\b(no se|opciones|cuales|que hay|como asi)\b/.test(normalized) &&
+      !this.extractWaffleVariantCounts(text);
+    if (!asksOptions) {
+      return null;
+    }
+
+    const traditionalWaffle = draft.items.find((item) => item.productName === "Waffle Tradicional");
+    const chocolateWaffle = draft.items.find((item) => item.productName === "Waffle Chocolate");
+    if (!traditionalWaffle || chocolateWaffle || traditionalWaffle.quantity < 2) {
+      return null;
+    }
+
+    return `Tenemos waffles tradicionales y waffles de chocolate. Para los ${traditionalWaffle.quantity} waffles dime cuantos quieres de cada uno, por ejemplo: dos tradicionales y uno chocolate.`;
   }
 
   private buildWaffleVariantQuestionIfNeeded(conversation: Conversation, draft: OrderDraft) {
@@ -1193,7 +1334,15 @@ export class BotIntegrationService {
   private findOptionMentionIndex(text: string, value: string) {
     const normalizedText = this.normalizeForMatching(text);
     const normalizedValue = this.normalizeForMatching(value);
-    const match = normalizedText.match(new RegExp(`(^|\\s)${this.escapeRegExp(normalizedValue)}(\\s|$)`));
+    const candidates = [
+      normalizedValue,
+      normalizedValue.startsWith("salsa ") ? normalizedValue.replace(/^salsa\s+/, "") : null
+    ].filter((candidate): candidate is string => Boolean(candidate));
+    const match = candidates
+      .map((candidate) =>
+        normalizedText.match(new RegExp(`(^|\\s)${this.escapeRegExp(candidate)}(\\s|$)`))
+      )
+      .find((candidateMatch) => Boolean(candidateMatch));
     return match?.index ?? -1;
   }
 
@@ -1230,7 +1379,13 @@ export class BotIntegrationService {
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^\p{L}0-9]+/gu, " ")
       .replace(/\s+/g, " ")
-      .trim();
+      .trim()
+      .replace(/\bwafle\b/g, "waffle")
+      .replace(/\bwafles\b/g, "waffles")
+      .replace(/\bhersey\b/g, "hershey")
+      .replace(/\barekipe\b/g, "arequipe")
+      .replace(/\bbankolombia\b/g, "bancolombia")
+      .replace(/\bbilla santos\b/g, "villa santos");
   }
 
   private escapeRegExp(value: string) {
