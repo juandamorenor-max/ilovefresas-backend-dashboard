@@ -73,6 +73,48 @@ assert(
 
 traditionalProduct.isOutOfStock = originalTraditionalStock;
 
+const outOfScopeNewsTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "out-of-scope-news-test",
+  text: "que paso en venezuela ayer?"
+});
+assert(
+  outOfScopeNewsTurn.source === "backend_out_of_scope_guardrail",
+  "general news questions should be blocked before Flowise"
+);
+assert(
+  normalized(outOfScopeNewsTurn.responseText).includes("solo puedo ayudarte con pedidos"),
+  "out-of-scope reply should redirect to bot scope"
+);
+
+const outOfScopeTriviaTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "out-of-scope-trivia-test",
+  text: "cuantos dias tiene un ano?"
+});
+assert(
+  outOfScopeTriviaTurn.source === "backend_out_of_scope_guardrail",
+  "general trivia questions should be blocked before Flowise"
+);
+
+const outOfScopeTimeTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: "out-of-scope-time-test",
+  text: "que hora es?"
+});
+assert(
+  outOfScopeTimeTurn.source === "backend_out_of_scope_guardrail",
+  "exact time questions should be blocked before Flowise"
+);
+
+const inScopeToppingsBlocked = (agentFlowTurnService as unknown as {
+  isOutOfScopeQuestion: (text: string) => boolean;
+}).isOutOfScopeQuestion("que toppings tienen?");
+assert(
+  inScopeToppingsBlocked === false,
+  "business option questions should not be blocked by out-of-scope guardrail"
+);
+
 const unexpectedAttachmentTurn = await agentFlowTurnService.handleTurn({
   channel: "telegram",
   chatId: "unexpected-attachment-test",

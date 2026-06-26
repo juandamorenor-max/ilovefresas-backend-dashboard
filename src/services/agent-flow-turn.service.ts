@@ -378,6 +378,29 @@ export class AgentFlowTurnService {
       };
     }
 
+    if (this.isOutOfScopeQuestion(text)) {
+      const responseText = this.buildOutOfScopeReply();
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: responseText,
+          mensaje_cliente: responseText,
+          next_expected: String(conversation.conversationState.next_expected ?? "pedido")
+        }
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText,
+        shouldSendReply: true,
+        source: "backend_out_of_scope_guardrail",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
+
     const catalogoDisponible = this.botIntegrationService.getAvailableCatalog();
     const sessionId = this.sessionId(input.channel, input.chatId, conversation.id);
     const rawFlowiseResponse = await this.callFlowise({
@@ -434,6 +457,42 @@ export class AgentFlowTurnService {
     }
 
     return result;
+  }
+
+  private isOutOfScopeQuestion(text: string) {
+    const normalized = this.normalize(text);
+    if (!normalized || !this.looksLikeQuestion(normalized)) {
+      return false;
+    }
+
+    if (this.hasBusinessScopeSignal(normalized)) {
+      return false;
+    }
+
+    return (
+      /\b(venezuela|colombia|mundo|pais|paises|presidente|politica|gobierno|elecciones?|guerra|noticias?|ayer|hoy|manana|historia|geografia|capital|clima|temperatura|deporte|futbol|partido)\b/.test(
+        normalized
+      ) ||
+      /\b(que paso|que sucedio|que ocurrio|cuantos dias|cuantos meses|cuantos anos|que hora es|hora exacta|dime la hora)\b/.test(
+        normalized
+      )
+    );
+  }
+
+  private looksLikeQuestion(normalized: string) {
+    return /^(que|quien|quienes|cuando|donde|cuanto|cuantos|cuantas|cual|cuales|como|por que)\b/.test(
+      normalized
+    );
+  }
+
+  private hasBusinessScopeSignal(normalized: string) {
+    return /\b(menu|carta|catalogo|pedido|pedir|orden|comprar|quiero|fresas?|crema|helado|oreo|milo|chocolate|waffles?|wafles?|oblea|malteada|brownie|pavlova|vaso|toppings?|adiciones?|adicionales?|salsas?|sabores?|frutas?|precio|precios|vale|cuesta|cuestan|domicilio|envio|barrio|direccion|recoger|recogida|horario|abren|cierran|abierto|nequi|bancolombia|bre b|efectivo|pago|transferencia|comprobante|recomendacion|recomiendas)\b/.test(
+      normalized
+    );
+  }
+
+  private buildOutOfScopeReply() {
+    return "Por ahora solo puedo ayudarte con pedidos, menu, precios, pagos y domicilios de I Love Fresas Barranquilla 🍓 ¿Qué se te antoja?";
   }
 
   private async callFlowise(input: {
