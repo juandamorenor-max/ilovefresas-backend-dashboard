@@ -432,7 +432,7 @@ export class BotIntegrationService {
 
   private applyDraftPatch(draft: OrderDraft, patch: BotConversationStatePatch) {
     const items = this.parseItems(patch.items);
-    if (items.length > 0) {
+    if (items.length > 0 && this.shouldApplyItemsPatch(draft, patch)) {
       const nextItems = items
         .map((item) => this.toOrderItem(item))
         .filter((item): item is OrderItem => Boolean(item));
@@ -540,6 +540,32 @@ export class BotIntegrationService {
       selectedOptions: this.normalizeSelectedOptions(product, item),
       notes: [item.variante, item.observaciones].filter(Boolean).join(" ") || null
     };
+  }
+
+  private shouldApplyItemsPatch(draft: OrderDraft, patch: BotConversationStatePatch) {
+    if (draft.items.length === 0) {
+      return true;
+    }
+
+    const customerMessage = patch.customerMessage?.trim();
+    if (!customerMessage) {
+      return true;
+    }
+
+    return this.customerMessageMentionsProducts(customerMessage);
+  }
+
+  private customerMessageMentionsProducts(customerMessage: string) {
+    const normalized = this.normalizeForMatching(customerMessage);
+    return (
+      this.catalogService.findProductsMentioned(customerMessage).length > 0 ||
+      /\bwaffles?\b/.test(normalized) ||
+      /\bfresas?\b/.test(normalized) ||
+      /\boblea(s)?\b/.test(normalized) ||
+      /\bmalteada(s)?\b/.test(normalized) ||
+      /\bbrownie\b/.test(normalized) ||
+      /\bpavlova\b/.test(normalized)
+    );
   }
 
   private mergeExistingItemDetails(existingItems: OrderItem[], nextItems: OrderItem[]) {
