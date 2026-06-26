@@ -412,8 +412,9 @@ export class AgentFlowTurnService {
       String(updatedConversation?.conversationState?.next_expected ?? "")
     );
     const finalResponseText = guardedContinuation?.responseText ?? responseText;
+    let finalConversation = updatedConversation;
     if (guardedContinuation) {
-      this.botIntegrationService.updateConversationState(conversation.id, {
+      finalConversation = this.botIntegrationService.updateConversationState(conversation.id, {
         botMessage: finalResponseText,
         mensaje_cliente: finalResponseText,
         next_expected: guardedContinuation.nextExpected
@@ -427,8 +428,8 @@ export class AgentFlowTurnService {
       shouldSendReply: Boolean(finalResponseText.trim()),
       source: guardedContinuation?.source ?? "flowise_agentflow",
       responseSourceField: this.extractResponseSource(rawFlowiseResponse, flowisePatch),
-      state: updatedConversation?.state ?? conversation.state,
-      orderId: order?.id ?? updatedConversation?.activeOrderId ?? null,
+      state: finalConversation?.state ?? conversation.state,
+      orderId: order?.id ?? finalConversation?.activeOrderId ?? null,
       reviewReadiness
     };
 
