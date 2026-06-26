@@ -392,9 +392,7 @@ export class AgentFlowTurnService {
       conversation.id,
       {
         ...flowisePatch,
-        customerMessage: text,
-        botMessage: responseText,
-        mensaje_cliente: responseText
+        customerMessage: text
       }
     );
 
@@ -413,13 +411,11 @@ export class AgentFlowTurnService {
     );
     const finalResponseText = guardedContinuation?.responseText ?? responseText;
     let finalConversation = updatedConversation;
-    if (guardedContinuation) {
-      finalConversation = this.botIntegrationService.updateConversationState(conversation.id, {
-        botMessage: finalResponseText,
-        mensaje_cliente: finalResponseText,
-        next_expected: guardedContinuation.nextExpected
-      });
-    }
+    finalConversation = this.botIntegrationService.updateConversationState(conversation.id, {
+      botMessage: finalResponseText,
+      mensaje_cliente: finalResponseText,
+      ...(guardedContinuation ? { next_expected: guardedContinuation.nextExpected } : {})
+    });
 
     const result: Record<string, unknown> = {
       conversationId: conversation.id,

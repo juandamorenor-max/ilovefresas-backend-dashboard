@@ -60,6 +60,12 @@ function selected(item: OrderItem, key: string) {
   return item.selectedOptions?.[key] ?? [];
 }
 
+function snapshotOptions(item: OrderItem) {
+  return Object.fromEntries(
+    Object.entries(item.selectedOptions ?? {}).map(([key, values]) => [key, [...values]])
+  );
+}
+
 function runRequiredOptionTurn(chatId: string, conversationId: string, text: string): TurnLog {
   const turn = service.handleRequiredOptionsTurn(conversationId, text);
   assert(turn, `Expected backend required-options turn for "${text}"`);
@@ -75,7 +81,7 @@ function runRequiredOptionTurn(chatId: string, conversationId: string, text: str
     items: (current.draftOrder?.items ?? []).map((item) => ({
       productName: item.productName,
       quantity: item.quantity,
-      selectedOptions: item.selectedOptions ?? {}
+      selectedOptions: snapshotOptions(item)
     }))
   };
 }
@@ -109,7 +115,7 @@ function applyDeliveryData(
     items: (current.draftOrder?.items ?? []).map((item) => ({
       productName: item.productName,
       quantity: item.quantity,
-      selectedOptions: item.selectedOptions ?? {}
+      selectedOptions: snapshotOptions(item)
     }))
   };
 }
