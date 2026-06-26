@@ -285,6 +285,25 @@ assert(
   "required options prompt should reflect split waffle variants"
 );
 
+const recoveredWafflesConversation = service.getOrCreateActiveConversation(
+  "telegram",
+  "recover-generic-waffles-test"
+);
+service.updateConversationState(recoveredWafflesConversation.id, {
+  customerMessage: "te voy a pedir 3 waffles y unas fresas tradicionales con helado",
+  items: [{ producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }],
+  modalidad_entrega: "domicilio"
+});
+const recoveredWafflesQuestion = service.buildNextOrderStepReply(recoveredWafflesConversation.id);
+assert(
+  recoveredWafflesQuestion?.source === "backend_waffle_variant_guardrail",
+  "generic waffles omitted by Flowise should be recovered and ask variant split"
+);
+assert(
+  String(recoveredWafflesQuestion?.responseText).includes("3 waffles"),
+  "recovered generic waffles question should preserve requested quantity"
+);
+
 const oreoModifier = demoStore.modifierOptions.find((modifier) => modifier.name === "Oreo");
 assert(oreoModifier, "Oreo modifier should exist");
 const originalOreoActive = oreoModifier.isActive;

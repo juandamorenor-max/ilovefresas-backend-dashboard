@@ -560,6 +560,33 @@ export class BotIntegrationService {
         draft.items.push(item);
       }
     }
+
+    this.recoverGenericWaffles(draft, customerMessage);
+  }
+
+  private recoverGenericWaffles(draft: OrderDraft, customerMessage: string) {
+    if (draft.items.some((item) => item.productName === "Waffle Tradicional" || item.productName === "Waffle Chocolate")) {
+      return;
+    }
+
+    const normalized = this.normalizeForMatching(customerMessage);
+    const match = normalized.match(/\b(\d+|un|uno|una|dos|tres|cuatro|cinco)\s+waffles?\b/);
+    if (!match?.[1]) {
+      return;
+    }
+
+    const quantity = this.parseSmallCount(match[1]);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return;
+    }
+
+    const item = this.toOrderItem({
+      producto: "Waffle Tradicional",
+      cantidad: quantity
+    });
+    if (item) {
+      draft.items.push(item);
+    }
   }
 
   private captureMessages(conversation: Conversation, patch: BotConversationStatePatch) {
