@@ -232,6 +232,62 @@ export class BotIntegrationService {
     };
   }
 
+  handleDirectedModifierTurn(conversationId: string, customerText: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!conversation || !draft || draft.items.length === 0) {
+      return null;
+    }
+
+    const pendingModifierTurn = this.handlePendingModifierSelection(draft, customerText);
+    if (pendingModifierTurn) {
+      return this.persistBackendTurn(conversation, customerText, pendingModifierTurn);
+    }
+
+    const modifiers = this.catalogService.findModifierOptionsMentioned(customerText);
+    if (modifiers.length === 0 || !this.isModifierRequest(customerText)) {
+      return null;
+    }
+
+    if (this.looksLikeNewProductRequest(customerText)) {
+      return null;
+    }
+
+    const modifier = modifiers[0];
+    const targetedItems = this.findTargetItemsForModifier(draft, customerText);
+    if (targetedItems.length === 1) {
+      const nextStep = this.applyModifierToItem(draft, targetedItems[0], modifier, customerText);
+      return this.persistBackendTurn(conversation, customerText, nextStep);
+    }
+
+    const candidates = targetedItems.length > 1 ? targetedItems : draft.items;
+    if (candidates.length === 1) {
+      const nextStep = this.applyModifierToItem(draft, candidates[0], modifier, customerText);
+      return this.persistBackendTurn(conversation, customerText, nextStep);
+    }
+
+    draft.pendingSelections = draft.pendingSelections.filter(
+      (selection) => selection.label !== "modifier_target"
+    );
+    draft.pendingSelections.push({
+      id: createId("sel"),
+      type: "modifier_clarification",
+      targetItemId: null,
+      targetProductId: modifier.id,
+      label: "modifier_target",
+      options: candidates.map((item) => item.id),
+      blocking: true,
+      question: this.buildModifierTargetQuestion(modifier, candidates)
+    });
+
+    const nextStep = {
+      responseText: this.buildModifierTargetQuestion(modifier, candidates),
+      nextExpected: "pedido",
+      source: "backend_directed_modifier_guardrail"
+    };
+    return this.persistBackendTurn(conversation, customerText, nextStep);
+  }
+
   handleRequiredOptionsTurn(conversationId: string, customerText: string) {
     const conversation = this.findConversation(conversationId);
     const draft = conversation?.draftOrder;
@@ -641,6 +697,239 @@ export class BotIntegrationService {
     });
   }
 
+  private persistBackendTurn(
+    conversation: Conversation,
+    customerText: string,
+    nextStep: { responseText: string; nextExpected: string; source: string }
+  ) {
+    conversation.draftOrder = this.orderService.refreshDraft(conversation.draftOrder!);
+    this.saveMessage(conversation, "customer", customerText);
+    this.saveMessage(conversation, "bot", nextStep.responseText);
+    conversation.state = this.nextConversationState(conversation, {
+      next_expected: nextStep.nextExpected
+    });
+    conversation.updatedAt = nowIso();
+    persistRuntimeStore();
+    return nextStep;
+  }
+
+  private handlePendingModifierSelection(draft: OrderDraft, customerText: string) {
+    const pending = draft.pendingSelections.find(
+      (selection) =>
+        selection.blocking &&
+        (selection.label === "modifier_target" || selection.label === "modifier_helado_flavor")
+    );
+    if (!pending) {
+      return null;
+    }
+
+    if (pending.label === "modifier_target") {
+      const modifier = pending.targetProductId
+        ? this.catalogService.findModifierOptionById(pending.targetProductId)
+        : null;
+      if (!modifier) {
+        draft.pendingSelections = draft.pendingSelections.filter((selection) => selection.id !== pending.id);
+        return null;
+      }
+
+      const candidates = pending.options
+        .map((itemId) => draft.items.find((item) => item.id === itemId))
+        .filter((item): item is OrderItem => Boolean(item));
+      const targetedItems = this.findTargetItemsForModifier(draft, customerText, candidates);
+      if (targetedItems.length !== 1) {
+        return {
+          responseText: this.buildModifierTargetQuestion(modifier, candidates),
+          nextExpected: "pedido",
+          source: "backend_directed_modifier_guardrail"
+        };
+      }
+
+      draft.pendingSelections = draft.pendingSelections.filter((selection) => selection.id !== pending.id);
+      return this.applyModifierToItem(draft, targetedItems[0], modifier, "");
+    }
+
+    const targetItem = pending.targetItemId
+      ? draft.items.find((item) => item.id === pending.targetItemId)
+      : null;
+    if (!targetItem) {
+      draft.pendingSelections = draft.pendingSelections.filter((selection) => selection.id !== pending.id);
+      return null;
+    }
+
+    const flavor = this.extractIceCreamFlavor(customerText);
+    if (!flavor) {
+      return {
+        responseText: this.buildHeladoFlavorQuestion(targetItem),
+        nextExpected: "pedido",
+        source: "backend_directed_modifier_guardrail"
+      };
+    }
+
+    targetItem.selectedOptions ??= {};
+    targetItem.selectedOptions.iceCreamFlavor = [flavor];
+    draft.pendingSelections = draft.pendingSelections.filter((selection) => selection.id !== pending.id);
+    return {
+      responseText: `Perfecto, helado de ${flavor} para ${targetItem.productName}. ¿Quieres agregar otro producto al pedido? 🍓`,
+      nextExpected: "pedido",
+      source: "backend_directed_modifier_guardrail"
+    };
+  }
+
+  private isModifierRequest(text: string) {
+    const normalized = this.normalizeForMatching(text);
+    return /\b(agrega|agregale|agregar|ponle|echale|con|adicion|adicional|extra|tambien)\b/.test(
+      normalized
+    );
+  }
+
+  private looksLikeNewProductRequest(text: string) {
+    const mentionedProducts = this.catalogService.findProductsMentioned(text);
+    if (mentionedProducts.length === 0) {
+      return false;
+    }
+
+    const normalized = this.normalizeForMatching(text);
+    const hasDirectedModifierVerb = /\b(agrega|agregar|agregale|ponle|echale)\b/.test(normalized);
+    const hasTargetPreposition = /\b(?:a|al|a la|a las|para|pa)\b/.test(normalized);
+    if (hasDirectedModifierVerb && hasTargetPreposition) {
+      return false;
+    }
+
+    return /\b(y|quiero|dame|mandame|pideme|agrega|agregar|una|un|unas|unos|otro|otra|tambien)\b/.test(
+      normalized
+    );
+  }
+
+  private findTargetItemsForModifier(
+    draft: OrderDraft,
+    text: string,
+    candidates = draft.items
+  ) {
+    const normalizedText = this.normalizeForMatching(text);
+    const matches = candidates
+      .map((item) => {
+        const product = this.catalogService.findProductById(item.productId);
+        const names = [item.productName, ...(product?.aliases ?? [])];
+        const match = names
+          .map((name) => this.normalizeForMatching(name))
+          .filter(Boolean)
+          .filter((candidate) => this.textMentionsCandidate(normalizedText, candidate))
+          .sort((a, b) => b.length - a.length)[0];
+        return match ? { item, length: match.length } : null;
+      })
+      .filter((entry): entry is { item: OrderItem; length: number } => Boolean(entry))
+      .sort((a, b) => b.length - a.length);
+
+    if (matches.length === 0) {
+      return [];
+    }
+
+    const bestLength = matches[0].length;
+    return matches.filter((match) => match.length === bestLength).map((match) => match.item);
+  }
+
+  private textMentionsCandidate(normalizedText: string, candidate: string) {
+    return new RegExp(`(^|\\s)${this.escapeRegExp(candidate)}(\\s|$)`).test(normalizedText);
+  }
+
+  private applyModifierToItem(
+    draft: OrderDraft,
+    item: OrderItem,
+    modifier: ModifierOption,
+    customerText: string
+  ) {
+    item.components = item.components.filter(
+      (component) => !(component.type === "added" && component.name === modifier.name)
+    );
+    item.components.push({
+      name: modifier.name,
+      type: "added",
+      priceDelta: modifier.priceDelta
+    });
+
+    if (modifier.name === "Helado") {
+      const flavor = this.extractIceCreamFlavor(customerText);
+      if (flavor) {
+        item.selectedOptions ??= {};
+        item.selectedOptions.iceCreamFlavor = [flavor];
+        this.clearPendingHeladoFlavor(draft, item.id);
+        return {
+          responseText: `Listo, le agrego helado de ${flavor} a ${item.productName}. ¿Quieres agregar otro producto al pedido? 🍓`,
+          nextExpected: "pedido",
+          source: "backend_directed_modifier_guardrail"
+        };
+      }
+
+      this.setPendingHeladoFlavor(draft, item);
+      return {
+        responseText: this.buildHeladoFlavorQuestion(item),
+        nextExpected: "pedido",
+        source: "backend_directed_modifier_guardrail"
+      };
+    }
+
+    return {
+      responseText: `Listo, le agrego ${modifier.name} a ${item.productName}. ¿Quieres agregar otro producto al pedido? 🍓`,
+      nextExpected: "pedido",
+      source: "backend_directed_modifier_guardrail"
+    };
+  }
+
+  private setPendingHeladoFlavor(draft: OrderDraft, item: OrderItem) {
+    this.clearPendingHeladoFlavor(draft, item.id);
+    draft.pendingSelections.push({
+      id: createId("sel"),
+      type: "required_option",
+      targetItemId: item.id,
+      targetProductId: item.productId,
+      label: "modifier_helado_flavor",
+      options: ["Fresa", "Chocolate", "Vainilla", "Oreo"],
+      blocking: true,
+      question: this.buildHeladoFlavorQuestion(item)
+    });
+  }
+
+  private clearPendingHeladoFlavor(draft: OrderDraft, itemId: string) {
+    draft.pendingSelections = draft.pendingSelections.filter(
+      (selection) =>
+        !(selection.label === "modifier_helado_flavor" && selection.targetItemId === itemId)
+    );
+  }
+
+  private extractIceCreamFlavor(text: string) {
+    const normalized = this.normalizeForMatching(text);
+    const explicitFlavor = normalized.match(
+      /\b(?:helado|sabor)\s+(?:de\s+)?(fresa|chocolate|vainilla|oreo)\b/
+    )?.[1];
+    const option = {
+      key: "iceCreamFlavor",
+      label: "sabor de helado",
+      options: ["Fresa", "Chocolate", "Vainilla", "Oreo"],
+      required: true,
+      minSelections: 1,
+      maxSelections: 1
+    };
+    if (explicitFlavor) {
+      return option.options.find(
+        (value) => this.normalizeForMatching(value) === explicitFlavor
+      ) ?? null;
+    }
+    if (/\bhelado\b/.test(normalized)) {
+      return null;
+    }
+    return option.options.find((value) => this.findOptionMentionIndex(text, value) >= 0) ?? null;
+  }
+
+  private buildModifierTargetQuestion(modifier: ModifierOption, candidates: OrderItem[]) {
+    return `¿A cuál producto le agregamos ${modifier.name}? ${this.formatHumanList(
+      candidates.map((item) => item.productName)
+    )}.`;
+  }
+
+  private buildHeladoFlavorQuestion(item: OrderItem) {
+    return `Listo, le agrego helado a ${item.productName} 🍓 ¿Qué sabor quieres: Fresa, Chocolate, Vainilla u Oreo?`;
+  }
+
   private recoverMentionedProducts(draft: OrderDraft, customerMessage?: string) {
     if (!customerMessage || draft.items.length === 0) {
       return;
@@ -774,7 +1063,8 @@ export class BotIntegrationService {
     if (patch.needs_human === true || patch.needs_human === "true") return "pending_human";
     if (
       conversation.draftOrder?.items.length &&
-      this.getMissingRequiredOptions(conversation.draftOrder).length > 0
+      (this.getMissingRequiredOptions(conversation.draftOrder).length > 0 ||
+        this.hasBlockingPendingSelection(conversation.draftOrder))
     ) {
       return "collecting_items";
     }
@@ -811,7 +1101,7 @@ export class BotIntegrationService {
 
     if (draft.items.length === 0) missingFields.push("productos");
     if (draft.items.some((item) => item.unitBasePrice <= 0)) missingFields.push("precios");
-    if (this.getMissingRequiredOptions(draft).length > 0) {
+    if (this.getMissingRequiredOptions(draft).length > 0 || this.hasBlockingPendingSelection(draft)) {
       missingFields.push("opciones_obligatorias");
     }
     if (!draft.customerName) missingFields.push("nombre");
@@ -830,6 +1120,10 @@ export class BotIntegrationService {
       ready: missingFields.length === 0,
       missingFields
     };
+  }
+
+  private hasBlockingPendingSelection(draft: OrderDraft) {
+    return draft.pendingSelections.some((selection) => selection.blocking);
   }
 
   private refreshInferredZone(draft: OrderDraft) {
@@ -1592,7 +1886,7 @@ export class BotIntegrationService {
     const product = this.catalogService.findProductById(item.productId);
     const options = Object.entries(item.selectedOptions ?? {})
       .flatMap(([key, values]) => {
-        const label = product?.requiredOptions?.find((option) => option.key === key)?.label ?? key;
+        const label = this.formatSelectedOptionLabel(product, key);
         return values.map((value) => `${label}: ${value}`);
       })
       .join("; ");
@@ -1601,6 +1895,22 @@ export class BotIntegrationService {
     return `- ${item.quantity} x ${item.productName}${optionsText}: ${this.money(
       item.unitBasePrice * item.quantity
     )}`;
+  }
+
+  private formatSelectedOptionLabel(product: Product | null | undefined, key: string) {
+    const productLabel = product?.requiredOptions?.find((option) => option.key === key)?.label;
+    if (productLabel) {
+      return productLabel;
+    }
+
+    const fallbackLabels: Record<string, string> = {
+      fruit: "fruta",
+      iceCreamFlavor: "sabor de helado",
+      sauce: "salsa",
+      toppingChoice: "topping"
+    };
+
+    return fallbackLabels[key] ?? key;
   }
 
   private normalizeForMatching(value: string) {

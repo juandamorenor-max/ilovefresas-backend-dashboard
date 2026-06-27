@@ -530,6 +530,211 @@ assert(
 
 oreoModifier.isActive = originalOreoActive;
 
+const directedModifierChatId = "directed-modifier-target-test";
+const directedModifierConversation = service.startNewConversation("telegram", directedModifierChatId);
+service.updateConversationState(directedModifierConversation.id, {
+  items: [
+    {
+      producto: "Fresas con chocolate",
+      cantidad: 1,
+      toppings: ["Mym"]
+    },
+    {
+      producto: "Fresas Explosion de Chocolate",
+      cantidad: 1
+    },
+    {
+      producto: "Maracufresa",
+      cantidad: 1
+    }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const directedHeladoTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: directedModifierChatId,
+  text: "agregale helado a las fresas explosion de chocolate porfa"
+});
+assert(
+  directedHeladoTurn.source === "backend_directed_modifier_guardrail",
+  "explicit modifier target should be handled by backend before Flowise"
+);
+assert(
+  normalized(directedHeladoTurn.responseText).includes("que sabor quieres"),
+  "helado addition should ask for flavor"
+);
+const directedDraftAfterHelado = service.getOrCreateActiveConversation(
+  "telegram",
+  directedModifierChatId
+).draftOrder;
+assert(directedDraftAfterHelado, "directed modifier draft should exist");
+const chocolateItem = directedDraftAfterHelado.items.find((item) => item.productName === "Fresas con chocolate");
+const explosionItem = directedDraftAfterHelado.items.find((item) => item.productName === "Fresas Explosion de Chocolate");
+const maracufresaItem = directedDraftAfterHelado.items.find((item) => item.productName === "Maracufresa");
+assert(chocolateItem, "Fresas con chocolate should remain in draft");
+assert(explosionItem, "Fresas Explosion de Chocolate should remain in draft");
+assert(maracufresaItem, "Maracufresa should remain in draft");
+assert(
+  chocolateItem.components.some((component) => component.type === "added" && component.name === "Mym"),
+  "original Mym topping should stay on Fresas con chocolate"
+);
+assert(
+  !chocolateItem.components.some((component) => component.type === "added" && component.name === "Helado"),
+  "Helado should not be added to Fresas con chocolate"
+);
+assert(
+  explosionItem.components.some((component) => component.type === "added" && component.name === "Helado"),
+  "Helado should be added to Fresas Explosion de Chocolate"
+);
+assert(
+  !maracufresaItem.components.some((component) => component.type === "added" && component.name === "Helado"),
+  "Helado should not be added to Maracufresa"
+);
+assert(directedDraftAfterHelado.items.length === 3, "target clarification must not add a new product");
+
+const directedHeladoFlavorTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: directedModifierChatId,
+  text: "oreo"
+});
+assert(
+  directedHeladoFlavorTurn.source === "backend_directed_modifier_guardrail",
+  "helado flavor answer should be handled by backend"
+);
+assert(
+  JSON.stringify(explosionItem.selectedOptions?.iceCreamFlavor) === JSON.stringify(["Oreo"]),
+  "helado flavor should be saved on the target item"
+);
+const directedModifierSummary = service.buildConfirmationSummary(directedModifierConversation.id);
+assert(
+  String(directedModifierSummary).includes("sabor de helado: Oreo") &&
+    !String(directedModifierSummary).includes("iceCreamFlavor"),
+  "summary should show helado flavor with a human label"
+);
+
+const ambiguousModifierChatId = "directed-modifier-ambiguous-test";
+const ambiguousModifierConversation = service.startNewConversation("telegram", ambiguousModifierChatId);
+service.updateConversationState(ambiguousModifierConversation.id, {
+  items: [
+    {
+      producto: "Fresas Explosion de Chocolate",
+      cantidad: 1
+    },
+    {
+      producto: "Maracufresa",
+      cantidad: 1
+    }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const ambiguousHeladoTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: ambiguousModifierChatId,
+  text: "agregale helado"
+});
+assert(
+  ambiguousHeladoTurn.source === "backend_directed_modifier_guardrail",
+  "ambiguous modifier should ask target before Flowise"
+);
+assert(
+  String(ambiguousHeladoTurn.responseText).includes("Fresas Explosion de Chocolate") &&
+    String(ambiguousHeladoTurn.responseText).includes("Maracufresa") &&
+    !String(ambiguousHeladoTurn.responseText).includes("Fresas con chocolate"),
+  "modifier target question should list only active draft items"
+);
+const targetClarificationTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: ambiguousModifierChatId,
+  text: "fresas explosion de chocolate"
+});
+assert(
+  normalized(targetClarificationTurn.responseText).includes("que sabor quieres"),
+  "target clarification should apply modifier and ask helado flavor"
+);
+const ambiguousDraftAfterTarget = service.getOrCreateActiveConversation(
+  "telegram",
+  ambiguousModifierChatId
+).draftOrder;
+assert(ambiguousDraftAfterTarget, "ambiguous modifier draft should exist");
+assert(
+  ambiguousDraftAfterTarget.items.filter((item) => item.productName === "Fresas Explosion de Chocolate").length === 1,
+  "target clarification must not add another explosion product"
+);
+
+const sameMessageModifierChatId = "directed-modifier-same-message-test";
+const sameMessageModifierConversation = service.startNewConversation("telegram", sameMessageModifierChatId);
+service.updateConversationState(sameMessageModifierConversation.id, {
+  items: [
+    {
+      producto: "Fresas Explosion de Chocolate",
+      cantidad: 1
+    },
+    {
+      producto: "Maracufresa",
+      cantidad: 1
+    }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const sameMessageHeladoTurn = await agentFlowTurnService.handleTurn({
+  channel: "telegram",
+  chatId: sameMessageModifierChatId,
+  text: "agregale helado de vainilla a la maracufresa"
+});
+assert(
+  sameMessageHeladoTurn.source === "backend_directed_modifier_guardrail",
+  "modifier target and flavor in same message should be handled by backend"
+);
+assert(
+  !normalized(sameMessageHeladoTurn.responseText).includes("que sabor quieres"),
+  "same-message helado flavor should not ask flavor again"
+);
+const sameMessageDraft = service.getOrCreateActiveConversation(
+  "telegram",
+  sameMessageModifierChatId
+).draftOrder;
+const sameMessageMaracufresa = sameMessageDraft?.items.find((item) => item.productName === "Maracufresa");
+assert(
+  sameMessageMaracufresa?.components.some((component) => component.type === "added" && component.name === "Helado"),
+  "Helado should be added to Maracufresa"
+);
+assert(
+  JSON.stringify(sameMessageMaracufresa?.selectedOptions?.iceCreamFlavor) === JSON.stringify(["Vainilla"]),
+  "same-message helado flavor should be saved on Maracufresa"
+);
+
+const modifierNewProductGuardChatId = "directed-modifier-new-product-guard-test";
+const modifierNewProductGuardConversation = service.startNewConversation(
+  "telegram",
+  modifierNewProductGuardChatId
+);
+service.updateConversationState(modifierNewProductGuardConversation.id, {
+  items: [
+    {
+      producto: "Fresas con chocolate",
+      cantidad: 1
+    }
+  ],
+  modalidad_entrega: "domicilio"
+});
+const newProductLikeModifierTurn = service.handleDirectedModifierTurn(
+  modifierNewProductGuardConversation.id,
+  "y unas fresas con helado"
+);
+assert(
+  newProductLikeModifierTurn === null,
+  "new product requests containing a modifier word should continue to the order flow"
+);
+
+const directedOreoTurn = service.handleDirectedModifierTurn(
+  sameMessageModifierConversation.id,
+  "agrega oreo a la maracufresa"
+);
+assert(
+  directedOreoTurn?.source === "backend_directed_modifier_guardrail",
+  "agrega modifier to existing item should still be handled as a directed modifier"
+);
+
 const first = service.getOrCreateActiveConversation("telegram", "531515729");
 assert(first.conversationState.items === "[]", "new conversation should start without items");
 assert(first.conversationState.modalidad_entrega === "domicilio", "delivery should be default");

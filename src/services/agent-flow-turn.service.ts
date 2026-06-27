@@ -299,6 +299,28 @@ export class AgentFlowTurnService {
       };
     }
 
+    const directedModifierTurn = this.botIntegrationService.handleDirectedModifierTurn(
+      conversation.id,
+      text
+    );
+    if (directedModifierTurn) {
+      const updatedConversation = this.botIntegrationService.getOrCreateActiveConversation(
+        input.channel,
+        input.chatId
+      );
+
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText: directedModifierTurn.responseText,
+        shouldSendReply: true,
+        source: directedModifierTurn.source,
+        state: updatedConversation.state,
+        orderId: updatedConversation.activeOrderId ?? null,
+        reviewReadiness: this.botIntegrationService.getOrderReviewReadiness(conversation.id)
+      };
+    }
+
     const requiredOptionsTurn = this.botIntegrationService.handleRequiredOptionsTurn(
       conversation.id,
       text

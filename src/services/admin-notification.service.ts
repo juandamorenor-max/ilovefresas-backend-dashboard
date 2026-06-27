@@ -76,8 +76,7 @@ export class AdminNotificationService {
         const selectedOptions = Object.entries(item.selectedOptions ?? {})
           .filter(([, values]) => values.length > 0)
           .map(([key, values]) => {
-            const label =
-              product?.requiredOptions?.find((option) => option.key === key)?.label ?? key;
+            const label = this.formatSelectedOptionLabel(product, key);
             const quantityMap = item.selectedOptionQuantities?.[key] ?? {};
             const formattedValues = Object.keys(quantityMap).length
               ? Object.entries(quantityMap)
@@ -134,5 +133,24 @@ export class AdminNotificationService {
     ]
       .filter((line) => line !== null)
       .join("\n");
+  }
+
+  private formatSelectedOptionLabel(
+    product: ReturnType<CatalogService["findProductById"]>,
+    key: string
+  ) {
+    const productLabel = product?.requiredOptions?.find((option) => option.key === key)?.label;
+    if (productLabel) {
+      return productLabel;
+    }
+
+    const fallbackLabels: Record<string, string> = {
+      fruit: "fruta",
+      iceCreamFlavor: "sabor de helado",
+      sauce: "salsa",
+      toppingChoice: "topping"
+    };
+
+    return fallbackLabels[key] ?? key;
   }
 }

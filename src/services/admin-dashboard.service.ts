@@ -8,6 +8,7 @@ import { logger } from "../utils/logger.js";
 import { TelegramService } from "./telegram.service.js";
 import { WhatsAppService } from "./whatsapp.service.js";
 import { AccountingLedgerService } from "./accounting-ledger.service.js";
+import { CatalogService } from "./catalog.service.js";
 
 type DashboardStatus =
   | "pending"
@@ -39,7 +40,8 @@ export class AdminDashboardService {
   constructor(
     private readonly telegramService = new TelegramService(),
     private readonly whatsAppService = new WhatsAppService(),
-    private readonly accountingLedgerService = new AccountingLedgerService()
+    private readonly accountingLedgerService = new AccountingLedgerService(),
+    private readonly catalogService = new CatalogService()
   ) {}
 
   listDashboardOrders() {
@@ -455,11 +457,12 @@ export class AdminDashboardService {
 
   private toDashboardLineItem(item: OrderItem) {
     const components = item.components ?? [];
+    const product = this.catalogService.findProductById(item.productId);
     const selectedOptions = Object.entries(item.selectedOptions ?? {})
       .filter(([, values]) => values.length > 0)
-      .map(([label, values]) => ({
-        label,
-        value: this.formatSelectedOptionValues(item, label, values)
+      .map(([key, values]) => ({
+        label: this.formatSelectedOptionLabel(product, key),
+        value: this.formatSelectedOptionValues(item, key, values)
       }));
     const additions = components
       .filter((component) => component.type === "added" || component.type === "replaced")
@@ -564,6 +567,7 @@ export class AdminDashboardService {
 
   private formatItem(item: OrderItem) {
     const components = item.components ?? [];
+    const product = this.catalogService.findProductById(item.productId);
     const additions = components
       .filter((component) => component.type === "added")
       .map((component) => component.name);
@@ -572,7 +576,7 @@ export class AdminDashboardService {
       .map((component) => `sin ${component.name}`);
     const selectedOptions = Object.entries(item.selectedOptions ?? {})
       .filter(([, values]) => values.length > 0)
-      .map(([key, values]) => `${key}: ${values.join(", ")}`);
+      .map(([key, values]) => `${this.formatSelectedOptionLabel(product, key)}: ${values.join(", ")}`);
     const modifiers = [...selectedOptions, ...additions, ...removals];
     const notes = Array.isArray(item.notes) ? item.notes.join(", ") : item.notes;
     return [
@@ -582,6 +586,25 @@ export class AdminDashboardService {
     ]
       .filter(Boolean)
       .join(" - ");
+  }
+
+  private formatSelectedOptionLabel(
+    product: ReturnType<CatalogService["findProductById"]>,
+    key: string
+  ) {
+    const productLabel = product?.requiredOptions?.find((option) => option.key === key)?.label;
+    if (productLabel) {
+      return productLabel;
+    }
+
+    const fallbackLabels: Record<string, string> = {
+      fruit: "fruta",
+      iceCreamFlavor: "sabor de helado",
+      sauce: "salsa",
+      toppingChoice: "topping"
+    };
+
+    return fallbackLabels[key] ?? key;
   }
 
   private calculateRisk(order: Order) {
