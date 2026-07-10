@@ -4,11 +4,13 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { TelegramBotRunnerService } from "./services/telegram-bot-runner.service.js";
 import { logger } from "./utils/logger.js";
+import { initializeRuntimeStore } from "./data/runtime-store.js";
 
 const pidFile = join(process.cwd(), ".beta-local.pid");
 writeFileSync(pidFile, String(process.pid));
 
-const app = createApp();
+await initializeRuntimeStore();
+const app = createApp({ loadRuntime: false });
 const runner = new TelegramBotRunnerService();
 
 const server = app.listen(env.PORT, () => {

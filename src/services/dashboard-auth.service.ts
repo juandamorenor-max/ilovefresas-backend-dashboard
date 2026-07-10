@@ -4,54 +4,71 @@ import { env } from "../config/env.js";
 
 const cookieName = "ilf_dashboard_session";
 const ttlMs = 12 * 60 * 60 * 1000;
+export type DashboardRole = "operator" | "admin";
 
 export class DashboardAuthService {
   isEnabled() {
-    return Boolean(env.DASHBOARD_ACCESS_PASSWORD);
+    return Boolean(env.DASHBOARD_ACCESS_PASSWORD || env.DASHBOARD_OPERATOR_PASSWORD);
   }
 
   getSession(request: Request) {
     if (!this.isEnabled()) {
-      return { enabled: false, authenticated: true, expiresAt: null };
+      return { enabled: false, authenticated: true, expiresAt: null, role: "admin" as const, demoEnabled: env.NODE_ENV !== "production" };
     }
 
     const token = this.readCookie(request, cookieName);
-    const expiresAt = this.verifyToken(token);
+    const verified = this.verifyToken(token);
     return {
       enabled: true,
-      authenticated: Boolean(expiresAt),
-      expiresAt
+      authenticated: Boolean(verified),
+      expiresAt: verified?.expiresAt ?? null,
+      role: verified?.role ?? null,
+      demoEnabled: env.NODE_ENV !== "production"
     };
   }
 
-  login(password: string, response: Response) {
+  login(password: string, requestedRole: DashboardRole, response: Response) {
     if (!this.isEnabled()) {
-      return { enabled: false, authenticated: true, expiresAt: null };
+      return { enabled: false, authenticated: true, expiresAt: null, role: "admin" as const, demoEnabled: env.NODE_ENV !== "production" };
     }
 
-    if (!this.passwordMatches(password)) {
-      return { enabled: true, authenticated: false, expiresAt: null };
+    const role = this.resolveRole(password, requestedRole);
+    if (!role) {
+      return { enabled: true, authenticated: false, expiresAt: null, role: null, demoEnabled: env.NODE_ENV !== "production" };
     }
 
     const expiresAt = new Date(Date.now() + ttlMs).toISOString();
-    response.setHeader("Set-Cookie", this.buildCookie(this.signToken(expiresAt), ttlMs));
-    return { enabled: true, authenticated: true, expiresAt };
+    response.setHeader("Set-Cookie", this.buildCookie(this.signToken(expiresAt, role), ttlMs));
+    return { enabled: true, authenticated: true, expiresAt, role, demoEnabled: env.NODE_ENV !== "production" };
   }
 
   logout(response: Response) {
     response.setHeader("Set-Cookie", this.buildCookie("", 0));
-    return { enabled: this.isEnabled(), authenticated: false, expiresAt: null };
+    return { enabled: this.isEnabled(), authenticated: false, expiresAt: null, role: null, demoEnabled: env.NODE_ENV !== "production" };
   }
 
-  private passwordMatches(password: string) {
-    const expected = env.DASHBOARD_ACCESS_PASSWORD ?? "";
+  private resolveRole(password: string, requestedRole: DashboardRole): DashboardRole | null {
+    if (env.DASHBOARD_ACCESS_PASSWORD && this.passwordMatches(password, env.DASHBOARD_ACCESS_PASSWORD)) {
+      return requestedRole === "operator" && !env.DASHBOARD_OPERATOR_PASSWORD ? "operator" : "admin";
+    }
+    if (
+      requestedRole === "operator" &&
+      env.DASHBOARD_OPERATOR_PASSWORD &&
+      this.passwordMatches(password, env.DASHBOARD_OPERATOR_PASSWORD)
+    ) {
+      return "operator";
+    }
+    return null;
+  }
+
+  private passwordMatches(password: string, expected: string) {
     const receivedHash = crypto.createHash("sha256").update(password).digest();
     const expectedHash = crypto.createHash("sha256").update(expected).digest();
     return crypto.timingSafeEqual(receivedHash, expectedHash);
   }
 
-  private signToken(expiresAt: string) {
-    const payload = Buffer.from(JSON.stringify({ expiresAt })).toString("base64url");
+  private signToken(expiresAt: string, role: DashboardRole) {
+    const payload = Buffer.from(JSON.stringify({ expiresAt, role })).toString("base64url");
     const signature = crypto
       .createHmac("sha256", this.secret())
       .update(payload)
@@ -79,11 +96,16 @@ export class DashboardAuthService {
     try {
       const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
         expiresAt?: string;
+        role?: DashboardRole;
       };
-      if (!parsed.expiresAt || new Date(parsed.expiresAt).getTime() <= Date.now()) {
+      if (
+        !parsed.expiresAt ||
+        !["operator", "admin"].includes(parsed.role ?? "") ||
+        new Date(parsed.expiresAt).getTime() <= Date.now()
+      ) {
         return null;
       }
-      return parsed.expiresAt;
+      return { expiresAt: parsed.expiresAt, role: parsed.role as DashboardRole };
     } catch {
       return null;
     }

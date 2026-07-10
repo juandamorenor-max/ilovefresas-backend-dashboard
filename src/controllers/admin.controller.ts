@@ -8,6 +8,7 @@ import { AdminDashboardService } from "../services/admin-dashboard.service.js";
 import { ManualQaService } from "../services/manual-qa.service.js";
 import { DashboardAuthService } from "../services/dashboard-auth.service.js";
 import { AccountingLedgerService } from "../services/accounting-ledger.service.js";
+import { TurnPersistenceService } from "../services/turn-persistence.service.js";
 
 export class AdminController {
   constructor(
@@ -18,7 +19,8 @@ export class AdminController {
     private readonly adminDashboardService = new AdminDashboardService(),
     private readonly manualQaService = new ManualQaService(),
     private readonly dashboardAuthService = new DashboardAuthService(),
-    private readonly accountingLedgerService = new AccountingLedgerService()
+    private readonly accountingLedgerService = new AccountingLedgerService(),
+    private readonly turnPersistenceService = new TurnPersistenceService()
   ) {}
 
   getDashboardSession(request: Request, response: Response) {
@@ -26,7 +28,12 @@ export class AdminController {
   }
 
   loginDashboard(request: Request, response: Response) {
-    const session = this.dashboardAuthService.login(String(request.body.password ?? ""), response);
+    const requestedRole = request.body.role === "admin" ? "admin" : "operator";
+    const session = this.dashboardAuthService.login(
+      String(request.body.password ?? ""),
+      requestedRole,
+      response
+    );
     if (!session.authenticated) {
       throw new HttpError(401, "Invalid dashboard password");
     }
@@ -282,6 +289,15 @@ export class AdminController {
         .type("text/csv")
         .setHeader("Content-Disposition", 'attachment; filename="pedidos-enviados.csv"');
       response.send(this.accountingLedgerService.toCsv(result.rows));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listTurnTraces(request: Request, response: Response, next: NextFunction) {
+    try {
+      const limit = Number(request.query.limit ?? 100);
+      response.json(await this.turnPersistenceService.listTraces(limit));
     } catch (error) {
       next(error);
     }

@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import type { Server } from "node:http";
 
 process.env.DASHBOARD_ACCESS_PASSWORD = "qa-dashboard-password";
+process.env.DASHBOARD_OPERATOR_PASSWORD = "qa-operator-password";
 process.env.DASHBOARD_SESSION_SECRET = "qa-dashboard-session-secret";
 
 const { createApp } = await import("../app.js");
@@ -32,26 +33,49 @@ try {
   });
   assert.equal(failedLogin.status, 401);
 
-  const login = await fetch(`${baseUrl}/admin/session/login`, {
+  const operatorLogin = await fetch(`${baseUrl}/admin/session/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password: "qa-dashboard-password" })
+    body: JSON.stringify({ password: "qa-operator-password", role: "operator" })
   });
-  assert.equal(login.status, 200);
-  const cookie = login.headers.get("set-cookie");
+  assert.equal(operatorLogin.status, 200);
+  const operatorBody = await operatorLogin.json() as { role: string };
+  assert.equal(operatorBody.role, "operator");
+  const cookie = operatorLogin.headers.get("set-cookie");
   if (!cookie?.includes("ilf_dashboard_session=")) {
     throw new Error("login should set session cookie");
   }
-  const sessionCookie: string = cookie;
+  const operatorCookie: string = cookie;
 
   const allowed = await fetch(`${baseUrl}/admin/dashboard/orders`, {
-    headers: { cookie: sessionCookie }
+    headers: { cookie: operatorCookie }
   });
   assert.equal(allowed.status, 200);
 
+  const adminBlocked = await fetch(`${baseUrl}/admin/dashboard/accounting/dispatched-orders`, {
+    headers: { cookie: operatorCookie }
+  });
+  assert.equal(adminBlocked.status, 403);
+
+  const adminLogin = await fetch(`${baseUrl}/admin/session/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password: "qa-dashboard-password", role: "admin" })
+  });
+  assert.equal(adminLogin.status, 200);
+  const adminBody = await adminLogin.json() as { role: string };
+  assert.equal(adminBody.role, "admin");
+  const adminCookie = adminLogin.headers.get("set-cookie");
+  assert(adminCookie, "admin login should set session cookie");
+
+  const adminAllowed = await fetch(`${baseUrl}/admin/dashboard/accounting/dispatched-orders`, {
+    headers: { cookie: adminCookie }
+  });
+  assert.equal(adminAllowed.status, 200);
+
   const logout = await fetch(`${baseUrl}/admin/session/logout`, {
     method: "POST",
-    headers: { cookie: sessionCookie }
+    headers: { cookie: operatorCookie }
   });
   assert.equal(logout.status, 200);
 

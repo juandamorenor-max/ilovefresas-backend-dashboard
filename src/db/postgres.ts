@@ -37,6 +37,33 @@ export function createPostgresClient() {
       }
 
       return result.rows;
+    },
+    transaction: async <T>(
+      operation: (transaction: {
+        query: <R extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => Promise<R[]>;
+      }) => Promise<T>
+    ): Promise<T> => {
+      const pool = getPool();
+      if (!pool) {
+        throw new Error("DATABASE_URL is not configured");
+      }
+      const client = await pool.connect();
+      try {
+        await client.query("begin");
+        const result = await operation({
+          query: async <R extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => {
+            const queryResult = await client.query<R>(sql, params);
+            return queryResult.rows;
+          }
+        });
+        await client.query("commit");
+        return result;
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      } finally {
+        client.release();
+      }
     }
   };
 }

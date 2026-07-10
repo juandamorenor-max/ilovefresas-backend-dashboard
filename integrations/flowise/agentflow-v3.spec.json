@@ -1,0 +1,33 @@
+{
+  "version": 3,
+  "name": "I Love Fresas - Supervisor V3",
+  "status": "shadow",
+  "memoryOwner": "backend_postgres",
+  "maxModelCallsPerTurn": 2,
+  "input": "TurnContextV3",
+  "output": "TurnDecisionV3",
+  "supervisor": {
+    "prompt": "prompts/supervisor.md",
+    "model": "gpt-5.4-mini",
+    "ownsFinalDecision": true
+  },
+  "specialists": [
+    { "id": "pedido", "prompt": "prompts/pedido.md" },
+    { "id": "opciones", "prompt": "prompts/opciones.md" },
+    { "id": "datos", "prompt": "prompts/datos.md" },
+    { "id": "menu", "prompt": "prompts/menu.md" },
+    { "id": "postventa", "prompt": "prompts/postventa.md" }
+  ],
+  "backendOnly": [
+    "prices",
+    "availability",
+    "deliveryFee",
+    "totals",
+    "confirmationSummary",
+    "paymentInstructions",
+    "orderCreation",
+    "orderStatus",
+    "paymentProofAcceptance"
+  ]
+}
+

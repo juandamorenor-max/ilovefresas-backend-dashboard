@@ -2,6 +2,10 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import path from "node:path";
 import { env } from "../config/env.js";
 import { demoStore } from "./demoStore.js";
+import {
+  getPostgresRuntimeStore,
+  schedulePostgresRuntimeStorePersist
+} from "./postgres-runtime-store.js";
 
 const persistedKeys = [
   "businesses",
@@ -49,9 +53,10 @@ export function loadRuntimeStore() {
 }
 
 export function persistRuntimeStore() {
+  const postgresScheduled = schedulePostgresRuntimeStorePersist();
   const storePath = runtimeStorePath();
   if (!storePath) {
-    return false;
+    return postgresScheduled;
   }
 
   mkdirSync(path.dirname(storePath), { recursive: true });
@@ -68,7 +73,31 @@ export function persistRuntimeStore() {
   return true;
 }
 
+export async function initializeRuntimeStore() {
+  const postgresStore = getPostgresRuntimeStore();
+  if (!postgresStore.isEnabled()) {
+    return loadRuntimeStore();
+  }
+
+  if (await postgresStore.load()) {
+    return true;
+  }
+
+  const loadedFromFile = loadRuntimeStore();
+  await postgresStore.persist();
+  return loadedFromFile;
+}
+
 export function getRuntimeStoreStatus() {
+  if (env.OPERATIONAL_STORE_MODE === "postgres") {
+    return {
+      configured: Boolean(env.DATABASE_URL),
+      mode: "postgres",
+      path: null,
+      exists: Boolean(env.DATABASE_URL),
+      writable: Boolean(env.DATABASE_URL)
+    };
+  }
   const storePath = runtimeStorePath();
   if (!storePath) {
     return {

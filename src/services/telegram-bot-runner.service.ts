@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TelegramMessage, TelegramUpdate } from "./telegram.service.js";
 import { ConversationService } from "./conversation.service.js";
+import { ConversationTurnOrchestratorService } from "./conversation-turn-orchestrator.service.js";
 import { OrderService } from "./order.service.js";
 import { TelegramService } from "./telegram.service.js";
 import { formatCurrency } from "../utils/http.js";
@@ -70,7 +71,8 @@ export class TelegramBotRunnerService {
   constructor(
     private readonly telegramService = new TelegramService(),
     private readonly conversationService = new ConversationService(),
-    private readonly orderService = new OrderService()
+    private readonly orderService = new OrderService(),
+    private readonly turnOrchestrator = new ConversationTurnOrchestratorService()
   ) {}
 
   async start() {
@@ -157,6 +159,23 @@ export class TelegramBotRunnerService {
 
     if (message.photo?.length || this.isSupportedProofDocument(message.document)) {
       const largestPhoto = message.photo?.[message.photo.length - 1] ?? null;
+      if (env.TURN_ENGINE_VERSION === "v3") {
+        const result = await this.turnOrchestrator.handle({
+          channel: "telegram",
+          chatId: String(chatId),
+          externalMessageId: `telegram:${update.update_id}:${message.message_id}`,
+          text: message.caption ?? "",
+          occurredAt: null,
+          attachments: [{
+            id: largestPhoto?.file_id ?? message.document?.file_id ?? "",
+            type: largestPhoto ? "image" : "document",
+            caption: message.caption ?? null,
+            mimeType: message.document?.mime_type ?? (largestPhoto ? "image/jpeg" : null)
+          }]
+        });
+        await this.sendV3TurnResult(botToken, chatId, result);
+        return;
+      }
       const result = await this.conversationService.handleIncomingAttachment({
         from: this.buildTelegramCustomerId(chatId),
         to: "telegram-client",
@@ -185,6 +204,18 @@ export class TelegramBotRunnerService {
       const customerId = this.buildTelegramCustomerId(chatId);
       this.pendingClosures.delete(chatId);
       this.awaitingFailureComment.delete(chatId);
+      if (env.TURN_ENGINE_VERSION === "v3") {
+        const result = await this.turnOrchestrator.handle({
+          channel: "telegram",
+          chatId: String(chatId),
+          externalMessageId: `telegram:${update.update_id}:${message.message_id}`,
+          text: "/newchat",
+          occurredAt: null,
+          attachments: []
+        });
+        await this.sendV3TurnResult(botToken, chatId, result);
+        return;
+      }
       await this.telegramService.sendMessage(
         botToken,
         chatId,
@@ -209,6 +240,19 @@ export class TelegramBotRunnerService {
       return;
     }
 
+    if (env.TURN_ENGINE_VERSION === "v3") {
+      const result = await this.turnOrchestrator.handle({
+        channel: "telegram",
+        chatId: String(chatId),
+        externalMessageId: `telegram:${update.update_id}:${message.message_id}`,
+        text: message.text,
+        occurredAt: null,
+        attachments: []
+      });
+      await this.sendV3TurnResult(botToken, chatId, result);
+      return;
+    }
+
     const result = await this.conversationService.handleIncomingMessage({
       from: this.buildTelegramCustomerId(chatId),
       to: "telegram-client",
@@ -227,6 +271,34 @@ export class TelegramBotRunnerService {
           attachment.caption
         );
       } else if (attachment.type === "photo") {
+        await this.telegramService.sendPhoto(
+          botToken,
+          chatId,
+          attachment.pathOrUrl,
+          attachment.caption
+        );
+      }
+    }
+  }
+
+  private async sendV3TurnResult(
+    botToken: string,
+    chatId: number,
+    result: Awaited<ReturnType<ConversationTurnOrchestratorService["handle"]>>
+  ) {
+    if (result.duplicate) return;
+    if (result.shouldSendReply && result.responseText.trim()) {
+      await this.telegramService.sendMessage(botToken, chatId, result.responseText);
+    }
+    for (const attachment of result.attachments) {
+      if (attachment.type === "document") {
+        await this.telegramService.sendDocument(
+          botToken,
+          chatId,
+          attachment.pathOrUrl,
+          attachment.caption
+        );
+      } else {
         await this.telegramService.sendPhoto(
           botToken,
           chatId,

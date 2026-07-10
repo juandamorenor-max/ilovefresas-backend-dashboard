@@ -8,6 +8,7 @@ export class HealthController {
     response.json({
       ok: true,
       service: "chatbot-i-love-fresas-v2",
+      version: env.APP_VERSION,
       timestamp: new Date().toISOString()
     });
   }
@@ -16,6 +17,12 @@ export class HealthController {
     response.json({
       ok: true,
       service: "chatbot-i-love-fresas-v2",
+      version: env.APP_VERSION,
+      turnEngine: {
+        version: env.TURN_ENGINE_VERSION,
+        persistence: env.TURN_PERSISTENCE_MODE,
+        traceIncludesCustomerText: env.TURN_TRACE_INCLUDE_TEXT
+      },
       storage: getRuntimeStoreStatus(),
       accountingDatabase: getPostgresStatus(),
       flowise: {

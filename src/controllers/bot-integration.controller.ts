@@ -3,13 +3,14 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { env } from "../config/env.js";
 import { HttpError } from "../utils/http.js";
-import { AgentFlowTurnService } from "../services/agent-flow-turn.service.js";
+import { createId } from "../utils/id.js";
 import { BotIntegrationService } from "../services/bot-integration.service.js";
+import { ConversationTurnOrchestratorService } from "../services/conversation-turn-orchestrator.service.js";
 
 export class BotIntegrationController {
   constructor(
     private readonly service = new BotIntegrationService(),
-    private readonly agentFlowTurnService = new AgentFlowTurnService()
+    private readonly turnOrchestrator = new ConversationTurnOrchestratorService(service)
   ) {}
 
   getAvailableCatalog(request: Request, response: Response) {
@@ -77,18 +78,49 @@ export class BotIntegrationController {
   async handleTurn(request: Request, response: Response) {
     this.assertBotSecret(request);
     response.json(
-      await this.agentFlowTurnService.handleTurn({
+      await this.turnOrchestrator.handle({
         channel: this.getBodyChannel(request),
         chatId: String(request.body.chatId ?? ""),
+        externalMessageId: this.getExternalMessageId(request.body),
         text: String(request.body.text ?? request.body.caption ?? ""),
-        appBaseUrl: this.getRequestBaseUrl(request),
-        hasAttachment: this.hasAttachment(request.body),
-        attachmentType: this.getAttachmentType(request.body),
-        attachmentFileId: this.getAttachmentFileId(request.body),
-        caption: this.getCaption(request.body),
-        mimeType: this.getMimeType(request.body)
+        attachments: this.buildAttachments(request.body),
+        occurredAt: this.getOccurredAt(request.body)
+      }, {
+        appBaseUrl: this.getRequestBaseUrl(request)
       })
     );
+  }
+
+  private getExternalMessageId(body: Record<string, unknown>) {
+    const direct = body.externalMessageId ?? body.update_id ?? body.message_id;
+    if (direct !== undefined && direct !== null && String(direct).trim()) {
+      return String(direct);
+    }
+    return createId("external");
+  }
+
+  private getOccurredAt(body: Record<string, unknown>) {
+    const value = body.occurredAt ?? body.timestamp;
+    if (typeof value === "string" && !Number.isNaN(Date.parse(value))) {
+      return new Date(value).toISOString();
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return new Date(value < 10_000_000_000 ? value * 1000 : value).toISOString();
+    }
+    return null;
+  }
+
+  private buildAttachments(body: Record<string, unknown>) {
+    if (!this.hasAttachment(body)) return [];
+    const id = this.getAttachmentFileId(body);
+    const type = this.getAttachmentType(body);
+    if (!id || !type) return [];
+    return [{
+      id,
+      type,
+      caption: this.getCaption(body),
+      mimeType: this.getMimeType(body)
+    }];
   }
 
   private getChannel(request: Request) {

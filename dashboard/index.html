@@ -41,6 +41,7 @@
         <button data-view="availability">Disponibilidad</button>
         <button data-view="catalog" data-admin-only>Catalogo</button>
         <button data-view="accounting" data-admin-only>Contabilidad</button>
+        <button data-view="qa" data-admin-only>QA</button>
       </nav>
       <div class="status-box">
         <span>Bot</span>
@@ -237,6 +238,19 @@
           </div>
           <div id="accountingByPayment" class="accounting-summary"></div>
           <div id="accountingRows" class="accounting-table"></div>
+        </section>
+      </section>
+
+      <section id="qa" class="view" data-admin-only>
+        <section class="panel">
+          <div class="panel-header wrap">
+            <div>
+              <h3>Trazas de conversacion</h3>
+              <span>Motor, fuente, latencia, siguiente paso y comparacion shadow.</span>
+            </div>
+            <span id="qaTraceStatus">Sin sincronizar</span>
+          </div>
+          <div id="qaTraceRows" class="trace-table"></div>
         </section>
       </section>
     </main>

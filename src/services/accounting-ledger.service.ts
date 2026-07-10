@@ -1,6 +1,12 @@
 import { createPostgresClient } from "../db/postgres.js";
+import type { QueryResultRow } from "pg";
 import type { Order } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+
+type AccountingDatabase = {
+  configured: boolean;
+  query: <T extends QueryResultRow = QueryResultRow>(sql: string, params?: unknown[]) => Promise<T[]>;
+};
 
 const createAccountingTableSql = `
 create table if not exists accounting_dispatched_orders (
@@ -83,7 +89,7 @@ returning order_id;
 export class AccountingLedgerService {
   private schemaReady: Promise<void> | null = null;
 
-  constructor(private readonly db = createPostgresClient()) {}
+  constructor(private readonly db: AccountingDatabase = createPostgresClient()) {}
 
   async recordDispatchedOrder(order: Order) {
     if (order.status !== "dispatched") {

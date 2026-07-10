@@ -9,6 +9,7 @@ const state = {
   modifiers: [],
   paymentMethods: [],
   accounting: { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } },
+  turnTraces: { configured: false, rows: [] },
   botCatalog: null,
   businessStatus: {},
   integrationStatus: null,
@@ -142,6 +143,7 @@ const titles = {
   availability: ["Disponibilidad", "Productos y adiciones que el bot puede ofrecer"],
   catalog: ["Catalogo y pagos", "Edicion de productos, toppings y datos de transferencia"],
   accounting: ["Contabilidad", "Pedidos enviados y resumen de pagos"]
+  ,qa: ["QA", "Trazas de turnos y comparacion del motor V3"]
 };
 
 const statusLabels = {
@@ -166,9 +168,9 @@ const nextStatuses = {
 
 const adminApi = {
   getSession: () => apiFetch("/admin/session"),
-  login: (password) => apiFetch("/admin/session/login", {
+  login: (password, role) => apiFetch("/admin/session/login", {
     method: "POST",
-    body: JSON.stringify({ password })
+    body: JSON.stringify({ password, role })
   }),
   logout: () => apiFetch("/admin/session/logout", {
     method: "POST",
@@ -181,6 +183,7 @@ const adminApi = {
   getBotCatalog: () => apiFetch("/admin/dashboard/bot-catalog"),
   listPaymentMethods: () => apiFetch("/admin/dashboard/payment-methods"),
   listAccounting: () => apiFetch("/admin/dashboard/accounting/dispatched-orders"),
+  listTurnTraces: () => apiFetch("/admin/dashboard/qa/turn-traces?limit=100"),
   getBusinessStatus: () => apiFetch("/admin/dashboard/business-status"),
   getIntegrationStatus: () => apiFetch("/health/integration"),
   updateOrder: (order, patch) => apiFetch(`/admin/dashboard/orders/${encodeURIComponent(order.id)}`, {
@@ -313,19 +316,25 @@ function replaceById(collection, item) {
 }
 
 async function enterDashboard() {
-  state.role = $("roleSelect").value;
+  const requestedRole = $("roleSelect").value;
   $("loginError").classList.add("hidden");
-  if (!isDemoMode()) {
-    try {
-      const session = await adminApi.getSession();
-      if (session.enabled && !session.authenticated) {
-        await adminApi.login($("passwordInput").value);
+  try {
+    let session = await adminApi.getSession();
+    if (requestedRole === "demo") {
+      if (!session.demoEnabled) {
+        throw new Error("Demo is disabled in production");
       }
-    } catch (error) {
-      console.error(error);
-      $("loginError").classList.remove("hidden");
-      return;
+      state.role = "demo";
+    } else {
+      if (session.enabled && (!session.authenticated || session.role !== requestedRole)) {
+        session = await adminApi.login($("passwordInput").value, requestedRole);
+      }
+      state.role = session.role || requestedRole;
     }
+  } catch (error) {
+    console.error(error);
+    $("loginError").classList.remove("hidden");
+    return;
   }
   $("login").classList.add("hidden");
   $("app").classList.remove("hidden");
@@ -371,6 +380,7 @@ function clearData() {
   state.modifiers = [];
   state.paymentMethods = [];
   state.accounting = { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } };
+  state.turnTraces = { configured: false, rows: [] };
   state.botCatalog = null;
   state.businessStatus = {};
   state.integrationStatus = null;
@@ -384,7 +394,7 @@ async function refreshData({ quiet = true } = {}) {
     return;
   }
   try {
-    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus, accounting] = await Promise.all([
+    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus, accounting, turnTraces] = await Promise.all([
       adminApi.listOrders(),
       adminApi.listConversations(),
       adminApi.listProducts(),
@@ -393,7 +403,8 @@ async function refreshData({ quiet = true } = {}) {
       adminApi.listPaymentMethods(),
       adminApi.getBusinessStatus(),
       adminApi.getIntegrationStatus(),
-      isAdminRole() ? adminApi.listAccounting() : Promise.resolve(state.accounting)
+      isAdminRole() ? adminApi.listAccounting() : Promise.resolve(state.accounting),
+      isAdminRole() ? adminApi.listTurnTraces() : Promise.resolve(state.turnTraces)
     ]);
     state.orders = Array.isArray(orders) ? orders : [];
     state.conversations = Array.isArray(conversations) ? conversations : [];
@@ -402,6 +413,7 @@ async function refreshData({ quiet = true } = {}) {
     state.botCatalog = botCatalog || null;
     state.paymentMethods = Array.isArray(paymentMethods) ? paymentMethods : [];
     state.accounting = accounting || { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } };
+    state.turnTraces = turnTraces || { configured: false, rows: [] };
     state.businessStatus = businessStatus || {};
     state.integrationStatus = integrationStatus || null;
     state.selectedOrderId = state.orders.some((order) => order.id === state.selectedOrderId)
@@ -449,7 +461,7 @@ function stopPolling() {
 }
 
 function setView(view) {
-  if ((view === "catalog" || view === "accounting") && !isAdminRole()) {
+  if ((view === "catalog" || view === "accounting" || view === "qa") && !isAdminRole()) {
     showToast("Esta seccion esta disponible solo para Admin.");
     return;
   }
@@ -510,6 +522,7 @@ function renderAll() {
   renderAvailability();
   renderCatalog();
   renderAccounting();
+  renderQaTraces();
 }
 
 function renderShell() {
@@ -897,6 +910,32 @@ function renderAccounting() {
       `).join("")}
     `
     : emptyState("No hay pedidos enviados para mostrar.");
+}
+
+function renderQaTraces() {
+  const traces = state.turnTraces || { configured: false, rows: [] };
+  const rows = Array.isArray(traces.rows) ? traces.rows : [];
+  $("qaTraceStatus").textContent = traces.configured
+    ? `${rows.length} turnos recientes`
+    : "Activa TURN_PERSISTENCE_MODE=postgres";
+  $("qaTraceRows").innerHTML = rows.length
+    ? `
+      <div class="table-row header">
+        <span>Fecha</span><span>Canal</span><span>Fuente</span>
+        <span>Siguiente</span><span>Latencia</span><span>Shadow</span>
+      </div>
+      ${rows.map((row) => `
+        <div class="table-row">
+          <span>${escapeHtml(row.createdAt ? new Date(row.createdAt).toLocaleString("es-CO") : "")}</span>
+          <span>${escapeHtml(`${row.channel || ""}:${row.chatId || ""}`)}</span>
+          <span>${escapeHtml(row.error || row.source || "-")}</span>
+          <span>${escapeHtml(row.nextExpected || "-")}</span>
+          <span>${escapeHtml(`${row.durationMs || 0} ms`)}</span>
+          <span>${escapeHtml(row.shadowError || row.shadowDecision?.specialist || "Sin shadow")}</span>
+        </div>
+      `).join("")}
+    `
+    : emptyState(traces.configured ? "Todavia no hay trazas V3." : "Postgres de turnos no esta configurado.");
 }
 
 function emptyState(text) {
