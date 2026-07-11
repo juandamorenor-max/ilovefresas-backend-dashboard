@@ -20,6 +20,7 @@ cada prediccion mediante `overrideConfig.vars`.
 - `prompts/`: instrucciones pequenas por responsabilidad.
 - `current-agentflow-export.json`: fotografia real del V2 antes de activar V3.
 - `v3-shadow-agentflow-import.json`: copia V3 separada, lista para importar.
+- `live-v3.json`: ID y URLs de la copia V3 validada en Flowise Cloud.
 
 Regenera el import desde la fotografia actual con:
 
@@ -31,6 +32,15 @@ Importa el archivo V3 como un Agentflow nuevo. No reemplaces el ID productivo.
 Configura su ID en `FLOWISE_V3_AGENTFLOW_ID` y activa
 `FLOWISE_V3_SHADOW=true`. El backend validara y guardara sus decisiones, pero no
 las aplicara ni se las enviara al cliente mientras siga en shadow mode.
+
+## Agentflow V3 Live
+
+- ID: `9125e789-66af-4159-ad72-abec803a0037`.
+- Estado: validado en Flowise Cloud y reservado para shadow mode.
+- El Agentflow V2 productivo `e52f27b3-06e2-4fb0-b853-30e936b99839`
+  permanece sin cambios.
+- Flowise serializa `operations` como string JSON; el backend lo convierte y
+  valida contra `TurnDecisionV3` antes de usarlo.
 
 ## Modelos
 

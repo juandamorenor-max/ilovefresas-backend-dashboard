@@ -14,8 +14,26 @@ const envelope = `
 <contrato_salida>
 Devuelve exclusivamente un objeto TurnDecisionV3 con estos campos:
 intent, confidence, operations, replyDraft, needsHuman, reason, specialist.
-Operations solo puede contener: add_item, update_item, remove_item,
-set_customer_data, answer_catalog, request_clarification o handoff.
+intent debe ser exactamente uno de: order_update, catalog_question,
+customer_data, answer_pending_selection, small_talk, post_order,
+human_handoff o unknown.
+
+Por compatibilidad con Flowise, operations debe ser un STRING que contenga un
+array JSON valido. Usa "[]" cuando no haya operaciones. Los tipos permitidos
+son: add_item, update_item, remove_item, set_customer_data, answer_catalog,
+request_clarification o handoff. Nunca omitas operations.
+
+Formas permitidas dentro de operations:
+- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.
+- update_item: type, targetItemId y solo los cambios aplicables.
+- remove_item: type, targetItemId.
+- set_customer_data: type y solo datos expresados por el cliente.
+- answer_catalog: type, topic, targetProductId.
+- request_clarification: type, label, targetItemId, options, question.
+- handoff: type, reason.
+
+specialist debe ser exactamente uno de: pedido, opciones, datos, menu,
+postventa o supervisor.
 No agregues campos. No incluyas markdown.
 </contrato_salida>`;
 
@@ -30,7 +48,7 @@ const specialistPrompts = {
 const structuredOutput = [
   { key: "intent", type: "string", enumValues: "order_update,catalog_question,customer_data,answer_pending_selection,small_talk,post_order,human_handoff,unknown", jsonSchema: "", description: "Intent V3" },
   { key: "confidence", type: "number", enumValues: "", jsonSchema: "", description: "Confidence from 0 to 1" },
-  { key: "operations", type: "json", enumValues: "", jsonSchema: JSON.stringify({ type: "array", items: { type: "object" } }), description: "Closed backend operations" },
+  { key: "operations", type: "string", enumValues: "", jsonSchema: "", description: "JSON serialized array of closed backend operations; use [] when empty" },
   { key: "replyDraft", type: "string", enumValues: "", jsonSchema: "", description: "Optional draft; backend decides final reply" },
   { key: "needsHuman", type: "boolean", enumValues: "", jsonSchema: "", description: "True only for a real handoff" },
   { key: "reason", type: "string", enumValues: "", jsonSchema: "", description: "Short decision reason" },
@@ -84,7 +102,10 @@ supervisor.data.inputs.llmUpdateState = [
 
 for (const [id, [label, promptName]] of Object.entries(specialistPrompts)) {
   const node = flow.nodes.find((candidate) => candidate.id === id);
-  configureLlm(node, label, prompt(promptName));
+  configureLlm(node, label, `${prompt(promptName)}
+
+Estas ejecutando exclusivamente la rama ${promptName}. En la salida,
+specialist debe ser exactamente "${promptName}". No selecciones otra rama.`);
 }
 
 const condition = flow.nodes.find((node) => node.id === "conditionAgentflow_0");
@@ -133,7 +154,7 @@ for (const [replyId, llmId] of [
 ]) {
   const node = flow.nodes.find((candidate) => candidate.id === replyId);
   node.data.label = `OUTPUT ${llmId.replace("llmAgentflow_", "")}`;
-  node.data.inputs.directReplyMessage = `{{${llmId}.output}}`;
+  node.data.inputs.directReplyMessage = `{{${llmId}.output.replyDraft}}`;
 }
 
 const start = flow.nodes.find((node) => node.id === "startAgentflow_0");

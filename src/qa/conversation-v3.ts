@@ -9,6 +9,9 @@ const { turnDecisionV3Schema } = await import("../contracts/customer-turn.js");
 const { ConversationTurnOrchestratorService } = await import(
   "../services/conversation-turn-orchestrator.service.js"
 );
+const { extractLatestTurnDecisionV3 } = await import(
+  "../services/flowise-v3-shadow.service.js"
+);
 const { demoStore } = await import("../data/demoStore.js");
 
 demoStore.conversations = [];
@@ -93,5 +96,42 @@ const invalidDecision = turnDecisionV3Schema.safeParse({
   total: 5000
 });
 assert.equal(invalidDecision.success, false, "TurnDecisionV3 must reject extra price fields");
+
+const specialistDecision = extractLatestTurnDecisionV3({
+  agentFlowExecutedData: [
+    { data: { output: { ...validDecision.data, specialist: "supervisor", operations: [] } } },
+    { data: { output: validDecision.data } }
+  ],
+  text: "{{llmAgentflow_1.output.replyDraft}}"
+});
+assert.equal(specialistDecision.specialist, "pedido");
+assert.equal(specialistDecision.operations[0]?.type, "add_item");
+
+const serializedOperationsDecision = extractLatestTurnDecisionV3({
+  output: {
+    ...validDecision.data,
+    operations: JSON.stringify(validDecision.data?.operations ?? [])
+  }
+});
+assert.equal(serializedOperationsDecision.operations[0]?.type, "add_item");
+
+const flowiseEmptyOptionsDecision = extractLatestTurnDecisionV3({
+  output: {
+    ...validDecision.data,
+    operations: JSON.stringify([{
+      type: "add_item",
+      productId: "prod_fresa_tradicional",
+      quantity: 1,
+      modifierIds: [],
+      selectedOptions: [],
+      notes: ""
+    }])
+  }
+});
+const normalizedAddOperation = flowiseEmptyOptionsDecision.operations[0];
+assert.equal(normalizedAddOperation?.type, "add_item");
+if (normalizedAddOperation?.type === "add_item") {
+  assert.deepEqual(normalizedAddOperation.selectedOptions, {});
+}
 
 console.log("conversation-v3 contracts and idempotency OK");

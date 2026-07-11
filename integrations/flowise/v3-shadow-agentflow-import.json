@@ -476,7 +476,7 @@
           "llmMessages": [
             {
               "role": "system",
-              "content": "Eres el SUPERVISOR de I Love Fresas Barranquilla.\n\nTu trabajo es seleccionar el especialista minimo necesario y devolver una sola\ndecision `TurnDecisionV3`. No guardas estado y no ejecutas reglas del negocio.\n\nEspecialistas:\n- pedido: productos, cantidades, adiciones, cambios y correcciones.\n- opciones: respuestas a una seleccion obligatoria pendiente.\n- datos: nombre, entrega, direccion, barrio, referencia y pago.\n- menu: preguntas sobre catalogo disponible.\n- postventa: pedido enviado, reclamo, cancelacion o atencion humana.\n\nUsa el estado recibido para entender el contexto. Un mensaje puede corregir una\netapa anterior. Si mezcla pedido y datos, permite dos operaciones compatibles,\npero no llames especialistas innecesarios.\n\nNo inventes IDs, precios, disponibilidad, domicilio, descuentos o estados. No\nconfirmes preparacion ni despacho. Devuelve solo JSON valido del schema recibido.\n\nSelecciona exactamente un especialista. En esta etapa operations debe ser [] y\nspecialist debe indicar la rama. El especialista producira la decision aplicable.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nOperations solo puede contener: add_item, update_item, remove_item,\nset_customer_data, answer_catalog, request_clarification o handoff.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
+              "content": "Eres el SUPERVISOR de I Love Fresas Barranquilla.\n\nTu trabajo es seleccionar el especialista minimo necesario y devolver una sola\ndecision `TurnDecisionV3`. No guardas estado y no ejecutas reglas del negocio.\n\nEspecialistas:\n- pedido: productos, cantidades, adiciones, cambios y correcciones.\n- opciones: respuestas a una seleccion obligatoria pendiente.\n- datos: nombre, entrega, direccion, barrio, referencia y pago.\n- menu: preguntas sobre catalogo disponible.\n- postventa: pedido enviado, reclamo, cancelacion o atencion humana.\n\nUsa el estado recibido para entender el contexto. Un mensaje puede corregir una\netapa anterior. Si mezcla pedido y datos, permite dos operaciones compatibles,\npero no llames especialistas innecesarios.\n\nNo inventes IDs, precios, disponibilidad, domicilio, descuentos o estados. No\nconfirmes preparacion ni despacho. Devuelve solo JSON valido del schema recibido.\n\nSelecciona exactamente un especialista. En esta etapa operations debe ser [] y\nspecialist debe indicar la rama. El especialista producira la decision aplicable.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nintent debe ser exactamente uno de: order_update, catalog_question,\ncustomer_data, answer_pending_selection, small_talk, post_order,\nhuman_handoff o unknown.\n\nPor compatibilidad con Flowise, operations debe ser un STRING que contenga un\narray JSON valido. Usa \"[]\" cuando no haya operaciones. Los tipos permitidos\nson: add_item, update_item, remove_item, set_customer_data, answer_catalog,\nrequest_clarification o handoff. Nunca omitas operations.\n\nFormas permitidas dentro de operations:\n- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.\n- update_item: type, targetItemId y solo los cambios aplicables.\n- remove_item: type, targetItemId.\n- set_customer_data: type y solo datos expresados por el cliente.\n- answer_catalog: type, topic, targetProductId.\n- request_clarification: type, label, targetItemId, options, question.\n- handoff: type, reason.\n\nspecialist debe ser exactamente uno de: pedido, opciones, datos, menu,\npostventa o supervisor.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
             },
             {
               "role": "user",
@@ -502,10 +502,10 @@
             },
             {
               "key": "operations",
-              "type": "json",
+              "type": "string",
               "enumValues": "",
-              "jsonSchema": "{\"type\":\"array\",\"items\":{\"type\":\"object\"}}",
-              "description": "Closed backend operations"
+              "jsonSchema": "",
+              "description": "JSON serialized array of closed backend operations; use [] when empty"
             },
             {
               "key": "replyDraft",
@@ -1191,7 +1191,7 @@
           "llmMessages": [
             {
               "role": "system",
-              "content": "Interpreta solamente cambios del pedido.\n\nDevuelve operaciones sobre IDs existentes del catalogo o items actuales. Resuelve\nproducto, cantidad, destino de una adicion y correcciones expresadas naturalmente.\nNo calcules precios. No conviertas una aclaracion en un producto nuevo. Si falta\nuna decision critica, devuelve `request_clarification` con una pregunta corta.\nNo pidas datos de entrega.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nOperations solo puede contener: add_item, update_item, remove_item,\nset_customer_data, answer_catalog, request_clarification o handoff.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
+              "content": "Interpreta solamente cambios del pedido.\n\nDevuelve operaciones sobre IDs existentes del catalogo o items actuales. Resuelve\nproducto, cantidad, destino de una adicion y correcciones expresadas naturalmente.\nNo calcules precios. No conviertas una aclaracion en un producto nuevo. Si falta\nuna decision critica, devuelve `request_clarification` con una pregunta corta.\nNo pidas datos de entrega.\n\nEstas ejecutando exclusivamente la rama pedido. En la salida,\nspecialist debe ser exactamente \"pedido\". No selecciones otra rama.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nintent debe ser exactamente uno de: order_update, catalog_question,\ncustomer_data, answer_pending_selection, small_talk, post_order,\nhuman_handoff o unknown.\n\nPor compatibilidad con Flowise, operations debe ser un STRING que contenga un\narray JSON valido. Usa \"[]\" cuando no haya operaciones. Los tipos permitidos\nson: add_item, update_item, remove_item, set_customer_data, answer_catalog,\nrequest_clarification o handoff. Nunca omitas operations.\n\nFormas permitidas dentro de operations:\n- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.\n- update_item: type, targetItemId y solo los cambios aplicables.\n- remove_item: type, targetItemId.\n- set_customer_data: type y solo datos expresados por el cliente.\n- answer_catalog: type, topic, targetProductId.\n- request_clarification: type, label, targetItemId, options, question.\n- handoff: type, reason.\n\nspecialist debe ser exactamente uno de: pedido, opciones, datos, menu,\npostventa o supervisor.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
             },
             {
               "role": "user",
@@ -1219,10 +1219,10 @@
             },
             {
               "key": "operations",
-              "type": "json",
+              "type": "string",
               "enumValues": "",
-              "jsonSchema": "{\"type\":\"array\",\"items\":{\"type\":\"object\"}}",
-              "description": "Closed backend operations"
+              "jsonSchema": "",
+              "description": "JSON serialized array of closed backend operations; use [] when empty"
             },
             {
               "key": "replyDraft",
@@ -1325,7 +1325,7 @@
         ],
         "inputAnchors": [],
         "inputs": {
-          "directReplyMessage": "{{llmAgentflow_1.output}}"
+          "directReplyMessage": "{{llmAgentflow_1.output.replyDraft}}"
         },
         "outputAnchors": [],
         "outputs": {},
@@ -1620,7 +1620,7 @@
           "llmMessages": [
             {
               "role": "system",
-              "content": "Extrae solamente datos del cliente y entrega.\n\nSepara nombre, direccion, barrio, referencia, modalidad y metodo de pago aunque\nvengan en una sola linea. Domicilio es la modalidad por defecto; usa pickup solo\nsi el cliente indica recoger. No inventes barrio ni completes direccion desde una\nsesion anterior. Devuelve `set_customer_data` con los campos expresados.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nOperations solo puede contener: add_item, update_item, remove_item,\nset_customer_data, answer_catalog, request_clarification o handoff.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
+              "content": "Extrae solamente datos del cliente y entrega.\n\nSepara nombre, direccion, barrio, referencia, modalidad y metodo de pago aunque\nvengan en una sola linea. Domicilio es la modalidad por defecto; usa pickup solo\nsi el cliente indica recoger. No inventes barrio ni completes direccion desde una\nsesion anterior. Devuelve `set_customer_data` con los campos expresados.\n\nEstas ejecutando exclusivamente la rama datos. En la salida,\nspecialist debe ser exactamente \"datos\". No selecciones otra rama.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nintent debe ser exactamente uno de: order_update, catalog_question,\ncustomer_data, answer_pending_selection, small_talk, post_order,\nhuman_handoff o unknown.\n\nPor compatibilidad con Flowise, operations debe ser un STRING que contenga un\narray JSON valido. Usa \"[]\" cuando no haya operaciones. Los tipos permitidos\nson: add_item, update_item, remove_item, set_customer_data, answer_catalog,\nrequest_clarification o handoff. Nunca omitas operations.\n\nFormas permitidas dentro de operations:\n- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.\n- update_item: type, targetItemId y solo los cambios aplicables.\n- remove_item: type, targetItemId.\n- set_customer_data: type y solo datos expresados por el cliente.\n- answer_catalog: type, topic, targetProductId.\n- request_clarification: type, label, targetItemId, options, question.\n- handoff: type, reason.\n\nspecialist debe ser exactamente uno de: pedido, opciones, datos, menu,\npostventa o supervisor.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
             },
             {
               "role": "user",
@@ -1648,10 +1648,10 @@
             },
             {
               "key": "operations",
-              "type": "json",
+              "type": "string",
               "enumValues": "",
-              "jsonSchema": "{\"type\":\"array\",\"items\":{\"type\":\"object\"}}",
-              "description": "Closed backend operations"
+              "jsonSchema": "",
+              "description": "JSON serialized array of closed backend operations; use [] when empty"
             },
             {
               "key": "replyDraft",
@@ -1754,7 +1754,7 @@
         ],
         "inputAnchors": [],
         "inputs": {
-          "directReplyMessage": "{{llmAgentflow_2.output}}",
+          "directReplyMessage": "{{llmAgentflow_2.output.replyDraft}}",
           "undefined": ""
         },
         "outputAnchors": [],
@@ -2050,7 +2050,7 @@
           "llmMessages": [
             {
               "role": "system",
-              "content": "Resuelve solamente la seleccion pendiente indicada por el backend.\n\nAcepta respuestas parciales o varias opciones en un mensaje. Aplica cada valor al\nitem objetivo y al campo correcto. No copies opciones a otros items salvo una\ninstruccion explicita como \"los dos iguales\". Pregunta solo el siguiente valor que\nfalte. No avances a datos mientras exista una opcion obligatoria incompleta.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nOperations solo puede contener: add_item, update_item, remove_item,\nset_customer_data, answer_catalog, request_clarification o handoff.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
+              "content": "Resuelve solamente la seleccion pendiente indicada por el backend.\n\nAcepta respuestas parciales o varias opciones en un mensaje. Aplica cada valor al\nitem objetivo y al campo correcto. No copies opciones a otros items salvo una\ninstruccion explicita como \"los dos iguales\". Pregunta solo el siguiente valor que\nfalte. No avances a datos mientras exista una opcion obligatoria incompleta.\n\nEstas ejecutando exclusivamente la rama opciones. En la salida,\nspecialist debe ser exactamente \"opciones\". No selecciones otra rama.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nintent debe ser exactamente uno de: order_update, catalog_question,\ncustomer_data, answer_pending_selection, small_talk, post_order,\nhuman_handoff o unknown.\n\nPor compatibilidad con Flowise, operations debe ser un STRING que contenga un\narray JSON valido. Usa \"[]\" cuando no haya operaciones. Los tipos permitidos\nson: add_item, update_item, remove_item, set_customer_data, answer_catalog,\nrequest_clarification o handoff. Nunca omitas operations.\n\nFormas permitidas dentro de operations:\n- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.\n- update_item: type, targetItemId y solo los cambios aplicables.\n- remove_item: type, targetItemId.\n- set_customer_data: type y solo datos expresados por el cliente.\n- answer_catalog: type, topic, targetProductId.\n- request_clarification: type, label, targetItemId, options, question.\n- handoff: type, reason.\n\nspecialist debe ser exactamente uno de: pedido, opciones, datos, menu,\npostventa o supervisor.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
             },
             {
               "role": "user",
@@ -2078,10 +2078,10 @@
             },
             {
               "key": "operations",
-              "type": "json",
+              "type": "string",
               "enumValues": "",
-              "jsonSchema": "{\"type\":\"array\",\"items\":{\"type\":\"object\"}}",
-              "description": "Closed backend operations"
+              "jsonSchema": "",
+              "description": "JSON serialized array of closed backend operations; use [] when empty"
             },
             {
               "key": "replyDraft",
@@ -2185,7 +2185,7 @@
         ],
         "inputAnchors": [],
         "inputs": {
-          "directReplyMessage": "{{llmAgentflow_3.output}}"
+          "directReplyMessage": "{{llmAgentflow_3.output.replyDraft}}"
         },
         "outputAnchors": [],
         "outputs": {},
@@ -2233,7 +2233,7 @@
         ],
         "inputAnchors": [],
         "inputs": {
-          "directReplyMessage": "{{llmAgentflow_5.output}}",
+          "directReplyMessage": "{{llmAgentflow_5.output.replyDraft}}",
           "undefined": ""
         },
         "outputAnchors": [],
@@ -2282,7 +2282,7 @@
         ],
         "inputAnchors": [],
         "inputs": {
-          "directReplyMessage": "{{llmAgentflow_4.output}}"
+          "directReplyMessage": "{{llmAgentflow_4.output.replyDraft}}"
         },
         "outputAnchors": [],
         "outputs": {},
@@ -2577,7 +2577,7 @@
           "llmMessages": [
             {
               "role": "system",
-              "content": "Responde solamente preguntas sobre el catalogo recibido.\n\nMenciona exclusivamente productos y opciones disponibles. No uses \"etc.\" ni\nopciones abiertas. No conviertas una pregunta en item. Si el cliente pide carta o\nPDF, devuelve `answer_catalog` con topic `menu`; el backend adjunta el archivo.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nOperations solo puede contener: add_item, update_item, remove_item,\nset_customer_data, answer_catalog, request_clarification o handoff.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
+              "content": "Responde solamente preguntas sobre el catalogo recibido.\n\nMenciona exclusivamente productos y opciones disponibles. No uses \"etc.\" ni\nopciones abiertas. No conviertas una pregunta en item. Si el cliente pide carta o\nPDF, devuelve `answer_catalog` con topic `menu`; el backend adjunta el archivo.\n\nEstas ejecutando exclusivamente la rama menu. En la salida,\nspecialist debe ser exactamente \"menu\". No selecciones otra rama.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nintent debe ser exactamente uno de: order_update, catalog_question,\ncustomer_data, answer_pending_selection, small_talk, post_order,\nhuman_handoff o unknown.\n\nPor compatibilidad con Flowise, operations debe ser un STRING que contenga un\narray JSON valido. Usa \"[]\" cuando no haya operaciones. Los tipos permitidos\nson: add_item, update_item, remove_item, set_customer_data, answer_catalog,\nrequest_clarification o handoff. Nunca omitas operations.\n\nFormas permitidas dentro de operations:\n- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.\n- update_item: type, targetItemId y solo los cambios aplicables.\n- remove_item: type, targetItemId.\n- set_customer_data: type y solo datos expresados por el cliente.\n- answer_catalog: type, topic, targetProductId.\n- request_clarification: type, label, targetItemId, options, question.\n- handoff: type, reason.\n\nspecialist debe ser exactamente uno de: pedido, opciones, datos, menu,\npostventa o supervisor.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
             },
             {
               "role": "user",
@@ -2605,10 +2605,10 @@
             },
             {
               "key": "operations",
-              "type": "json",
+              "type": "string",
               "enumValues": "",
-              "jsonSchema": "{\"type\":\"array\",\"items\":{\"type\":\"object\"}}",
-              "description": "Closed backend operations"
+              "jsonSchema": "",
+              "description": "JSON serialized array of closed backend operations; use [] when empty"
             },
             {
               "key": "replyDraft",
@@ -2958,7 +2958,7 @@
           "llmMessages": [
             {
               "role": "system",
-              "content": "Clasifica mensajes sobre una orden ya creada, enviada, completada o cancelada.\n\nNo modifiques pedidos enviados. Reclamos, cambios, reembolsos, demoras y problemas\nde pago devuelven `handoff`. Agradecimientos pueden cerrar el ciclo suavemente.\nNo prometas tiempos, tracking, reembolso, preparacion o disponibilidad.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nOperations solo puede contener: add_item, update_item, remove_item,\nset_customer_data, answer_catalog, request_clarification o handoff.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
+              "content": "Clasifica mensajes sobre una orden ya creada, enviada, completada o cancelada.\n\nNo modifiques pedidos enviados. Reclamos, cambios, reembolsos, demoras y problemas\nde pago devuelven `handoff`. Agradecimientos pueden cerrar el ciclo suavemente.\nNo prometas tiempos, tracking, reembolso, preparacion o disponibilidad.\n\nEstas ejecutando exclusivamente la rama postventa. En la salida,\nspecialist debe ser exactamente \"postventa\". No selecciones otra rama.\n\n<contrato_salida>\nDevuelve exclusivamente un objeto TurnDecisionV3 con estos campos:\nintent, confidence, operations, replyDraft, needsHuman, reason, specialist.\nintent debe ser exactamente uno de: order_update, catalog_question,\ncustomer_data, answer_pending_selection, small_talk, post_order,\nhuman_handoff o unknown.\n\nPor compatibilidad con Flowise, operations debe ser un STRING que contenga un\narray JSON valido. Usa \"[]\" cuando no haya operaciones. Los tipos permitidos\nson: add_item, update_item, remove_item, set_customer_data, answer_catalog,\nrequest_clarification o handoff. Nunca omitas operations.\n\nFormas permitidas dentro de operations:\n- add_item: type, productId, quantity, modifierIds, selectedOptions, notes.\n- update_item: type, targetItemId y solo los cambios aplicables.\n- remove_item: type, targetItemId.\n- set_customer_data: type y solo datos expresados por el cliente.\n- answer_catalog: type, topic, targetProductId.\n- request_clarification: type, label, targetItemId, options, question.\n- handoff: type, reason.\n\nspecialist debe ser exactamente uno de: pedido, opciones, datos, menu,\npostventa o supervisor.\nNo agregues campos. No incluyas markdown.\n</contrato_salida>"
             },
             {
               "role": "user",
@@ -2986,10 +2986,10 @@
             },
             {
               "key": "operations",
-              "type": "json",
+              "type": "string",
               "enumValues": "",
-              "jsonSchema": "{\"type\":\"array\",\"items\":{\"type\":\"object\"}}",
-              "description": "Closed backend operations"
+              "jsonSchema": "",
+              "description": "JSON serialized array of closed backend operations; use [] when empty"
             },
             {
               "key": "replyDraft",

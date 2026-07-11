@@ -11,6 +11,61 @@ type FlowisePrediction = Record<string, unknown> & {
   agentFlowExecutedData?: unknown;
 };
 
+export function extractLatestTurnDecisionV3(payload: FlowisePrediction): TurnDecisionV3 {
+  const candidates: unknown[] = [];
+  const executedData = payload.agentFlowExecutedData;
+  if (Array.isArray(executedData)) {
+    for (let index = executedData.length - 1; index >= 0; index -= 1) {
+      const node = executedData[index];
+      if (node && typeof node === "object") {
+        const data = (node as Record<string, unknown>).data;
+        if (data && typeof data === "object") {
+          candidates.push((data as Record<string, unknown>).output);
+        }
+      }
+    }
+  }
+
+  candidates.push(payload.json, payload.output, payload.text, payload.answer, payload.response);
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === "object") {
+      const validation = turnDecisionV3Schema.safeParse(normalizeFlowiseDecisionCandidate(candidate));
+      if (validation.success) return validation.data;
+    }
+    if (typeof candidate === "string") {
+      const parsed = parseJsonFromText<unknown>(candidate);
+      const validation = turnDecisionV3Schema.safeParse(normalizeFlowiseDecisionCandidate(parsed));
+      if (validation.success) return validation.data;
+    }
+  }
+  throw new Error("Flowise V3 did not return a structured decision");
+}
+
+function normalizeFlowiseDecisionCandidate(candidate: unknown): unknown {
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return candidate;
+  const normalized = { ...(candidate as Record<string, unknown>) };
+  if (typeof normalized.operations === "string") {
+    const parsedOperations = parseJsonFromText<unknown>(normalized.operations);
+    if (Array.isArray(parsedOperations)) normalized.operations = parsedOperations;
+  }
+  if (Array.isArray(normalized.operations)) {
+    normalized.operations = normalized.operations.map((operation) => {
+      if (!operation || typeof operation !== "object" || Array.isArray(operation)) return operation;
+      const normalizedOperation = { ...(operation as Record<string, unknown>) };
+      if (
+        normalizedOperation.type === "add_item" &&
+        Array.isArray(normalizedOperation.selectedOptions) &&
+        normalizedOperation.selectedOptions.length === 0
+      ) {
+        normalizedOperation.selectedOptions = {};
+      }
+      return normalizedOperation;
+    });
+  }
+  return normalized;
+}
+
 export type FlowiseV3ShadowResult = {
   agentflowId: string;
   decision: TurnDecisionV3 | null;
@@ -78,7 +133,7 @@ export class FlowiseV3ShadowService {
         throw new Error(`Flowise V3 returned ${response.status}: ${payload.slice(0, 240)}`);
       }
       const parsedPayload = this.parsePayload(payload);
-      const decision = turnDecisionV3Schema.parse(this.extractDecision(parsedPayload));
+      const decision = extractLatestTurnDecisionV3(parsedPayload);
       return { agentflowId, decision, error: null, durationMs: Date.now() - startedAt };
     } catch (error) {
       return {
@@ -99,28 +154,4 @@ export class FlowiseV3ShadowService {
     }
   }
 
-  private extractDecision(payload: FlowisePrediction) {
-    const candidates: unknown[] = [payload.json, payload.output, payload.text, payload.answer, payload.response];
-    const executedData = payload.agentFlowExecutedData;
-    if (Array.isArray(executedData)) {
-      for (let index = executedData.length - 1; index >= 0; index -= 1) {
-        const node = executedData[index];
-        if (node && typeof node === "object") {
-          const data = (node as Record<string, unknown>).data;
-          if (data && typeof data === "object") {
-            candidates.unshift((data as Record<string, unknown>).output);
-          }
-        }
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (candidate && typeof candidate === "object") return candidate;
-      if (typeof candidate === "string") {
-        const parsed = parseJsonFromText<unknown>(candidate);
-        if (parsed) return parsed;
-      }
-    }
-    throw new Error("Flowise V3 did not return a structured decision");
-  }
 }

@@ -1,0 +1,9 @@
+{
+  "name": "I LOVE FRESAS - SUPERVISOR V3 SHADOW",
+  "agentflowId": "9125e789-66af-4159-ad72-abec803a0037",
+  "canvasUrl": "https://cloud.flowiseai.com/v2/agentcanvas/9125e789-66af-4159-ad72-abec803a0037",
+  "predictionUrl": "https://cloud.flowiseai.com/api/v1/prediction/9125e789-66af-4159-ad72-abec803a0037",
+  "mode": "shadow",
+  "validatedOn": "2026-07-10",
+  "productionV2Modified": false
+}
