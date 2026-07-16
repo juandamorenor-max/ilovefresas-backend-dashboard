@@ -30,6 +30,14 @@ const requireAdmin = (request: Request, response: Response, next: NextFunction) 
 };
 
 adminRouter.get("/admin/dashboard/orders", controller.listDashboardOrders.bind(controller));
+adminRouter.get(
+  "/admin/dashboard/outbox/failed",
+  controller.listFailedOutbox.bind(controller)
+);
+adminRouter.post(
+  "/admin/dashboard/outbox/:id/retry",
+  controller.retryOutbox.bind(controller)
+);
 adminRouter.get("/admin/dashboard/orders/:id", controller.getDashboardOrder.bind(controller));
 adminRouter.patch("/admin/dashboard/orders/:id", controller.updateDashboardOrder.bind(controller));
 adminRouter.patch(

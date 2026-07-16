@@ -45,6 +45,7 @@ create table if not exists bot_turn_shadow_results (
 
 create table if not exists bot_outbox (
   id text primary key,
+  turn_id text,
   channel text not null,
   chat_id text not null,
   event_type text not null,
@@ -58,8 +59,13 @@ create table if not exists bot_outbox (
   updated_at timestamptz not null default now()
 );
 
+alter table bot_outbox add column if not exists turn_id text;
+
 create index if not exists idx_bot_outbox_pending
   on bot_outbox (status, available_at);
+
+create index if not exists idx_bot_outbox_turn
+  on bot_outbox (turn_id, created_at);
 
 create table if not exists operational_runtime_store (
   id text primary key,

@@ -22,6 +22,28 @@ demoStore.orders = [];
 
 const service = new BotIntegrationService();
 
+const paymentProofValidator = {
+  async validate(input: { attachmentFileId?: string | null }) {
+    const valid = input.attachmentFileId === "telegram-photo-qa";
+    return {
+      isLikelyPaymentProof: valid,
+      confidence: valid ? 0.96 : 0.15,
+      reason: valid
+        ? "QA: valor, estado exitoso y referencia visibles."
+        : "QA: la imagen no contiene señales de comprobante.",
+      source: "openai_vision" as const,
+      extracted: valid
+        ? {
+            amount: 21000,
+            paymentMethod: "Nequi",
+            status: "exitoso",
+            reference: "QA-12345"
+          }
+        : {}
+    };
+  }
+};
+
 const traditionalProduct = demoStore.products.find((product) => product.name === "Fresas con crema tradicional");
 assert(traditionalProduct, "traditional product should exist");
 const originalTraditionalStock = traditionalProduct.isOutOfStock;
@@ -37,7 +59,10 @@ assert(
   "out of stock product should be exposed in agotados for bot guardrails"
 );
 
-const agentFlowTurnService = new AgentFlowTurnService(service);
+const agentFlowTurnService = new AgentFlowTurnService(
+  service,
+  paymentProofValidator as never
+);
 const menuPdfTurn = await agentFlowTurnService.handleTurn({
   channel: "whatsapp",
   chatId: "menu-pdf-test",
@@ -782,6 +807,12 @@ service.updateConversationState(first.id, {
   next_expected: "comprobante_pago"
 });
 
+const technicalConfirmationReadiness = service.getOrderReviewReadiness(first.id);
+assert(
+  technicalConfirmationReadiness.missingFields.includes("confirmacion_cliente"),
+  "Flowise technical confirmation flag must not count as explicit customer confirmation"
+);
+
 const waitingProof = service.getOrCreateActiveConversation("telegram", "531515729");
 assert(
   waitingProof.conversationState.next_expected === "comprobante_pago",
@@ -794,6 +825,7 @@ service.updateConversationState(first.id, {
   needs_human: true,
   next_expected: "humano"
 });
+service.markSummaryConfirmed(first.id);
 
 const readyAfterProof = service.getOrderReviewReadiness(first.id);
 assert(
@@ -914,13 +946,13 @@ const proofTurn = await agentFlowTurnService.handleTurn({
   text: "comprobante Nequi exitoso por 21000 referencia 12345"
 });
 assert(
-  proofTurn.source === "backend_payment_proof_received",
-  "payment proof should be handled by backend before Flowise"
+  proofTurn.source === "backend_waiting_payment_proof",
+  "text alone must not be accepted as payment proof"
 );
-assert(proofTurn.orderId, "payment proof should create review order");
+assert(!proofTurn.orderId, "text-only payment proof must not create review order");
 assert(
-  String(proofTurn.responseText).includes("Comprobante recibido"),
-  "payment proof response should acknowledge proof"
+  String(proofTurn.responseText).toLowerCase().includes("comprobante"),
+  "text-only proof response should keep asking for visual proof"
 );
 
 const imageProofChatId = "payment-image-proof-test";
@@ -941,6 +973,7 @@ service.updateConversationState(imageProofConversation.id, {
   comprobante_pago_pendiente: true,
   next_expected: "comprobante_pago"
 });
+service.markSummaryConfirmed(imageProofConversation.id);
 const imageProofTurn = await agentFlowTurnService.handleTurn({
   channel: "telegram",
   chatId: imageProofChatId,
@@ -1088,8 +1121,10 @@ service.updateConversationState(priceConversation.id, {
   barrio: "Cabecera del Llano",
   referencia: "Porteria",
   metodo_pago: "efectivo",
+  monto_efectivo: "22000",
   modalidad_entrega: "domicilio"
 });
+service.markSummaryConfirmed(priceConversation.id);
 const priceOrder = service.createOrderForReview(priceConversation.id);
 assert(priceOrder, "price test order should be created");
 assert(priceOrder.items[0]?.unitBasePrice === 17000, "order should use current catalog product price");

@@ -9,6 +9,7 @@ import { ManualQaService } from "../services/manual-qa.service.js";
 import { DashboardAuthService } from "../services/dashboard-auth.service.js";
 import { AccountingLedgerService } from "../services/accounting-ledger.service.js";
 import { TurnPersistenceService } from "../services/turn-persistence.service.js";
+import { OutboxDeliveryService } from "../services/outbox-delivery.service.js";
 
 export class AdminController {
   constructor(
@@ -20,7 +21,8 @@ export class AdminController {
     private readonly manualQaService = new ManualQaService(),
     private readonly dashboardAuthService = new DashboardAuthService(),
     private readonly accountingLedgerService = new AccountingLedgerService(),
-    private readonly turnPersistenceService = new TurnPersistenceService()
+    private readonly turnPersistenceService = new TurnPersistenceService(),
+    private readonly outboxDeliveryService = new OutboxDeliveryService()
   ) {}
 
   getDashboardSession(request: Request, response: Response) {
@@ -83,6 +85,32 @@ export class AdminController {
     }
 
     response.json(order);
+  }
+
+  async listFailedOutbox(
+    request: Request,
+    response: Response,
+    next: NextFunction
+  ) {
+    try {
+      response.json(
+        await this.outboxDeliveryService.listFailed(Number(request.query.limit ?? 100))
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async retryOutbox(request: Request, response: Response, next: NextFunction) {
+    try {
+      const row = await this.outboxDeliveryService.retry(this.getParam(request, "id"));
+      if (!row) {
+        throw new HttpError(404, "Outbox event not found or already sent");
+      }
+      response.json(row);
+    } catch (error) {
+      next(error);
+    }
   }
 
   updateDashboardOrder(request: Request, response: Response) {

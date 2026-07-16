@@ -3,13 +3,18 @@ import { persistRuntimeStore } from "../data/runtime-store.js";
 import { createId, nowIso } from "../utils/id.js";
 import type { Conversation, Order, OrderDraft, OrderItem } from "../types/index.js";
 import { PricingService } from "./pricing.service.js";
-import { AccountingLedgerService } from "./accounting-ledger.service.js";
+
+const allowedStatusTransitions: Record<Order["status"], Order["status"][]> = {
+  pending_review: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled"],
+  preparing: ["cancelled"],
+  dispatched: ["completed"],
+  completed: [],
+  cancelled: []
+};
 
 export class OrderService {
-  constructor(
-    private readonly pricingService = new PricingService(),
-    private readonly accountingLedgerService = new AccountingLedgerService()
-  ) {}
+  constructor(private readonly pricingService = new PricingService()) {}
 
   createEmptyDraft(businessId: string, customerPhone: string): OrderDraft {
     return {
@@ -28,6 +33,7 @@ export class OrderService {
       paymentMethod: null,
       paymentProofReceived: false,
       paymentProofNote: null,
+      summaryConfirmedAt: null,
       cashAmount: null,
       notes: null,
       pendingSelections: [],
@@ -134,6 +140,9 @@ export class OrderService {
     if (!order) {
       return null;
     }
+    if (!allowedStatusTransitions[order.status].includes(status)) {
+      return null;
+    }
 
     order.status = status;
     if (internalNotes !== undefined) {
@@ -141,9 +150,6 @@ export class OrderService {
     }
     order.updatedAt = nowIso();
     persistRuntimeStore();
-    if (status === "dispatched") {
-      void this.accountingLedgerService.recordDispatchedOrder(order);
-    }
     return order;
   }
 

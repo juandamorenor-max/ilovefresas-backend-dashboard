@@ -9,6 +9,7 @@ import { OrderService } from "./order.service.js";
 import { TelegramService } from "./telegram.service.js";
 import { formatCurrency } from "../utils/http.js";
 import { logger } from "../utils/logger.js";
+import { OutboxDeliveryService } from "./outbox-delivery.service.js";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -72,7 +73,8 @@ export class TelegramBotRunnerService {
     private readonly telegramService = new TelegramService(),
     private readonly conversationService = new ConversationService(),
     private readonly orderService = new OrderService(),
-    private readonly turnOrchestrator = new ConversationTurnOrchestratorService()
+    private readonly turnOrchestrator = new ConversationTurnOrchestratorService(),
+    private readonly outboxDelivery = new OutboxDeliveryService()
   ) {}
 
   async start() {
@@ -293,6 +295,10 @@ export class TelegramBotRunnerService {
     chatId: number,
     result: Awaited<ReturnType<ConversationTurnOrchestratorService["handle"]>>
   ) {
+    if (this.outboxDelivery.isEnabled()) {
+      await this.outboxDelivery.deliverTurn(result.turnId);
+      return;
+    }
     if (result.duplicate) return;
     if (result.shouldSendReply && result.responseText.trim()) {
       await this.telegramService.sendMessage(botToken, chatId, result.responseText);

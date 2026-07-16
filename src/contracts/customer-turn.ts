@@ -20,6 +20,16 @@ export const customerTurnSchema = z.object({
 
 export type CustomerTurn = z.infer<typeof customerTurnSchema>;
 
+export const nextExpectedSchema = z.enum([
+  "pedido",
+  "datos",
+  "confirmacion",
+  "comprobante_pago",
+  "humano",
+  "postventa",
+  "cerrado"
+]);
+
 export const turnResultSchema = z.object({
   turnId: z.string().min(1),
   conversationId: z.string().min(1),
@@ -30,7 +40,7 @@ export const turnResultSchema = z.object({
     filename: z.string(),
     caption: z.string().optional()
   }).strict()).default([]),
-  nextExpected: z.string().nullable(),
+  nextExpected: nextExpectedSchema.nullable(),
   orderId: z.string().nullable(),
   needsHuman: z.boolean(),
   source: z.string().min(1),

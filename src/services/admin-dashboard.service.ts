@@ -4,7 +4,6 @@ import type { Conversation, Message, Order, OrderItem } from "../types/index.js"
 import { env } from "../config/env.js";
 import { createId, nowIso } from "../utils/id.js";
 import { HttpError } from "../utils/http.js";
-import { logger } from "../utils/logger.js";
 import { TelegramService } from "./telegram.service.js";
 import { WhatsAppService } from "./whatsapp.service.js";
 import { AccountingLedgerService } from "./accounting-ledger.service.js";
@@ -34,6 +33,15 @@ const statusToBackend: Record<DashboardStatus, Order["status"]> = {
   dispatched: "dispatched",
   completed: "completed",
   cancelled: "cancelled"
+};
+
+const allowedStatusTransitions: Record<Order["status"], Order["status"][]> = {
+  pending_review: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled"],
+  preparing: ["dispatched", "cancelled"],
+  dispatched: ["completed"],
+  completed: [],
+  cancelled: []
 };
 
 export class AdminDashboardService {
@@ -92,6 +100,13 @@ export class AdminDashboardService {
       return null;
     }
 
+    if (backendStatus === "dispatched") {
+      throw new HttpError(400, "Use the notify-dispatched action to dispatch an order");
+    }
+    if (!allowedStatusTransitions[order.status].includes(backendStatus)) {
+      throw new HttpError(409, `Invalid order status transition: ${order.status} -> ${backendStatus}`);
+    }
+
     order.status = backendStatus;
     if (internalNotes !== undefined) {
       order.internalNotes = internalNotes;
@@ -100,9 +115,7 @@ export class AdminDashboardService {
     if (backendStatus === "completed") {
       this.closeConversationForCompletedOrder(order);
     }
-    if (backendStatus === "dispatched") {
-      void this.accountingLedgerService.recordDispatchedOrder(order);
-    }
+    this.syncConversationForOrderStatus(order);
     persistRuntimeStore();
     return this.toDashboardOrder(order);
   }
@@ -111,6 +124,10 @@ export class AdminDashboardService {
     const order = demoStore.orders.find((entry) => entry.id === orderId);
     if (!order) {
       return null;
+    }
+
+    if (order.status !== "pending_review") {
+      throw new HttpError(409, `Order cannot be confirmed from status ${order.status}`);
     }
 
     if (!order.customerName || !order.paymentMethod) {
@@ -129,6 +146,20 @@ export class AdminDashboardService {
       throw new HttpError(400, "Delivery fee is required before confirming");
     }
 
+    if (order.paymentMethod !== "Contra entrega" && !order.paymentProofReceived) {
+      throw new HttpError(400, "Payment proof is required before confirming this order");
+    }
+
+    const customerMessage = this.buildCustomerConfirmationMessage({
+      ...order,
+      pricing: {
+        ...order.pricing,
+        deliveryFee,
+        total: order.pricing.subtotal - order.pricing.discountTotal + deliveryFee
+      }
+    });
+    await this.sendCustomerMessage(order.customerPhone, customerMessage);
+
     order.pricing.deliveryFee = deliveryFee;
     order.pricing.total = order.pricing.subtotal - order.pricing.discountTotal + deliveryFee;
     order.status = "confirmed";
@@ -138,19 +169,27 @@ export class AdminDashboardService {
       payload.note?.trim() || null
     ].filter(Boolean).join(" ");
     order.updatedAt = nowIso();
-
-    const customerMessage = this.buildCustomerConfirmationMessage(order);
-    await this.sendCustomerMessage(order.customerPhone, customerMessage);
     this.saveBotMessageForOrder(order, customerMessage);
+    this.syncConversationForOrderStatus(order);
 
     persistRuntimeStore();
-    return this.toDashboardOrder(order);
+    return {
+      ...this.toDashboardOrder(order),
+      operations: {
+        orderUpdated: true,
+        customerNotified: true,
+        accountingSaved: null
+      }
+    };
   }
 
   async markDispatchNotified(orderId: string) {
     const order = demoStore.orders.find((entry) => entry.id === orderId);
     if (!order) {
       return null;
+    }
+    if (order.status !== "preparing") {
+      throw new HttpError(409, `Order cannot be dispatched from status ${order.status}`);
     }
 
     const customerMessage = "Tu pedido ha sido despachado 🍓";
@@ -165,9 +204,18 @@ export class AdminDashboardService {
         : `${order.internalNotes} ${notice}`
       : notice;
     order.updatedAt = new Date().toISOString();
+    this.syncConversationForOrderStatus(order);
     persistRuntimeStore();
-    await this.accountingLedgerService.recordDispatchedOrder(order);
-    return this.toDashboardOrder(order);
+    const accounting = await this.accountingLedgerService.recordDispatchedOrder(order);
+    return {
+      ...this.toDashboardOrder(order),
+      operations: {
+        orderUpdated: true,
+        customerNotified: true,
+        accountingSaved: accounting.saved,
+        accountingReason: accounting.saved ? null : accounting.reason
+      }
+    };
   }
 
   async sendConversationMessage(conversationId: string, text: string) {
@@ -205,7 +253,8 @@ export class AdminDashboardService {
         if (conversation.draftOrder) {
           conversation.draftOrder.blockingIssue = null;
         }
-        conversation.state = conversation.draftOrder?.items.length ? "collecting_items" : "idle";
+        conversation.memory.lastBotOffer = null;
+        conversation.state = this.deriveConversationState(conversation);
       }
     }
 
@@ -223,6 +272,15 @@ export class AdminDashboardService {
     } else {
       business.status.botPausedUntil = null;
       business.status.botPausedReason = null;
+      for (const conversation of demoStore.conversations) {
+        if (conversation.botPausedReason !== "__global_pause__") {
+          continue;
+        }
+        conversation.botPausedReason = null;
+        conversation.memory.lastBotOffer = null;
+        conversation.state = this.deriveConversationState(conversation);
+        conversation.updatedAt = nowIso();
+      }
     }
 
     business.updatedAt = nowIso();
@@ -231,25 +289,18 @@ export class AdminDashboardService {
   }
 
   private async sendCustomerMessage(customerPhone: string, message: string) {
-    try {
-      if (customerPhone.startsWith("telegram:")) {
-        if (!env.TELEGRAM_CLIENT_BOT_TOKEN) {
-          throw new HttpError(400, "Telegram client bot token is not configured");
-        }
-
-        const chatId = customerPhone.replace(/^telegram:/, "");
-        await this.telegramService.sendMessage(env.TELEGRAM_CLIENT_BOT_TOKEN, chatId, message);
-        return;
+    if (customerPhone.startsWith("telegram:")) {
+      if (!env.TELEGRAM_CLIENT_BOT_TOKEN) {
+        throw new HttpError(400, "Telegram client bot token is not configured");
       }
 
-      const whatsappTo = customerPhone.replace(/^whatsapp:/, "");
-      await this.whatsAppService.sendTextMessage(whatsappTo, message);
-    } catch (error) {
-      logger.warn("Customer notification failed; dashboard state was still updated", {
-        customerPhone,
-        error: error instanceof Error ? error.message : "unknown"
-      });
+      const chatId = customerPhone.replace(/^telegram:/, "");
+      await this.telegramService.sendMessage(env.TELEGRAM_CLIENT_BOT_TOKEN, chatId, message);
+      return;
     }
+
+    const whatsappTo = customerPhone.replace(/^whatsapp:/, "");
+    await this.whatsAppService.sendTextMessage(whatsappTo, message);
   }
 
   private buildCustomerConfirmationMessage(order: Order) {
@@ -640,6 +691,53 @@ export class AdminDashboardService {
       demoStore.conversations.find((conversation) => conversation.activeOrderId === order.id) ??
       this.findLatestConversationForCustomer(order.customerPhone)
     );
+  }
+
+  private syncConversationForOrderStatus(order: Order) {
+    const conversation = this.findConversationForOrder(order);
+    if (!conversation) {
+      return;
+    }
+
+    if (["pending_review", "confirmed", "preparing"].includes(order.status)) {
+      conversation.state = "pending_human";
+      conversation.memory.lastBotOffer = "human_help";
+    } else if (order.status === "dispatched") {
+      conversation.state = "completed";
+      conversation.botPausedUntil = null;
+      conversation.botPausedReason = null;
+      if (conversation.draftOrder) {
+        conversation.draftOrder.blockingIssue = null;
+      }
+      conversation.memory.lastBotOffer = null;
+    }
+    conversation.updatedAt = nowIso();
+  }
+
+  private deriveConversationState(conversation: Conversation): Conversation["state"] {
+    const order = conversation.activeOrderId
+      ? demoStore.orders.find((entry) => entry.id === conversation.activeOrderId)
+      : null;
+    if (order && ["pending_review", "confirmed", "preparing"].includes(order.status)) {
+      return "pending_human";
+    }
+    if (order?.status === "dispatched") {
+      return "completed";
+    }
+    if (!conversation.draftOrder?.items.length) {
+      return "idle";
+    }
+    if (
+      !conversation.draftOrder.customerName ||
+      !conversation.draftOrder.paymentMethod ||
+      (conversation.draftOrder.fulfillmentType === "delivery" &&
+        (!conversation.draftOrder.address ||
+          !conversation.draftOrder.neighborhood ||
+          !conversation.draftOrder.addressReference))
+    ) {
+      return "collecting_delivery_details";
+    }
+    return "confirming_order";
   }
 
   private closeConversationForCompletedOrder(order: Order) {

@@ -203,6 +203,7 @@ export interface OrderDraft {
   paymentMethod: string | null;
   paymentProofReceived: boolean;
   paymentProofNote: string | null;
+  summaryConfirmedAt?: string | null;
   cashAmount: string | null;
   notes: string | null;
   pendingSelections: PendingSelection[];

@@ -35,6 +35,7 @@
     "qa:realistic-waffle-orders": "npm run build && node dist/qa/realistic-waffle-orders.js",
     "qa:v3-contracts": "npm run build && node dist/qa/conversation-v3.js",
     "qa:telegram-webhook": "npm run build && node dist/qa/telegram-webhook.js",
+    "qa:incremental-corrections": "npm run build && node dist/qa/incremental-corrections.js",
     "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",
     "qa:catalog-matrix": "npm run build && node dist/qa/catalog-matrix.js",
     "qa:ai-smoke": "npm run build && node dist/qa/ai-smoke.js",

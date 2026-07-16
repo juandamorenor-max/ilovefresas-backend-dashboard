@@ -3,7 +3,7 @@ import type { Server } from "node:http";
 
 process.env.NODE_ENV = "production";
 process.env.BOT_INTEGRATION_SECRET = "qa-dashboard-secret";
-process.env.TELEGRAM_CLIENT_BOT_TOKEN = "";
+process.env.TELEGRAM_CLIENT_BOT_TOKEN = "qa-telegram-token";
 process.env.TELEGRAM_ADMIN_BOT_TOKEN = "";
 
 const { createApp } = await import("../app.js");
@@ -21,6 +21,19 @@ const address = server.address();
 assert(address && typeof address === "object", "Expected server address");
 const baseUrl = `http://127.0.0.1:${address.port}`;
 const secretHeaders = { "x-bot-secret": integrationSecret };
+const originalFetch = globalThis.fetch;
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  if (String(input).startsWith("https://api.telegram.org/")) {
+    return new Response(JSON.stringify({
+      ok: true,
+      result: { message_id: 1, chat: { id: 1, type: "private" }, text: "QA" }
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }
+  return originalFetch(input, init);
+}) as typeof fetch;
 
 async function request(path: string, options: RequestInit = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -214,11 +227,23 @@ try {
     method: "PATCH",
     headers: secretHeaders,
     body: JSON.stringify({
-      pedido_confirmado_por_cliente: true,
-      comprobante_pago_pendiente: true,
-      next_expected: "comprobante_pago"
+      comprobante_pago_recibido: false,
+      needs_human: false,
+      next_expected: "confirmacion"
     })
   });
+
+  const confirmationTurn = await request("/bot/turn", {
+    method: "POST",
+    headers: secretHeaders,
+    body: JSON.stringify({
+      channel: "telegram",
+      chatId: "qa-dashboard-price",
+      text: "si"
+    })
+  }) as { source: string; orderId: string | null };
+  assert.equal(confirmationTurn.source, "backend_payment_instructions");
+  assert.equal(confirmationTurn.orderId, null);
 
   await request(`/bot/conversations/${conversation.id}/state`, {
     method: "PATCH",
@@ -254,11 +279,25 @@ try {
   assert.equal(dashboardOrder.paymentProofReceived, true);
   assert.equal(dashboardOrder.paymentStatusLabel, "Comprobante recibido, pendiente de verificación");
 
+  const confirmedOrder = await request(`/admin/dashboard/orders/${order.id}/confirm-and-notify`, {
+    method: "POST",
+    body: JSON.stringify({ deliveryFee: 5000 })
+  }) as { status: string; operations: { customerNotified: boolean } };
+  assert.equal(confirmedOrder.status, "confirmed");
+  assert.equal(confirmedOrder.operations.customerNotified, true);
+
+  const preparingOrder = await request(`/admin/dashboard/orders/${order.id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "preparing" })
+  }) as { status: string };
+  assert.equal(preparingOrder.status, "preparing");
+
   const dispatchedOrder = await request(`/admin/dashboard/orders/${order.id}/notify-dispatched`, {
     method: "POST",
     body: JSON.stringify({})
-  }) as { status: string };
+  }) as { status: string; operations: { customerNotified: boolean } };
   assert.equal(dispatchedOrder.status, "dispatched");
+  assert.equal(dispatchedOrder.operations.customerNotified, true);
   assert(
     demoStore.messages.some((message) =>
       message.conversationId === conversation.id &&
@@ -343,6 +382,7 @@ try {
 
   console.log("dashboard-operational smoke OK");
 } finally {
+  globalThis.fetch = originalFetch;
   await new Promise<void>((resolve, reject) => {
     server.close((error) => {
       if (error) reject(error);

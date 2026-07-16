@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { z } from "zod";
 import { parseJsonFromText } from "../utils/json.js";
 import { logger } from "../utils/logger.js";
 import { TelegramService } from "./telegram.service.js";
@@ -39,6 +40,16 @@ interface VisionProofOutput {
   reference?: string | null;
 }
 
+const visionProofSchema = z.object({
+  is_payment_proof: z.boolean(),
+  confidence: z.number().min(0).max(1),
+  reason: z.string().min(1),
+  amount: z.number().positive().nullable(),
+  payment_method: z.string().min(1).nullable(),
+  status: z.string().min(1).nullable(),
+  reference: z.string().min(1).nullable()
+}).strict();
+
 interface DownloadedAttachment {
   dataUrl: string;
   mimeType: string;
@@ -50,11 +61,13 @@ export class PaymentProofValidationService {
   async validate(input: PaymentProofValidationInput): Promise<PaymentProofValidationResult> {
     const heuristic = this.validateTextSignal(input);
     if (!input.attachmentType) {
-      return heuristic;
-    }
-
-    if (heuristic.isLikelyPaymentProof && heuristic.confidence >= 0.78) {
-      return heuristic;
+      return {
+        ...heuristic,
+        isLikelyPaymentProof: false,
+        confidence: Math.min(heuristic.confidence, 0.45),
+        reason: "El texto no sustituye la validación visual de un comprobante.",
+        extracted: {}
+      };
     }
 
     const downloaded = await this.downloadAttachment(input);
@@ -198,6 +211,7 @@ export class PaymentProofValidationService {
       "Si parece selfie, foto de comida, captura irrelevante, meme, menu o imagen borrosa sin datos de pago, rechaza.",
       `Metodo esperado: ${input.expectedPaymentMethod ?? "desconocido"}.`,
       `Total esperado: ${input.expectedTotal ?? "desconocido"}.`,
+      "Para aceptar, deben verse valor, estado exitoso/aprobado y referencia de la transacción.",
       "Devuelve solo JSON con estos campos:",
       '{"is_payment_proof":true,"confidence":0.0,"reason":"razon corta","amount":null,"payment_method":null,"status":null,"reference":null}'
     ].join("\n");
@@ -220,7 +234,36 @@ export class PaymentProofValidationService {
               ]
             }
           ],
-          max_output_tokens: 500
+          max_output_tokens: 500,
+          text: {
+            format: {
+              type: "json_schema",
+              name: "payment_proof_validation",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  is_payment_proof: { type: "boolean" },
+                  confidence: { type: "number", minimum: 0, maximum: 1 },
+                  reason: { type: "string" },
+                  amount: { type: ["number", "null"] },
+                  payment_method: { type: ["string", "null"] },
+                  status: { type: ["string", "null"] },
+                  reference: { type: ["string", "null"] }
+                },
+                required: [
+                  "is_payment_proof",
+                  "confidence",
+                  "reason",
+                  "amount",
+                  "payment_method",
+                  "status",
+                  "reference"
+                ]
+              }
+            }
+          }
         })
       });
 
@@ -242,15 +285,26 @@ export class PaymentProofValidationService {
           ?.flatMap((item) => item.content ?? [])
           .map((content) => content.text)
           .find((text) => Boolean(text));
-      const parsed = outputText ? parseJsonFromText<VisionProofOutput>(outputText) : null;
-      if (!parsed) {
+      const rawParsed = outputText ? parseJsonFromText<VisionProofOutput>(outputText) : null;
+      const parsedResult = visionProofSchema.safeParse(rawParsed);
+      if (!parsedResult.success) {
         return null;
       }
+      const parsed = parsedResult.data;
+      const successfulStatus = /\b(exitos[oa]|aprob[oa]d[oa]|completad[oa]|realizad[oa])\b/i.test(
+        parsed.status ?? ""
+      );
+      const hasRequiredVisibleSignals = Boolean(
+        parsed.amount && parsed.amount > 0 && successfulStatus && parsed.reference
+      );
 
       return {
-        isLikelyPaymentProof: Boolean(parsed.is_payment_proof) && Number(parsed.confidence ?? 0) >= 0.65,
-        confidence: Math.max(0, Math.min(1, Number(parsed.confidence ?? 0))),
-        reason: parsed.reason ?? "Validacion visual de comprobante.",
+        isLikelyPaymentProof:
+          parsed.is_payment_proof && parsed.confidence >= 0.65 && hasRequiredVisibleSignals,
+        confidence: parsed.confidence,
+        reason: hasRequiredVisibleSignals
+          ? parsed.reason
+          : "La imagen no muestra claramente valor, estado exitoso y referencia.",
         source: "openai_vision",
         extracted: {
           amount: parsed.amount ?? null,

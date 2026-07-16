@@ -59,6 +59,19 @@ export class AgentFlowTurnService {
       input.chatId
     );
 
+    const humanHold = this.botIntegrationService.holdForHumanIfNeeded(conversation.id, text);
+    if (humanHold) {
+      return {
+        conversationId: conversation.id,
+        sessionId: this.sessionId(input.channel, input.chatId, conversation.id),
+        responseText: humanHold.responseText,
+        shouldSendReply: humanHold.shouldSendReply,
+        source: humanHold.source,
+        state: conversation.state,
+        orderId: conversation.activeOrderId ?? null
+      };
+    }
+
     if (!text && !hasAttachment && conversation.conversationState.next_expected !== "comprobante_pago") {
       return {
         conversationId: conversation.id,
@@ -160,6 +173,7 @@ export class AgentFlowTurnService {
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       !this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
     ) {
+      this.botIntegrationService.markSummaryConfirmed(conversation.id);
       const order = this.botIntegrationService.createOrderForReview(conversation.id);
       const responseText = order
         ? "Listo 😊 Tu pedido quedó en revisión con el equipo. Te confirmamos antes de prepararlo 🍓"
@@ -193,6 +207,7 @@ export class AgentFlowTurnService {
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
     ) {
+      this.botIntegrationService.markSummaryConfirmed(conversation.id);
       const responseText =
         this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
         "Para continuar con la revisión del pedido, envíame el comprobante del pago por aquí 😊";
@@ -275,7 +290,6 @@ export class AgentFlowTurnService {
     if (this.isMenuPdfRequest(text)) {
       const responseText = "Claro 😊 Te envío el Menu 2026 por aquí 🍓";
       const menuAttachment = this.buildMenuAttachment(input.appBaseUrl);
-      const menuPdfSent = await this.sendMenuPdfIfPossible(input.channel, input.chatId, menuAttachment);
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
         {
@@ -292,7 +306,7 @@ export class AgentFlowTurnService {
         responseText,
         shouldSendReply: true,
         source: "backend_menu_pdf",
-        menuPdfSent,
+        menuPdfSent: false,
         attachments: menuAttachment ? [menuAttachment] : [],
         state: updatedConversation?.state ?? conversation.state,
         orderId: updatedConversation?.activeOrderId ?? null
@@ -425,12 +439,41 @@ export class AgentFlowTurnService {
 
     const catalogoDisponible = this.botIntegrationService.getAvailableCatalog();
     const sessionId = this.sessionId(input.channel, input.chatId, conversation.id);
-    const rawFlowiseResponse = await this.callFlowise({
-      question: text,
-      sessionId,
-      conversationState: conversation.conversationState,
-      catalogoDisponible
-    });
+    let rawFlowiseResponse: FlowisePredictionResponse;
+    try {
+      rawFlowiseResponse = await this.callFlowise({
+        question: text,
+        sessionId,
+        conversationState: conversation.conversationState,
+        catalogoDisponible
+      });
+    } catch (error) {
+      logger.error("Flowise turn failed; preserving the current draft", {
+        channel: input.channel,
+        chatId: input.chatId,
+        conversationId: conversation.id,
+        error: error instanceof Error ? error.message : "unknown"
+      });
+      const updatedConversation = this.botIntegrationService.updateConversationState(
+        conversation.id,
+        {
+          customerMessage: text,
+          botMessage: fallbackReply,
+          mensaje_cliente: fallbackReply,
+          needs_human: true,
+          next_expected: "humano"
+        }
+      );
+      return {
+        conversationId: conversation.id,
+        sessionId,
+        responseText: fallbackReply,
+        shouldSendReply: true,
+        source: "backend_flowise_failure",
+        state: updatedConversation?.state ?? conversation.state,
+        orderId: updatedConversation?.activeOrderId ?? null
+      };
+    }
     const flowisePatch = this.extractFlowisePatch(rawFlowiseResponse);
     const responseText = this.extractResponseText(rawFlowiseResponse, flowisePatch);
     const updatedConversation = this.botIntegrationService.updateConversationState(
@@ -440,13 +483,6 @@ export class AgentFlowTurnService {
         customerMessage: text
       }
     );
-
-    let order = null;
-    let reviewReadiness = null;
-    if (this.shouldCreateReviewOrder(flowisePatch)) {
-      reviewReadiness = this.botIntegrationService.getOrderReviewReadiness(conversation.id);
-      order = this.botIntegrationService.createOrderForReview(conversation.id);
-    }
 
     const guardedContinuation = this.buildBackendContinuationIfNeeded(
       conversation.id,
@@ -470,8 +506,8 @@ export class AgentFlowTurnService {
       source: guardedContinuation?.source ?? "flowise_agentflow",
       responseSourceField: this.extractResponseSource(rawFlowiseResponse, flowisePatch),
       state: finalConversation?.state ?? conversation.state,
-      orderId: order?.id ?? finalConversation?.activeOrderId ?? null,
-      reviewReadiness
+      orderId: finalConversation?.activeOrderId ?? null,
+      reviewReadiness: null
     };
 
     if (env.BOT_TURN_INCLUDE_RAW) {
@@ -483,7 +519,7 @@ export class AgentFlowTurnService {
 
   private isOutOfScopeQuestion(text: string) {
     const normalized = this.normalize(text);
-    if (!normalized || !this.looksLikeQuestion(normalized)) {
+    if (!normalized) {
       return false;
     }
 
@@ -491,14 +527,16 @@ export class AgentFlowTurnService {
       return false;
     }
 
-    return (
-      /\b(venezuela|colombia|mundo|pais|paises|presidente|politica|gobierno|elecciones?|guerra|noticias?|ayer|hoy|manana|historia|geografia|capital|clima|temperatura|deporte|futbol|partido)\b/.test(
+    const externalTopic =
+      /\b(venezuela|colombia|mundo|pais|paises|presidente|politica|gobierno|elecciones?|guerra|noticias?|historia|geografia|capital|clima|temperatura|deporte|futbol|partido|criptomonedas?|bitcoin|dolar|farandula)\b/.test(
         normalized
-      ) ||
-      /\b(que paso|que sucedio|que ocurrio|cuantos dias|cuantos meses|cuantos anos|que hora es|hora exacta|dime la hora)\b/.test(
+      );
+    const generalKnowledgeRequest =
+      /\b(que paso|que sucedio|que ocurrio|cuantos dias|cuantos meses|cuantos anos|que hora es|hora exacta|dime la hora|cuentame|explicame|hablame de|busca|investiga)\b/.test(
         normalized
-      )
-    );
+      );
+
+    return externalTopic || (this.looksLikeQuestion(normalized) && generalKnowledgeRequest);
   }
 
   private looksLikeQuestion(normalized: string) {
@@ -531,29 +569,52 @@ export class AgentFlowTurnService {
     const url = `${baseUrl}/api/v1/prediction/${encodeURIComponent(env.FLOWISE_CHATFLOW_ID)}`;
     const body = this.buildFlowiseBody(input);
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(env.FLOWISE_API_KEY ? { Authorization: `Bearer ${env.FLOWISE_API_KEY}` } : {})
-      },
-      body: JSON.stringify(body)
-    });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), env.FLOWISE_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(env.FLOWISE_API_KEY ? { Authorization: `Bearer ${env.FLOWISE_API_KEY}` } : {})
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          throw new HttpError(504, `Flowise request exceeded ${env.FLOWISE_TIMEOUT_MS}ms`);
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
 
-    const payload = await response.text();
-    if (!response.ok) {
-      logger.warn("Flowise agentflow request failed", {
-        status: response.status,
-        body: payload.slice(0, 500)
-      });
-      throw new HttpError(502, `Flowise request failed with status ${response.status}`);
+      const payload = await response.text();
+      if (!response.ok) {
+        logger.warn("Flowise agentflow request failed", {
+          attempt: attempt + 1,
+          status: response.status,
+          body: payload.slice(0, 500)
+        });
+        const retryable = response.status === 429 || response.status >= 500;
+        if (retryable && attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, env.FLOWISE_RETRY_BASE_MS));
+          continue;
+        }
+        throw new HttpError(502, `Flowise request failed with status ${response.status}`);
+      }
+
+      try {
+        return JSON.parse(payload) as FlowisePredictionResponse;
+      } catch {
+        return { text: payload };
+      }
     }
 
-    try {
-      return JSON.parse(payload) as FlowisePredictionResponse;
-    } catch {
-      return { text: payload };
-    }
+    throw new HttpError(502, "Flowise request failed");
   }
 
   private buildFlowiseBody(input: {
@@ -591,21 +652,43 @@ export class AgentFlowTurnService {
   private extractFlowisePatch(response: FlowisePredictionResponse) {
     const merged: Record<string, unknown> = {};
     const executedData = response.agentFlowExecutedData;
+    const outputs: Record<string, unknown>[] = [];
 
     if (Array.isArray(executedData)) {
       for (const node of executedData) {
         const output = this.getPath(node, ["data", "output"]);
         if (this.isRecord(output)) {
-          this.mergeOutput(merged, output);
+          outputs.push(output);
         }
       }
     }
 
-    if (this.isRecord(response.json)) {
-      this.mergeOutput(merged, response.json);
+    const routerIndex = outputs.findIndex((output) =>
+      ["general", "menu", "pedido", "datos", "escalamiento", "fuera_de_alcance"].includes(
+        String(output.route ?? "")
+      )
+    );
+    if (routerIndex >= 0) {
+      this.mergeOutput(merged, outputs[routerIndex]);
+      const specialist = outputs
+        .slice(routerIndex + 1)
+        .filter((output) => typeof output.mensaje_cliente === "string")
+        .at(-1);
+      if (specialist) {
+        this.mergeOutput(merged, specialist);
+      }
+    } else {
+      const finalStructuredOutput = outputs
+        .filter((output) => typeof output.mensaje_cliente === "string")
+        .at(-1);
+      if (finalStructuredOutput) {
+        this.mergeOutput(merged, finalStructuredOutput);
+      }
     }
 
-    this.mergeOutput(merged, response);
+    if (Object.keys(merged).length === 0 && this.isRecord(response.json)) {
+      this.mergeOutput(merged, response.json);
+    }
     return merged;
   }
 
@@ -662,17 +745,6 @@ export class AgentFlowTurnService {
     if (typeof response.answer === "string" && response.answer.trim()) return "answer";
     if (typeof response.response === "string" && response.response.trim()) return "response";
     return "fallback";
-  }
-
-  private shouldCreateReviewOrder(patch: Record<string, unknown>) {
-    return (
-      patch.pedido_confirmado_por_cliente === true ||
-      patch.pedido_confirmado_por_cliente === "true" ||
-      patch.pedido_confirmado === true ||
-      patch.pedido_confirmado === "true" ||
-      patch.send_to_review === true ||
-      patch.send_to_review === "true"
-    );
   }
 
   private buildBackendContinuationIfNeeded(

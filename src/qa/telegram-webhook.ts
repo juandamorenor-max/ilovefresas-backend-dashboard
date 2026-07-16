@@ -43,7 +43,7 @@ try {
     body: JSON.stringify({ update_id: 2 })
   });
   assert.equal(accepted.status, 200);
-  assert.deepEqual(await accepted.json(), { received: true, queued: true });
+  assert.deepEqual(await accepted.json(), { received: true, processed: true });
 
   console.log("telegram-webhook smoke OK");
 } finally {

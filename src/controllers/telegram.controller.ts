@@ -10,7 +10,7 @@ export class TelegramController {
     private readonly runner = new TelegramBotRunnerService()
   ) {}
 
-  receiveWebhook(request: Request, response: Response) {
+  async receiveWebhook(request: Request, response: Response) {
     if (!env.TELEGRAM_CLIENT_BOT_TOKEN || !env.BOT_INTEGRATION_SECRET) {
       response.status(503).json({ error: "Telegram webhook is not configured" });
       return;
@@ -27,13 +27,16 @@ export class TelegramController {
       return;
     }
 
-    response.status(200).json({ received: true, queued: true });
-    void this.runner.handleClientWebhookUpdate(update).catch((error) => {
-      logger.error("Telegram webhook update failed after acknowledgement", {
+    try {
+      await this.runner.handleClientWebhookUpdate(update);
+      response.status(200).json({ received: true, processed: true });
+    } catch (error) {
+      logger.error("Telegram webhook update failed before acknowledgement", {
         updateId: update.update_id,
         error: error instanceof Error ? error.message : "unknown"
       });
-    });
+      response.status(500).json({ error: "Telegram update processing failed" });
+    }
   }
 
   private hasValidSecret(request: Request) {

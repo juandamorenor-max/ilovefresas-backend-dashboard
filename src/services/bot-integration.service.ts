@@ -29,6 +29,7 @@ interface BotConversationStatePatch {
   barrio?: string;
   referencia?: string;
   metodo_pago?: string;
+  monto_efectivo?: string;
   modalidad_entrega?: string;
   pedido_confirmado?: boolean | string;
   pedido_confirmado_por_cliente?: boolean | string;
@@ -44,7 +45,7 @@ interface BotConversationStatePatch {
   botMessage?: string;
 }
 
-const CLOSED_STATES = new Set(["post_order_closed", "completed", "cancelled"]);
+const CLOSED_STATES = new Set(["post_order_closed", "cancelled"]);
 type MissingRequiredOption = {
   item: OrderItem;
   product: Product;
@@ -98,6 +99,64 @@ export class BotIntegrationService {
     );
   }
 
+  holdForHumanIfNeeded(conversationId: string, customerMessage: string) {
+    const conversation = this.findConversation(conversationId);
+    if (!conversation) {
+      return null;
+    }
+
+    const business = demoStore.businesses.find((entry) => entry.id === conversation.businessId);
+    const now = Date.now();
+    const globalPauseActive = Boolean(
+      business?.status.botPausedUntil && new Date(business.status.botPausedUntil).getTime() > now
+    );
+    const chatPauseActive = Boolean(
+      conversation.botPausedUntil && new Date(conversation.botPausedUntil).getTime() > now
+    );
+    const waitingForHuman = conversation.state === "pending_human";
+    if (!globalPauseActive && !chatPauseActive && !waitingForHuman) {
+      return null;
+    }
+
+    this.saveMessage(conversation, "customer", customerMessage || "[Mensaje sin texto]");
+    const shouldAnnounce = conversation.memory.lastBotOffer !== "human_help";
+    const responseText = shouldAnnounce
+      ? "En un momento te atiende una persona del equipo 😊"
+      : "";
+    if (shouldAnnounce) {
+      this.saveMessage(conversation, "bot", responseText);
+    }
+    if (globalPauseActive && !chatPauseActive && !waitingForHuman) {
+      conversation.botPausedReason = "__global_pause__";
+    }
+    conversation.memory.lastBotOffer = "human_help";
+    conversation.state = "pending_human";
+    conversation.updatedAt = nowIso();
+    persistRuntimeStore();
+
+    return {
+      responseText,
+      shouldSendReply: shouldAnnounce,
+      source: globalPauseActive
+        ? "backend_global_pause"
+        : chatPauseActive
+          ? "backend_conversation_pause"
+          : "backend_human_handoff"
+    };
+  }
+
+  markSummaryConfirmed(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    if (!conversation?.draftOrder) {
+      return null;
+    }
+
+    conversation.draftOrder.summaryConfirmedAt = nowIso();
+    conversation.updatedAt = nowIso();
+    persistRuntimeStore();
+    return this.toBotConversation(conversation);
+  }
+
   startNewConversation(channel: BotChannel, chatId: string) {
     for (const active of this.findActiveConversations(channel, chatId)) {
       this.closeConversation(active);
@@ -140,6 +199,8 @@ export class BotIntegrationService {
     if (!draft) {
       return null;
     }
+
+    this.refreshDraftFromCatalog(draft);
 
     const itemLines = draft.items.map((item) => this.formatSummaryItemLine(item));
 
@@ -188,6 +249,15 @@ export class BotIntegrationService {
       };
     }
 
+    const unavailableNames = this.findUnavailableDraftEntries(draft);
+    if (unavailableNames.length > 0) {
+      return {
+        responseText: `${unavailableNames.join(", ")} ya no está disponible. Dime con cuál opción disponible quieres reemplazarlo 🍓`,
+        nextExpected: "pedido",
+        source: "backend_catalog_revalidation"
+      };
+    }
+
     const waffleVariantQuestion = this.buildWaffleVariantQuestionIfNeeded(conversation, draft);
     if (waffleVariantQuestion) {
       return {
@@ -211,7 +281,9 @@ export class BotIntegrationService {
         field !== "comprobante_pago" &&
         field !== "precios" &&
         field !== "productos" &&
-        field !== "opciones_obligatorias"
+        field !== "opciones_obligatorias" &&
+        field !== "confirmacion_cliente" &&
+        field !== "disponibilidad"
     );
 
     if (missingFields.length === 0) {
@@ -372,6 +444,7 @@ export class BotIntegrationService {
     this.captureMessages(conversation, safePatch);
     this.captureMemory(conversation, safePatch);
 
+    this.refreshDraftFromCatalog(conversation.draftOrder);
     conversation.draftOrder = this.orderService.refreshDraft(conversation.draftOrder);
     conversation.state = this.nextConversationState(conversation, safePatch);
     conversation.updatedAt = nowIso();
@@ -389,6 +462,8 @@ export class BotIntegrationService {
       };
     }
 
+    this.refreshDraftFromCatalog(conversation.draftOrder);
+    persistRuntimeStore();
     return this.buildReviewReadiness(conversation.draftOrder);
   }
 
@@ -398,12 +473,16 @@ export class BotIntegrationService {
       return null;
     }
 
+    this.refreshDraftFromCatalog(conversation.draftOrder);
     const readiness = this.buildReviewReadiness(conversation.draftOrder);
     if (!readiness.ready) {
       conversation.draftOrder.blockingIssue = `Faltan datos para revision: ${readiness.missingFields.join(", ")}`;
       conversation.updatedAt = nowIso();
+      persistRuntimeStore();
       return null;
     }
+
+    conversation.draftOrder.blockingIssue = null;
 
     const order = conversation.activeOrderId
       ? this.orderService.syncOrderFromDraft(
@@ -418,7 +497,8 @@ export class BotIntegrationService {
     }
 
     conversation.activeOrderId = order.id;
-    conversation.state = "completed";
+    conversation.state = "pending_human";
+    conversation.memory.lastBotOffer = "human_help";
     conversation.updatedAt = nowIso();
 
     persistRuntimeStore();
@@ -528,6 +608,20 @@ export class BotIntegrationService {
   }
 
   private applyDraftPatch(draft: OrderDraft, patch: BotConversationStatePatch) {
+    const changesOrder = Boolean(
+      patch.items ||
+      patch.nombre ||
+      patch.direccion ||
+      patch.barrio ||
+      patch.referencia ||
+      patch.metodo_pago ||
+      patch.modalidad_entrega ||
+      patch.monto_efectivo
+    );
+    if (changesOrder) {
+      draft.summaryConfirmedAt = null;
+    }
+
     const items = this.parseItems(patch.items);
     if (items.length > 0 && this.shouldApplyItemsPatch(draft, patch)) {
       const nextItems = items
@@ -540,7 +634,19 @@ export class BotIntegrationService {
     if (patch.direccion) draft.address = patch.direccion.trim();
     if (patch.barrio) draft.neighborhood = patch.barrio.trim();
     if (patch.referencia) draft.addressReference = patch.referencia.trim();
-    if (patch.metodo_pago) draft.paymentMethod = this.normalizePaymentMethod(patch.metodo_pago);
+    if (patch.metodo_pago) {
+      const nextPaymentMethod = this.normalizePaymentMethod(patch.metodo_pago);
+      if (draft.paymentMethod !== nextPaymentMethod) {
+        draft.paymentProofReceived = false;
+        draft.paymentProofNote = null;
+        draft.cashAmount = null;
+      }
+      draft.paymentMethod = nextPaymentMethod;
+    }
+    if (patch.monto_efectivo) draft.cashAmount = patch.monto_efectivo.trim();
+    if (patch.customerMessage && draft.paymentMethod === "Contra entrega") {
+      draft.cashAmount = this.extractCashAmount(patch.customerMessage) ?? draft.cashAmount;
+    }
     if (patch.modalidad_entrega) draft.fulfillmentType = this.normalizeFulfillment(patch.modalidad_entrega);
     if (patch.comprobante_pago_recibido === true || patch.comprobante_pago_recibido === "true") {
       draft.paymentProofReceived = true;
@@ -1026,6 +1132,14 @@ export class BotIntegrationService {
     if (patch.next_expected === "comprobante_pago") {
       conversation.memory.lastBotOffer = "payment_methods";
     }
+
+    if (
+      patch.next_expected === "humano" ||
+      patch.needs_human === true ||
+      patch.needs_human === "true"
+    ) {
+      conversation.memory.lastBotOffer = "human_help";
+    }
   }
 
   private saveMessage(conversation: Conversation, role: Message["role"], text: string) {
@@ -1068,16 +1182,6 @@ export class BotIntegrationService {
     ) {
       return "collecting_items";
     }
-    if (patch.pedido_confirmado === true || patch.pedido_confirmado === "true") return "confirming_order";
-    if (
-      patch.pedido_confirmado_por_cliente === true ||
-      patch.pedido_confirmado_por_cliente === "true"
-    ) {
-      return this.requiresPaymentProof(conversation.draftOrder?.paymentMethod) &&
-        !conversation.draftOrder?.paymentProofReceived
-        ? "awaiting_payment_proof"
-        : "confirming_order";
-    }
     if (!conversation.draftOrder?.items.length) return "collecting_items";
     if (!this.hasRequiredDeliveryData(conversation.draftOrder)) return "collecting_delivery_details";
     if (
@@ -1106,9 +1210,17 @@ export class BotIntegrationService {
     }
     if (!draft.customerName) missingFields.push("nombre");
     if (!draft.paymentMethod) missingFields.push("metodo_pago");
+    const paymentMethod = draft.paymentMethod
+      ? this.findPaymentMethodSetting(draft.paymentMethod)
+      : null;
+    if (paymentMethod?.requiresAmount && !draft.cashAmount) {
+      missingFields.push("monto_efectivo");
+    }
     if (this.requiresPaymentProof(draft.paymentMethod) && !draft.paymentProofReceived) {
       missingFields.push("comprobante_pago");
     }
+    if (!draft.summaryConfirmedAt) missingFields.push("confirmacion_cliente");
+    if (this.findUnavailableDraftEntries(draft).length > 0) missingFields.push("disponibilidad");
 
     if (draft.fulfillmentType === "delivery") {
       if (!draft.address) missingFields.push("direccion");
@@ -1132,6 +1244,7 @@ export class BotIntegrationService {
       return;
     }
 
+    draft.inferredZoneId = null;
     const zone = this.catalogService.inferDeliveryZone(
       [draft.neighborhood, draft.address].filter(Boolean).join(" ")
     );
@@ -1164,6 +1277,7 @@ export class BotIntegrationService {
         barrio: draft?.neighborhood ?? "",
         referencia: draft?.addressReference ?? "",
         metodo_pago: draft?.paymentMethod ?? "",
+        monto_efectivo: draft?.cashAmount ?? "",
         comprobante_pago_pendiente: Boolean(
           draft?.paymentMethod &&
             this.requiresPaymentProof(draft.paymentMethod) &&
@@ -1184,11 +1298,25 @@ export class BotIntegrationService {
   }
 
   private toNextExpected(conversation: Conversation) {
-    if (conversation.state === "collecting_delivery_details") return "datos";
+    const activeOrder = conversation.activeOrderId
+      ? this.orderService.findOrder(conversation.activeOrderId)
+      : null;
+    if (activeOrder && ["dispatched", "completed", "cancelled"].includes(activeOrder.status)) {
+      return activeOrder.status === "completed" ? "cerrado" : "postventa";
+    }
     if (conversation.state === "awaiting_payment_proof") return "comprobante_pago";
-    if (conversation.state === "confirming_order") return "confirmacion";
     if (conversation.state === "pending_human") return "humano";
-    return conversation.draftOrder?.items.length ? "datos" : "pedido";
+    const draft = conversation.draftOrder;
+    if (!draft?.items.length) return "pedido";
+    if (this.getMissingRequiredOptions(draft).length || this.hasBlockingPendingSelection(draft)) {
+      return "pedido";
+    }
+    if (!this.hasRequiredDeliveryData(draft)) return "datos";
+    const paymentMethod = draft.paymentMethod
+      ? this.findPaymentMethodSetting(draft.paymentMethod)
+      : null;
+    if (paymentMethod?.requiresAmount && !draft.cashAmount) return "datos";
+    return "confirmacion";
   }
 
   private normalizePaymentMethod(value: string) {
@@ -1947,6 +2075,9 @@ export class BotIntegrationService {
     if (missingFields.includes("metodo_pago")) {
       lines.push("Método de pago: Nequi, Bancolombia, Bre-B o efectivo");
     }
+    if (missingFields.includes("monto_efectivo")) {
+      lines.push("¿Con cuánto pagas en efectivo?");
+    }
 
     return lines.join("\n");
   }
@@ -1995,6 +2126,73 @@ export class BotIntegrationService {
     return demoStore.businesses[0].paymentMethodSettings
       .map(normalizePaymentMethodSetting)
       .find((method) => method.isActive && paymentMethodMatches(method, paymentMethod));
+  }
+
+  private refreshDraftFromCatalog(draft: OrderDraft) {
+    for (const item of draft.items) {
+      const product = this.catalogService.findProductById(item.productId);
+      if (product?.isActive && !product.isOutOfStock) {
+        item.productName = product.name;
+        item.unitBasePrice = product.basePrice;
+      }
+
+      for (const component of item.components) {
+        if (component.type !== "added" && component.type !== "replaced") {
+          continue;
+        }
+        const modifier = this.catalogService.findModifierOptionByNameOrAlias(component.name);
+        if (modifier?.isActive) {
+          component.name = modifier.name;
+          component.priceDelta = modifier.priceDelta;
+        }
+      }
+    }
+    this.orderService.refreshDraft(draft);
+  }
+
+  private findUnavailableDraftEntries(draft: OrderDraft) {
+    const unavailable = new Set<string>();
+    const allModifiers = this.catalogService.listModifierOptionsForAdmin();
+
+    for (const item of draft.items) {
+      const product = this.catalogService.findProductById(item.productId);
+      if (!product || !product.isActive || product.isOutOfStock) {
+        unavailable.add(item.productName);
+      }
+
+      for (const component of item.components) {
+        if (component.type !== "added" && component.type !== "replaced") {
+          continue;
+        }
+        const normalizedName = this.normalizeForMatching(component.name);
+        const modifier = allModifiers.find((entry) =>
+          [entry.name, ...entry.aliases]
+            .map((value) => this.normalizeForMatching(value))
+            .includes(normalizedName)
+        );
+        if (modifier && !modifier.isActive) {
+          unavailable.add(component.name);
+        }
+      }
+    }
+
+    return [...unavailable];
+  }
+
+  private extractCashAmount(text: string) {
+    const normalized = this.normalizeForMatching(text);
+    if (/\b(exacto|pago exacto|sin cambio)\b/.test(normalized)) {
+      return "exacto";
+    }
+
+    const match = normalized.match(
+      /\b(?:efectivo(?:\s+con)?|contraentrega(?:\s+con)?|contra entrega(?:\s+con)?|pago con|con|billete de)\s+\$?\s*(\d{2,3}(?:[.,]\d{3})+|\d{4,7})\b/
+    );
+    if (!match?.[1]) {
+      return null;
+    }
+
+    return match[1].replace(/[.,]/g, "");
   }
 
   private normalizeFulfillment(value: string) {

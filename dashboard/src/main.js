@@ -10,6 +10,7 @@ const state = {
   paymentMethods: [],
   accounting: { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } },
   turnTraces: { configured: false, rows: [] },
+  outboxFailures: { configured: false, rows: [] },
   botCatalog: null,
   businessStatus: {},
   integrationStatus: null,
@@ -184,6 +185,11 @@ const adminApi = {
   listPaymentMethods: () => apiFetch("/admin/dashboard/payment-methods"),
   listAccounting: () => apiFetch("/admin/dashboard/accounting/dispatched-orders"),
   listTurnTraces: () => apiFetch("/admin/dashboard/qa/turn-traces?limit=100"),
+  listOutboxFailures: () => apiFetch("/admin/dashboard/outbox/failed?limit=100"),
+  retryOutbox: (id) => apiFetch(`/admin/dashboard/outbox/${encodeURIComponent(id)}/retry`, {
+    method: "POST",
+    body: JSON.stringify({})
+  }),
   getBusinessStatus: () => apiFetch("/admin/dashboard/business-status"),
   getIntegrationStatus: () => apiFetch("/health/integration"),
   updateOrder: (order, patch) => apiFetch(`/admin/dashboard/orders/${encodeURIComponent(order.id)}`, {
@@ -381,6 +387,7 @@ function clearData() {
   state.paymentMethods = [];
   state.accounting = { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } };
   state.turnTraces = { configured: false, rows: [] };
+  state.outboxFailures = { configured: false, rows: [] };
   state.botCatalog = null;
   state.businessStatus = {};
   state.integrationStatus = null;
@@ -394,7 +401,7 @@ async function refreshData({ quiet = true } = {}) {
     return;
   }
   try {
-    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus, accounting, turnTraces] = await Promise.all([
+    const [orders, conversations, products, modifiers, botCatalog, paymentMethods, businessStatus, integrationStatus, accounting, turnTraces, outboxFailures] = await Promise.all([
       adminApi.listOrders(),
       adminApi.listConversations(),
       adminApi.listProducts(),
@@ -404,7 +411,8 @@ async function refreshData({ quiet = true } = {}) {
       adminApi.getBusinessStatus(),
       adminApi.getIntegrationStatus(),
       isAdminRole() ? adminApi.listAccounting() : Promise.resolve(state.accounting),
-      isAdminRole() ? adminApi.listTurnTraces() : Promise.resolve(state.turnTraces)
+      isAdminRole() ? adminApi.listTurnTraces() : Promise.resolve(state.turnTraces),
+      adminApi.listOutboxFailures()
     ]);
     state.orders = Array.isArray(orders) ? orders : [];
     state.conversations = Array.isArray(conversations) ? conversations : [];
@@ -414,6 +422,7 @@ async function refreshData({ quiet = true } = {}) {
     state.paymentMethods = Array.isArray(paymentMethods) ? paymentMethods : [];
     state.accounting = accounting || { configured: false, rows: [], summary: { orderCount: 0, totalSales: 0, byPaymentMethod: {} } };
     state.turnTraces = turnTraces || { configured: false, rows: [] };
+    state.outboxFailures = outboxFailures || { configured: false, rows: [] };
     state.businessStatus = businessStatus || {};
     state.integrationStatus = integrationStatus || null;
     state.selectedOrderId = state.orders.some((order) => order.id === state.selectedOrderId)
@@ -553,6 +562,30 @@ function renderOperation() {
   $("kitchenQueue").innerHTML = kitchenOrders.length
     ? kitchenOrders.map(orderCard).join("")
     : emptyState("La cocina no tiene pedidos en cola.");
+
+  renderOutboxFailures();
+}
+
+function renderOutboxFailures() {
+  const outbox = state.outboxFailures || { configured: false, rows: [] };
+  const rows = Array.isArray(outbox.rows) ? outbox.rows : [];
+  $("outboxFailureCount").textContent = rows.length;
+  $("outboxFailures").innerHTML = rows.length
+    ? `
+      <div class="table-row header">
+        <span>Canal/chat</span><span>Tipo</span><span>Intentos</span><span>Error</span><span>Accion</span>
+      </div>
+      ${rows.map((row) => `
+        <div class="table-row">
+          <span>${escapeHtml(`${row.channel || ""}:${row.chatId || ""}`)}</span>
+          <span>${escapeHtml(row.eventType || "")}</span>
+          <span>${escapeHtml(row.attemptCount || 0)}</span>
+          <span>${escapeHtml(row.lastError || "Pendiente de reintento")}</span>
+          <span><button class="secondary-btn" data-outbox-retry="${escapeAttr(row.id)}">Reintentar</button></span>
+        </div>
+      `).join("")}
+    `
+    : emptyState(outbox.configured ? "No hay mensajes fallidos." : "Postgres de turnos no esta configurado.");
 }
 
 function renderSystemStatus() {
@@ -984,7 +1017,9 @@ async function confirmSelectedOrder() {
     replaceById(state.orders, updated);
     state.selectedOrderId = updated.id;
     renderAll();
-    showToast("Pedido confirmado y cliente notificado.");
+    showToast(updated.operations?.customerNotified === false
+      ? "Pedido confirmado, pero la notificacion fallo."
+      : "Pedido confirmado y cliente notificado.");
   } catch (error) {
     console.error(error);
     showToast("No pude confirmar. Revisa datos, pago y domicilio.");
@@ -1001,7 +1036,9 @@ async function notifyDispatch() {
     replaceById(state.orders, updated);
     state.selectedOrderId = updated.id;
     renderAll();
-    showToast("Cliente avisado: pedido despachado.");
+    showToast(updated.operations?.accountingSaved === false
+      ? "Cliente avisado; falta guardar el registro contable."
+      : "Cliente avisado: pedido despachado.");
   } catch (error) {
     console.error(error);
     showToast("No pude avisar despacho.");
@@ -1323,6 +1360,19 @@ function bindEvents() {
     const paymentButton = event.target.closest("[data-save-payment]");
     if (paymentButton) {
       await savePaymentMethod(paymentButton.dataset.savePayment);
+      return;
+    }
+
+    const outboxButton = event.target.closest("[data-outbox-retry]");
+    if (outboxButton) {
+      try {
+        await adminApi.retryOutbox(outboxButton.dataset.outboxRetry);
+        await refreshData({ quiet: true });
+        showToast("Mensaje reenviado.");
+      } catch (error) {
+        console.error(error);
+        showToast("No pude reenviar el mensaje.");
+      }
     }
   });
 

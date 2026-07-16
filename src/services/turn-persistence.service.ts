@@ -44,6 +44,7 @@ create table if not exists bot_turn_shadow_results (
 );
 create table if not exists bot_outbox (
   id text primary key,
+  turn_id text,
   channel text not null,
   chat_id text not null,
   event_type text not null,
@@ -56,8 +57,11 @@ create table if not exists bot_outbox (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table bot_outbox add column if not exists turn_id text;
 create index if not exists idx_bot_outbox_pending
   on bot_outbox (status, available_at);
+create index if not exists idx_bot_outbox_turn
+  on bot_outbox (turn_id, created_at);
 `;
 
 type TraceInput = {
@@ -104,15 +108,42 @@ export class TurnPersistenceService {
   }
 
   async complete(turn: CustomerTurn, result: TurnResult) {
-    this.memoryResults.set(this.key(turn), result);
-    if (!this.usePostgres()) return;
+    if (!this.usePostgres()) {
+      this.memoryResults.set(this.key(turn), result);
+      return;
+    }
     await this.ensureSchema();
-    await this.db.query(
-      `update bot_processed_turns
-       set status = 'completed', response_json = $3::jsonb, error_message = null, updated_at = now()
-       where channel = $1 and external_message_id = $2`,
-      [turn.channel, turn.externalMessageId, JSON.stringify(result)]
-    );
+    await this.db.transaction(async (transaction) => {
+      await transaction.query(
+        `update bot_processed_turns
+         set status = 'completed', response_json = $3::jsonb, error_message = null, updated_at = now()
+         where channel = $1 and external_message_id = $2`,
+        [turn.channel, turn.externalMessageId, JSON.stringify(result)]
+      );
+
+      if (turn.channel !== "telegram") {
+        return;
+      }
+
+      const events = this.buildOutboxEvents(turn, result);
+      for (const event of events) {
+        await transaction.query(
+          `insert into bot_outbox (
+             id, turn_id, channel, chat_id, event_type, payload_json, status
+           ) values ($1, $2, $3, $4, $5, $6::jsonb, 'pending')
+           on conflict (id) do nothing`,
+          [
+            event.id,
+            result.turnId,
+            turn.channel,
+            turn.chatId,
+            event.eventType,
+            JSON.stringify(event.payload)
+          ]
+        );
+      }
+    });
+    this.memoryResults.set(this.key(turn), result);
   }
 
   async fail(turn: CustomerTurn, error: string) {
@@ -259,6 +290,37 @@ export class TurnPersistenceService {
         shadowDurationMs: row.shadow_duration_ms === null ? null : Number(row.shadow_duration_ms)
       }))
     };
+  }
+
+  private buildOutboxEvents(turn: CustomerTurn, result: TurnResult) {
+    const events: Array<{
+      id: string;
+      eventType: "text" | "document" | "photo";
+      payload: Record<string, unknown>;
+    }> = [];
+
+    if (result.shouldSendReply && result.responseText.trim()) {
+      events.push({
+        id: `outbox_${result.turnId}_text`,
+        eventType: "text",
+        payload: { turnId: result.turnId, text: result.responseText }
+      });
+    }
+
+    result.attachments.forEach((attachment, index) => {
+      events.push({
+        id: `outbox_${result.turnId}_${attachment.type}_${index}`,
+        eventType: attachment.type,
+        payload: {
+          turnId: result.turnId,
+          pathOrUrl: attachment.pathOrUrl,
+          filename: attachment.filename,
+          caption: attachment.caption ?? null
+        }
+      });
+    });
+
+    return events;
   }
 
   private usePostgres() {

@@ -57,6 +57,8 @@ const envSchema = z.object({
   FLOWISE_V3_AGENTFLOW_ID: z.string().optional(),
   FLOWISE_V3_SHADOW: envBooleanDefault(false),
   FLOWISE_V3_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
+  FLOWISE_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+  FLOWISE_RETRY_BASE_MS: z.coerce.number().int().positive().default(500),
   FLOWISE_API_KEY: z.string().optional(),
   BOT_INTEGRATION_SECRET: z.string().optional(),
   BOT_TURN_INCLUDE_RAW: envBooleanDefault(false),
