@@ -5,6 +5,7 @@ import { adminRouter } from "./routes/admin.routes.js";
 import { botIntegrationRouter } from "./routes/bot-integration.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { localTestRouter } from "./routes/local-test.routes.js";
+import { telegramRouter } from "./routes/telegram.routes.js";
 import { whatsappRouter } from "./routes/whatsapp.routes.js";
 import { loadRuntimeStore } from "./data/runtime-store.js";
 import { HttpError } from "./utils/http.js";
@@ -27,6 +28,7 @@ export function createApp() {
 
   app.use(healthRouter);
   app.use(localTestRouter);
+  app.use(telegramRouter);
   app.use(whatsappRouter);
   app.use(botIntegrationRouter);
   app.use(adminRouter);
