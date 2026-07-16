@@ -7,7 +7,7 @@ process.env.TELEGRAM_CLIENT_BOT_TOKEN = "qa-telegram-token";
 
 const { createApp } = await import("../app.js");
 
-const app = createApp({ loadRuntime: false });
+const app = createApp();
 const server = await new Promise<Server>((resolve) => {
   const instance = app.listen(0, () => resolve(instance));
 });
