@@ -6,6 +6,47 @@ process.env.BOT_INTEGRATION_SECRET = "qa-telegram-secret";
 process.env.TELEGRAM_CLIENT_BOT_TOKEN = "qa-telegram-token";
 
 const { createApp } = await import("../app.js");
+const { TelegramBotRunnerService } = await import("../services/telegram-bot-runner.service.js");
+
+const agentFlowTurns: Array<Record<string, unknown>> = [];
+const telegramReplies: Array<{ chatId: string | number; text: string }> = [];
+const webhookRunner = new TelegramBotRunnerService(
+  {
+    sendMessage: async (_token: string, chatId: string | number, text: string) => {
+      telegramReplies.push({ chatId, text });
+      return {};
+    }
+  } as never,
+  {} as never,
+  {} as never,
+  {
+    handleTurn: async (input: Record<string, unknown>) => {
+      agentFlowTurns.push(input);
+      return {
+        responseText: "Respuesta desde AgentFlow",
+        shouldSendReply: true
+      };
+    }
+  } as never
+);
+
+await webhookRunner.handleClientWebhookUpdate({
+  update_id: 10,
+  message: {
+    message_id: 20,
+    chat: { id: 531515729, type: "private" },
+    text: "quiero un waffle tradicional"
+  }
+});
+
+assert.equal(agentFlowTurns.length, 1);
+assert.equal(agentFlowTurns[0]?.channel, "telegram");
+assert.equal(agentFlowTurns[0]?.chatId, "531515729");
+assert.equal(agentFlowTurns[0]?.text, "quiero un waffle tradicional");
+assert.deepEqual(telegramReplies, [{
+  chatId: 531515729,
+  text: "Respuesta desde AgentFlow"
+}]);
 
 const app = createApp();
 const server = await new Promise<Server>((resolve) => {

@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TelegramMessage, TelegramUpdate } from "./telegram.service.js";
 import { ConversationService } from "./conversation.service.js";
+import { AgentFlowTurnService } from "./agent-flow-turn.service.js";
 import { OrderService } from "./order.service.js";
 import { TelegramService } from "./telegram.service.js";
 import { formatCurrency } from "../utils/http.js";
@@ -70,7 +71,8 @@ export class TelegramBotRunnerService {
   constructor(
     private readonly telegramService = new TelegramService(),
     private readonly conversationService = new ConversationService(),
-    private readonly orderService = new OrderService()
+    private readonly orderService = new OrderService(),
+    private readonly agentFlowTurnService = new AgentFlowTurnService()
   ) {}
 
   async start() {
@@ -112,7 +114,35 @@ export class TelegramBotRunnerService {
     if (!env.TELEGRAM_CLIENT_BOT_TOKEN) {
       throw new Error("Telegram client bot token not configured");
     }
-    await this.handleClientUpdate(env.TELEGRAM_CLIENT_BOT_TOKEN, update);
+    await this.handleAgentFlowWebhookUpdate(env.TELEGRAM_CLIENT_BOT_TOKEN, update);
+  }
+
+  private async handleAgentFlowWebhookUpdate(botToken: string, update: TelegramUpdate) {
+    const message = update.message;
+    const chatId = message?.chat.id;
+    if (!message || chatId === undefined) {
+      return;
+    }
+
+    const largestPhoto = message.photo?.at(-1) ?? null;
+    const document = message.document ?? null;
+    const attachmentType = largestPhoto ? "image" : document ? "document" : null;
+    const result = await this.agentFlowTurnService.handleTurn({
+      channel: "telegram",
+      chatId: String(chatId),
+      text: message.text ?? message.caption ?? "",
+      appBaseUrl: env.APP_BASE_URL,
+      hasAttachment: Boolean(attachmentType),
+      attachmentType,
+      attachmentFileId: largestPhoto?.file_id ?? document?.file_id ?? null,
+      caption: message.caption ?? null,
+      mimeType: document?.mime_type ?? (largestPhoto ? "image/jpeg" : null)
+    });
+
+    const responseText = String(result.responseText ?? "").trim();
+    if (result.shouldSendReply && responseText) {
+      await this.telegramService.sendMessage(botToken, chatId, responseText);
+    }
   }
 
   private async pollClientBot(botToken: string) {
