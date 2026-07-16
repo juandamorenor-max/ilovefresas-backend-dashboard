@@ -110,6 +110,13 @@ export class TelegramBotRunnerService {
     this.stopped = true;
   }
 
+  async handleClientWebhookUpdate(update: TelegramUpdate) {
+    if (!env.TELEGRAM_CLIENT_BOT_TOKEN) {
+      throw new Error("Telegram client bot token not configured");
+    }
+    await this.handleClientUpdate(env.TELEGRAM_CLIENT_BOT_TOKEN, update);
+  }
+
   private async pollClientBot(botToken: string) {
     while (!this.stopped) {
       try {
