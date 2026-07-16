@@ -115,6 +115,21 @@ const serializedOperationsDecision = extractLatestTurnDecisionV3({
 });
 assert.equal(serializedOperationsDecision.operations[0]?.type, "add_item");
 
+const flowiseMetadataDecision = extractLatestTurnDecisionV3({
+  agentFlowExecutedData: [{
+    data: {
+      output: {
+        ...validDecision.data,
+        operations: JSON.stringify(validDecision.data?.operations ?? []),
+        content: "Flowise internal content",
+        timeMetadata: { startedAt: Date.now() }
+      }
+    }
+  }]
+});
+assert.equal(flowiseMetadataDecision.specialist, "pedido");
+assert.equal(flowiseMetadataDecision.operations[0]?.type, "add_item");
+
 const flowiseEmptyOptionsDecision = extractLatestTurnDecisionV3({
   output: {
     ...validDecision.data,

@@ -44,7 +44,16 @@ export function extractLatestTurnDecisionV3(payload: FlowisePrediction): TurnDec
 
 function normalizeFlowiseDecisionCandidate(candidate: unknown): unknown {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return candidate;
-  const normalized = { ...(candidate as Record<string, unknown>) };
+  const source = candidate as Record<string, unknown>;
+  const normalized: Record<string, unknown> = {
+    intent: source.intent,
+    confidence: source.confidence,
+    operations: source.operations,
+    replyDraft: source.replyDraft,
+    needsHuman: source.needsHuman,
+    reason: source.reason,
+    specialist: source.specialist
+  };
   if (typeof normalized.operations === "string") {
     const parsedOperations = parseJsonFromText<unknown>(normalized.operations);
     if (Array.isArray(parsedOperations)) normalized.operations = parsedOperations;
