@@ -270,10 +270,14 @@ assert(
 assert(
   String(requiredOptionsQuestion?.responseText).includes("primer waffle") &&
     String(requiredOptionsQuestion?.responseText).includes("fruta quieres") &&
-    String(requiredOptionsQuestion?.responseText).includes("Opciones: Fresa, Durazno, Banano") &&
+    String(requiredOptionsQuestion?.responseText).includes("Para cada waffle debes escoger una fruta, un sabor de helado y una salsa") &&
+    String(requiredOptionsQuestion?.responseText).includes("🍓 Frutas: Fresa, Durazno, Banano") &&
+    String(requiredOptionsQuestion?.responseText).includes("🍦 Helados: Fresa, Chocolate, Vainilla") &&
+    String(requiredOptionsQuestion?.responseText).includes("🍫 Salsas: Arequipe, Leche Condensada") &&
+    String(requiredOptionsQuestion?.responseText).includes("todas las opciones juntas o responder una por una") &&
     !String(requiredOptionsQuestion?.responseText).includes("Me las compartes en un mensaje") &&
     !String(requiredOptionsQuestion?.responseText).includes("Fresas con helado"),
-  "required options question should ask only the next focused option"
+  "required options question should explain the contract and focus the next option"
 );
 const requiredOptionsAnswer = service.handleRequiredOptionsTurn(
   requiredOptionsConversation.id,

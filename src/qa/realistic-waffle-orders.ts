@@ -167,9 +167,12 @@ function runPartialRealisticOrder() {
   const variantSplit = runRequiredOptionTurn(chatId, conversationId, "uno tradicional y dos chocolate");
   assertIncludes(variantSplit.bot, "primer waffle", "guided required option question");
   assertIncludes(variantSplit.bot, "fruta quieres", "guided required option question");
-  assertIncludes(variantSplit.bot, "Opciones: Fresa, Durazno, Banano", "guided fruit choices");
+  assertIncludes(variantSplit.bot, "Para cada waffle debes escoger una fruta, un sabor de helado y una salsa", "required options overview");
+  assertIncludes(variantSplit.bot, "🍓 Frutas: Fresa, Durazno, Banano", "guided fruit choices");
+  assertIncludes(variantSplit.bot, "🍦 Helados: Fresa, Chocolate, Vainilla", "guided ice cream choices");
+  assertIncludes(variantSplit.bot, "🍫 Salsas: Arequipe, Leche Condensada", "guided sauce choices");
+  assertIncludes(variantSplit.bot, "todas las opciones juntas o responder una por una", "hybrid answer guidance");
   assertNotIncludes(variantSplit.bot, "Me las compartes en un mensaje", "guided required option question");
-  assertNotIncludes(variantSplit.bot, "sabor de helado, salsa", "guided required option question");
   assertOrderIsSplit(chatId);
   logs.push(variantSplit);
 
@@ -337,9 +340,63 @@ function runDirectRealisticOrder() {
   return { chatId, conversationId, logs };
 }
 
+function runConfigurableProductOverviews() {
+  const vasoChatId = "qa-configurable-vaso-fantasia";
+  const vasoConversation = service.getOrCreateActiveConversation("telegram", vasoChatId);
+  service.updateConversationState(vasoConversation.id, {
+    customerMessage: "quiero un vaso fantasia",
+    items: [{ producto: "Vaso Fantasia", cantidad: 1, precio_unitario: 15000 }],
+    modalidad_entrega: "domicilio"
+  });
+  const vasoReply = service.buildNextOrderStepReply(vasoConversation.id);
+  assert(vasoReply, "Expected Vaso Fantasia required-options reply");
+  assertIncludes(vasoReply.responseText, "un sabor de helado, una fruta, un topping y una salsa", "Vaso Fantasia contract");
+  assertIncludes(vasoReply.responseText, "🍓 Frutas:", "Vaso Fantasia fruit choices");
+  assertIncludes(vasoReply.responseText, "🍦 Helados:", "Vaso Fantasia ice cream choices");
+  assertIncludes(vasoReply.responseText, "✨ Toppings:", "Vaso Fantasia topping choices");
+  assertIncludes(vasoReply.responseText, "🍫 Salsas:", "Vaso Fantasia sauce choices");
+  const vasoAnswer = runRequiredOptionTurn(
+    vasoChatId,
+    vasoConversation.id,
+    "helado de vainilla, fruta fresa, topping oreo y salsa arequipe"
+  );
+  assert.deepEqual(selected(itemAt(vasoChatId, 0), "iceCreamFlavor"), ["Vainilla"]);
+  assert.deepEqual(selected(itemAt(vasoChatId, 0), "fruit"), ["Fresa"]);
+  assert.deepEqual(selected(itemAt(vasoChatId, 0), "includedTopping"), ["Oreo"]);
+  assert.deepEqual(selected(itemAt(vasoChatId, 0), "sauce"), ["Arequipe"]);
+  assert(
+    !vasoAnswer.missingFields.includes("opciones_obligatorias"),
+    "Vaso Fantasia should accept all four choices in one message"
+  );
+
+  const fresasChatId = "qa-configurable-fresas-helado";
+  const fresasConversation = service.getOrCreateActiveConversation("telegram", fresasChatId);
+  service.updateConversationState(fresasConversation.id, {
+    customerMessage: "quiero unas fresas con helado",
+    items: [{ producto: "Fresas con helado", cantidad: 1, precio_unitario: 18000 }],
+    modalidad_entrega: "domicilio"
+  });
+  const fresasReply = service.buildNextOrderStepReply(fresasConversation.id);
+  assert(fresasReply, "Expected Fresas con helado required-options reply");
+  assertIncludes(fresasReply.responseText, "un sabor de helado", "Fresas con helado contract");
+  assertIncludes(fresasReply.responseText, "🍦 Helados: Fresa, Chocolate, Vainilla o Oreo", "Fresas con helado choices");
+  const fresasAnswer = runRequiredOptionTurn(fresasChatId, fresasConversation.id, "oreo");
+  assert.deepEqual(selected(itemAt(fresasChatId, 0), "iceCreamFlavor"), ["Oreo"]);
+  assert(
+    !fresasAnswer.missingFields.includes("opciones_obligatorias"),
+    "Fresas con helado should be complete after choosing a flavor"
+  );
+
+  return {
+    vasoFantasia: String(vasoReply.responseText),
+    fresasConHelado: String(fresasReply.responseText)
+  };
+}
+
 const partialOrder = runPartialRealisticOrder();
 const directOrder = runDirectRealisticOrder();
 const sameAsPreviousOrder = runSameAsPreviousOrder();
+const configurableProductOverviews = runConfigurableProductOverviews();
 
 console.log(
   JSON.stringify(
@@ -364,7 +421,8 @@ console.log(
           conversationId: sameAsPreviousOrder.conversationId,
           turns: sameAsPreviousOrder.logs
         }
-      ]
+      ],
+      configurableProductOverviews
     },
     null,
     2

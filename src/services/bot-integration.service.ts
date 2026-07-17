@@ -1296,9 +1296,97 @@ export class BotIntegrationService {
 
   private buildRequiredOptionFocusQuestion(draft: OrderDraft, focus: RequiredOptionFocus) {
     const prefix = this.buildCompletedRequiredOptionPrefix(draft, focus);
+    const overview = this.buildRequiredOptionsOverview(draft, focus);
     const question = this.buildRequiredOptionQuestionText(draft, focus);
-    const choices = this.buildRequiredOptionChoiceLine(focus.option);
-    return [prefix, question, choices].filter(Boolean).join("\n\n");
+    const choices = overview ? "" : this.buildRequiredOptionChoiceLine(focus.option);
+    return [prefix, overview, question, choices].filter(Boolean).join("\n\n");
+  }
+
+  private buildRequiredOptionsOverview(draft: OrderDraft, focus: RequiredOptionFocus) {
+    if (!this.isFirstMissingOptionForItem(focus) || this.itemHasAnyRequiredOptionValue(focus.item)) {
+      return "";
+    }
+
+    const requiredOptions = (focus.product.requiredOptions ?? []).filter((option) => option.required);
+    const signature = this.requiredOptionSignature(focus.product);
+    const hasEarlierCompatibleItem = draft.items
+      .slice(0, focus.itemIndex)
+      .some((item) => {
+        const product = this.catalogService.findProductById(item.productId);
+        return product && this.requiredOptionSignature(product) === signature;
+      });
+    if (hasEarlierCompatibleItem) {
+      return "";
+    }
+
+    const compatibleItemCount = draft.items.filter((item) => {
+      const product = this.catalogService.findProductById(item.productId);
+      return product && this.requiredOptionSignature(product) === signature;
+    }).length;
+    const subject = this.requiredOptionSubject(focus.item);
+    const selectionLabels = requiredOptions.map((option) => this.requiredOptionSelectionLabel(option));
+    const intro = compatibleItemCount > 1
+      ? `Para cada ${subject} debes escoger ${this.formatRequiredSelectionList(selectionLabels)}.`
+      : `Para este ${subject} debes escoger ${this.formatRequiredSelectionList(selectionLabels)}.`;
+    const optionLines = requiredOptions.map((option) =>
+      `${this.requiredOptionEmoji(option.key)} ${this.optionGroupLabel(option)}: ${this.formatHumanList(option.options)}`
+    );
+
+    return [
+      `${intro} 🍓`,
+      ...optionLines,
+      "Puedes enviarme todas las opciones juntas o responder una por una."
+    ].join("\n");
+  }
+
+  private itemHasAnyRequiredOptionValue(item: OrderItem) {
+    return Object.values(item.selectedOptions ?? {}).some((values) => values.length > 0);
+  }
+
+  private requiredOptionSignature(product: Product) {
+    return (product.requiredOptions ?? [])
+      .filter((option) => option.required)
+      .map((option) => option.key)
+      .sort()
+      .join("|");
+  }
+
+  private requiredOptionSubject(item: OrderItem) {
+    if (this.isWaffleItem(item)) return "waffle";
+    if (this.normalizeForMatching(item.productName).includes("vaso fantasia")) return "vaso fantasia";
+    if (item.productName === "Fresas con helado") return "pedido de fresas con helado";
+    return item.productName.toLowerCase();
+  }
+
+  private requiredOptionSelectionLabel(option: NonNullable<Product["requiredOptions"]>[number]) {
+    if (option.key === "fruit") return "una fruta";
+    if (option.key === "iceCreamFlavor") return option.minSelections > 1
+      ? `${option.minSelections} sabores de helado`
+      : "un sabor de helado";
+    if (option.key === "sauce") return "una salsa";
+    if (option.key === "includedTopping") return "un topping";
+    return option.label;
+  }
+
+  private formatRequiredSelectionList(values: string[]) {
+    if (values.length <= 1) return values.join("");
+    return `${values.slice(0, -1).join(", ")} y ${values[values.length - 1]}`;
+  }
+
+  private requiredOptionEmoji(optionKey: string) {
+    if (optionKey === "fruit") return "🍓";
+    if (optionKey === "iceCreamFlavor") return "🍦";
+    if (optionKey === "sauce") return "🍫";
+    if (optionKey === "includedTopping") return "✨";
+    return "•";
+  }
+
+  private optionGroupLabel(option: NonNullable<Product["requiredOptions"]>[number]) {
+    if (option.key === "fruit") return "Frutas";
+    if (option.key === "iceCreamFlavor") return "Helados";
+    if (option.key === "sauce") return "Salsas";
+    if (option.key === "includedTopping") return "Toppings";
+    return option.label;
   }
 
   private buildRequiredOptionQuestionText(draft: OrderDraft, focus: RequiredOptionFocus) {
@@ -1311,11 +1399,11 @@ export class BotIntegrationService {
 
         if (focus.itemIndex === firstWaffleIndex) {
           return sameProductCount > 1
-            ? `Listo, los ${sameProductCount} waffles ${variant}. Empecemos con el ${waffleLabel}: ¿qué fruta quieres?`
-            : `Listo. Para el ${waffleLabel}, ¿qué fruta quieres?`;
+            ? `Listo, los ${sameProductCount} waffles ${variant}. Vamos con el ${waffleLabel} 😊 ¿Qué fruta quieres?`
+            : `Listo. Vamos con el ${waffleLabel} 😊 ¿Qué fruta quieres?`;
         }
 
-        return `Vamos con el ${waffleLabel}: ¿qué fruta quieres?`;
+        return `Vamos con el ${waffleLabel} 😊 ¿Qué fruta quieres?`;
       }
       if (focus.option.key === "iceCreamFlavor") {
         return `Perfecto 😊 ¿Qué sabor de helado para el ${waffleLabel}?`;
@@ -1814,6 +1902,12 @@ export class BotIntegrationService {
     const answers: Record<string, string> = {};
 
     for (const option of uniqueOptions.values()) {
+      const labeledAnswer = this.extractLabeledRequiredOptionAnswer(text, option);
+      if (labeledAnswer) {
+        answers[option.key] = labeledAnswer;
+        continue;
+      }
+
       const matches = option.options
         .map((value) => ({
           value,
@@ -1834,6 +1928,40 @@ export class BotIntegrationService {
     }
 
     return answers;
+  }
+
+  private extractLabeledRequiredOptionAnswer(
+    text: string,
+    option: NonNullable<Product["requiredOptions"]>[number]
+  ) {
+    const labelPatterns: Record<string, string> = {
+      fruit: "frutas?",
+      iceCreamFlavor: "(?:sabor(?:es)? de helado|helado)",
+      sauce: "salsas?",
+      includedTopping: "toppings?"
+    };
+    const labelPattern = labelPatterns[option.key];
+    if (!labelPattern) {
+      return null;
+    }
+
+    const normalizedText = this.normalizeForMatching(text);
+    const labelMatch = normalizedText.match(new RegExp(`\\b${labelPattern}\\b`));
+    if (labelMatch?.index === undefined) {
+      return null;
+    }
+
+    const afterLabel = normalizedText.slice(labelMatch.index + labelMatch[0].length);
+    const nextLabel = afterLabel.search(
+      /\b(?:frutas?|sabor(?:es)? de helado|helado|salsas?|toppings?)\b/
+    );
+    const punctuation = afterLabel.search(/[,;]/);
+    const boundaries = [nextLabel, punctuation].filter((index) => index >= 0);
+    const segment = boundaries.length > 0
+      ? afterLabel.slice(0, Math.min(...boundaries))
+      : afterLabel;
+
+    return option.options.find((value) => this.findOptionMentionIndex(segment, value) >= 0) ?? null;
   }
 
   private scopeTextForRequiredOptions(item: OrderItem, text: string) {
