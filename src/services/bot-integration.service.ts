@@ -332,6 +332,7 @@ export class BotIntegrationService {
     }
 
     const appliedWaffleVariantCounts = this.applyWaffleVariantCounts(draft, customerText);
+    this.applyExplicitRequiredOptionRemovals(draft, customerText);
     if (!appliedWaffleVariantCounts && !this.applySameRequiredOptionsAsPrevious(draft, customerText)) {
       this.applyRequiredOptionAnswers(draft, customerText);
     }
@@ -1239,9 +1240,104 @@ export class BotIntegrationService {
 
       return (product.requiredOptions ?? [])
         .filter((option) => option.required)
+        .filter((option) => !this.itemExplicitlySkipsRequiredOption(item, product, option.key))
         .filter((option) => (item.selectedOptions?.[option.key]?.length ?? 0) < option.minSelections)
         .map((option) => ({ item, product, option }));
     });
+  }
+
+  private applyExplicitRequiredOptionRemovals(draft: OrderDraft, text: string) {
+    const focus = this.getRequiredOptionFocus(draft);
+    if (!focus) {
+      return false;
+    }
+
+    const requestedKeys = this.explicitRequiredOptionRemovalKeys(text);
+    if (requestedKeys.length === 0) {
+      return false;
+    }
+
+    const applyToCompatibleItems = /\b(?:ambos|todos|todas|los dos|las dos)\b/.test(
+      this.normalizeForMatching(text)
+    );
+    const targets = applyToCompatibleItems
+      ? draft.items.filter((item) => {
+          const product = this.catalogService.findProductById(item.productId);
+          return product && this.requiredOptionSignature(product) === this.requiredOptionSignature(focus.product);
+        })
+      : [focus.item];
+    let applied = false;
+
+    for (const item of targets) {
+      const product = this.catalogService.findProductById(item.productId);
+      if (!product) continue;
+
+      for (const optionKey of requestedKeys) {
+        const componentName = this.requiredOptionComponentName(optionKey);
+        if (
+          !componentName ||
+          !product.removableComponents.some(
+            (component) => this.normalizeForMatching(component) === this.normalizeForMatching(componentName)
+          )
+        ) {
+          continue;
+        }
+
+        item.selectedOptions ??= {};
+        delete item.selectedOptions[optionKey];
+        const alreadyRemoved = item.components.some(
+          (component) =>
+            component.type === "removed" &&
+            this.normalizeForMatching(component.name) === this.normalizeForMatching(componentName)
+        );
+        if (!alreadyRemoved) {
+          item.components.push({ name: componentName, type: "removed", priceDelta: 0 });
+        }
+        applied = true;
+      }
+    }
+
+    return applied;
+  }
+
+  private explicitRequiredOptionRemovalKeys(text: string) {
+    const normalized = this.normalizeForMatching(text);
+    const negative = "(?:sin|no quiero|quitale|quitar|retira|retirale)";
+    const keys: string[] = [];
+    if (new RegExp(`\\b${negative}\\s+(?:el\\s+|sabor\\s+de\\s+)?helado\\b`).test(normalized)) {
+      keys.push("iceCreamFlavor");
+    }
+    if (new RegExp(`\\b${negative}\\s+(?:la\\s+)?fruta\\b`).test(normalized)) {
+      keys.push("fruit");
+    }
+    if (new RegExp(`\\b${negative}\\s+(?:la\\s+)?salsa\\b`).test(normalized)) {
+      keys.push("sauce");
+    }
+    if (new RegExp(`\\b${negative}\\s+(?:el\\s+)?topping\\b`).test(normalized)) {
+      keys.push("includedTopping");
+    }
+    return keys;
+  }
+
+  private requiredOptionComponentName(optionKey: string) {
+    if (optionKey === "iceCreamFlavor") return "helado";
+    if (optionKey === "fruit") return "fruta";
+    if (optionKey === "sauce") return "salsa";
+    if (optionKey === "includedTopping") return "topping";
+    return null;
+  }
+
+  private itemExplicitlySkipsRequiredOption(item: OrderItem, product: Product, optionKey: string) {
+    const componentName = this.requiredOptionComponentName(optionKey);
+    if (!componentName) return false;
+    const isRemovable = product.removableComponents.some(
+      (component) => this.normalizeForMatching(component) === this.normalizeForMatching(componentName)
+    );
+    return isRemovable && item.components.some(
+      (component) =>
+        component.type === "removed" &&
+        this.normalizeForMatching(component.name) === this.normalizeForMatching(componentName)
+    );
   }
 
   private buildRequiredOptionsQuestion(draft: OrderDraft) {
@@ -2016,9 +2112,12 @@ export class BotIntegrationService {
       .flatMap(([key, values]) => {
         const label = this.formatSelectedOptionLabel(product, key);
         return values.map((value) => `${label}: ${value}`);
-      })
-      .join("; ");
-    const optionsText = options ? ` (${options})` : "";
+      });
+    const removals = item.components
+      .filter((component) => component.type === "removed")
+      .map((component) => `sin ${component.name}`);
+    const details = [...options, ...removals].join("; ");
+    const optionsText = details ? ` (${details})` : "";
 
     return `- ${item.quantity} x ${item.productName}${optionsText}: ${this.money(
       item.unitBasePrice * item.quantity

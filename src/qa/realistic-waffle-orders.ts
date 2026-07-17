@@ -67,6 +67,12 @@ function selected(item: OrderItem, key: string) {
   return item.selectedOptions?.[key] ?? [];
 }
 
+function removed(item: OrderItem, name: string) {
+  return item.components.some(
+    (component) => component.type === "removed" && component.name.toLowerCase() === name.toLowerCase()
+  );
+}
+
 function snapshotOptions(item: OrderItem) {
   return Object.fromEntries(
     Object.entries(item.selectedOptions ?? {}).map(([key, values]) => [key, [...values]])
@@ -387,9 +393,45 @@ function runConfigurableProductOverviews() {
     "Fresas con helado should be complete after choosing a flavor"
   );
 
+  const vasoSinHeladoChatId = "qa-configurable-vaso-sin-helado";
+  const vasoSinHeladoConversation = service.getOrCreateActiveConversation(
+    "telegram",
+    vasoSinHeladoChatId
+  );
+  service.updateConversationState(vasoSinHeladoConversation.id, {
+    customerMessage: "quiero un vaso fantasia",
+    items: [{ producto: "Vaso Fantasia", cantidad: 1, precio_unitario: 15000 }],
+    modalidad_entrega: "domicilio"
+  });
+  const vasoSinHeladoAnswer = runRequiredOptionTurn(
+    vasoSinHeladoChatId,
+    vasoSinHeladoConversation.id,
+    "sin helado, fruta mango, topping milo y salsa nutella"
+  );
+  const vasoSinHeladoItem = itemAt(vasoSinHeladoChatId, 0);
+  assert.equal(removed(vasoSinHeladoItem, "helado"), true);
+  assert.deepEqual(selected(vasoSinHeladoItem, "iceCreamFlavor"), []);
+  assert.deepEqual(selected(vasoSinHeladoItem, "fruit"), ["Mango"]);
+  assert.deepEqual(selected(vasoSinHeladoItem, "includedTopping"), ["Milo"]);
+  assert.deepEqual(selected(vasoSinHeladoItem, "sauce"), ["Nutella"]);
+  assert(
+    !vasoSinHeladoAnswer.missingFields.includes("opciones_obligatorias"),
+    "An explicitly removed required component should stop blocking the order"
+  );
+  const vasoSinHeladoSummary = applyDeliveryData(vasoSinHeladoChatId, vasoSinHeladoConversation.id, {
+    customerMessage: "ana perez calle 90 # 50-20 riomar porteria nequi",
+    nombre: "Ana Perez",
+    direccion: "calle 90 # 50-20",
+    barrio: "riomar",
+    referencia: "porteria",
+    metodo_pago: "nequi"
+  });
+  assertIncludes(vasoSinHeladoSummary.bot, "sin helado", "Explicit removal in customer summary");
+
   return {
     vasoFantasia: String(vasoReply.responseText),
-    fresasConHelado: String(fresasReply.responseText)
+    fresasConHelado: String(fresasReply.responseText),
+    vasoSinHelado: String(vasoSinHeladoSummary.bot)
   };
 }
 
