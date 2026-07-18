@@ -633,6 +633,10 @@ export class AgentFlowTurnService {
 
     return {
       question: [
+        "<available_catalog>",
+        JSON.stringify(input.catalogoDisponible),
+        "</available_catalog>",
+        "",
         "<contexto_externo_n8n_backend>",
         ...Object.entries(input.conversationState).map(
           ([key, value]) => `${key}: ${this.stringifyVar(value)}`
