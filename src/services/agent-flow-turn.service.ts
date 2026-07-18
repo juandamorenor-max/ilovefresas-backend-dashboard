@@ -34,6 +34,10 @@ const fallbackReply =
   "Perdón, tuve un problema conectando el asistente. Te paso con el equipo para ayudarte.";
 
 export class AgentFlowTurnService {
+  // Telegram can deliver consecutive updates before a model response returns.
+  // Keep one ordered queue per customer while allowing unrelated chats to run in parallel.
+  private static readonly turnQueues = new Map<string, Promise<void>>();
+
   constructor(
     private readonly botIntegrationService = new BotIntegrationService(),
     private readonly paymentProofValidationService = new PaymentProofValidationService(),
@@ -42,6 +46,12 @@ export class AgentFlowTurnService {
   ) {}
 
   async handleTurn(input: BotTurnInput) {
+    return this.runSerializedTurn(`${input.channel}:${input.chatId}`, () =>
+      this.handleTurnSequential(input)
+    );
+  }
+
+  private async handleTurnSequential(input: BotTurnInput) {
     const text = input.text.trim();
     const hasAttachment = Boolean(input.hasAttachment || input.attachmentType || input.attachmentFileId);
     const agentsOwnDecisions = env.TURN_DECISION_OWNER === "agents";
@@ -710,6 +720,26 @@ export class AgentFlowTurnService {
     }
 
     return merged;
+  }
+
+  private async runSerializedTurn<T>(key: string, work: () => Promise<T>) {
+    const previous = AgentFlowTurnService.turnQueues.get(key) ?? Promise.resolve();
+    let release: (() => void) | undefined;
+    const current = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = previous.catch(() => undefined).then(() => current);
+    AgentFlowTurnService.turnQueues.set(key, tail);
+
+    await previous.catch(() => undefined);
+    try {
+      return await work();
+    } finally {
+      release?.();
+      if (AgentFlowTurnService.turnQueues.get(key) === tail) {
+        AgentFlowTurnService.turnQueues.delete(key);
+      }
+    }
   }
 
   private mergeOutput(target: Record<string, unknown>, output: Record<string, unknown>) {
