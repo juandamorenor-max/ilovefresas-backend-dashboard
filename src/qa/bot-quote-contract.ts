@@ -85,6 +85,16 @@ assert(
     mirrored.conversationState.target_item_id === "waffle_1",
   "agent focus must persist between Flowise executions"
 );
+const askingMore = conversations.updateConversationState(conversation.id, {
+  pending_action: "ask_more_products",
+  stage: "datos",
+  next_expected: "datos"
+});
+assert(
+  askingMore?.conversationState.next_expected === "pedido" &&
+    askingMore.conversationState.stage === "pedido",
+  "ask_more_products must remain in pedido even if a stale Flowise field says datos"
+);
 
 const grouped = quotes.createQuote({
   conversationId: conversation.id,

@@ -377,7 +377,9 @@ export class BotIntegrationService {
       conversation.customerPhone
     );
 
-    const safePatch = this.sanitizePrematurePaymentProofPatch(conversation, patch);
+    const safePatch = this.normalizeAgentOwnedPatch(
+      this.sanitizePrematurePaymentProofPatch(conversation, patch)
+    );
     if (
       safePatch.items !== undefined ||
       safePatch.nombre !== undefined ||
@@ -1129,6 +1131,25 @@ export class BotIntegrationService {
     if (patch.next_expected === "comprobante_pago") {
       conversation.memory.lastBotOffer = "payment_methods";
     }
+  }
+
+  private normalizeAgentOwnedPatch(patch: BotConversationStatePatch): BotConversationStatePatch {
+    if (env.TURN_DECISION_OWNER !== "agents") return patch;
+
+    const pendingAction = patch.pending_action ?? patch.action;
+    if (["configure_item", "ask_more_products", "clarify"].includes(pendingAction ?? "")) {
+      return { ...patch, stage: "pedido", next_expected: "pedido" };
+    }
+    if (pendingAction === "collect_data") {
+      return { ...patch, stage: "datos", next_expected: "datos" };
+    }
+    if (pendingAction === "request_quote") {
+      return { ...patch, stage: "confirmacion", next_expected: "confirmacion" };
+    }
+    if (patch.needs_human === true || patch.needs_human === "true") {
+      return { ...patch, stage: "humano", next_expected: "humano" };
+    }
+    return patch;
   }
 
   private captureAgentFlowState(conversation: Conversation, patch: BotConversationStatePatch) {
