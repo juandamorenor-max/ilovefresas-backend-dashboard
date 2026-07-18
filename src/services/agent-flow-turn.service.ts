@@ -662,6 +662,11 @@ export class AgentFlowTurnService {
     const merged: Record<string, unknown> = {};
     const executedData = response.agentFlowExecutedData;
 
+    if (this.isRecord(response.json)) {
+      this.mergeOutput(merged, response.json);
+    }
+    this.mergeOutput(merged, response);
+
     if (Array.isArray(executedData)) {
       for (const node of executedData) {
         const output = this.getPath(node, ["data", "output"]);
@@ -678,11 +683,6 @@ export class AgentFlowTurnService {
       }
     }
 
-    if (this.isRecord(response.json)) {
-      this.mergeOutput(merged, response.json);
-    }
-
-    this.mergeOutput(merged, response);
     return merged;
   }
 

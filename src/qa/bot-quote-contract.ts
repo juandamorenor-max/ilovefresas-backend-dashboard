@@ -2,6 +2,7 @@ import { demoStore } from "../data/demoStore.js";
 import { env } from "../config/env.js";
 import { BotIntegrationService } from "../services/bot-integration.service.js";
 import { BotQuoteService } from "../services/bot-quote.service.js";
+import { AgentFlowTurnService } from "../services/agent-flow-turn.service.js";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -14,6 +15,35 @@ demoStore.botQuotes = [];
 const conversations = new BotIntegrationService();
 const quotes = new BotQuoteService();
 const conversation = conversations.startNewConversation("telegram", "quote-contract");
+
+const flowTurn = new AgentFlowTurnService();
+const extracted = (
+  flowTurn as unknown as {
+    extractFlowisePatch(response: Record<string, unknown>): Record<string, unknown>;
+  }
+).extractFlowisePatch({
+  text: "validated reply",
+  items: [],
+  agentFlowExecutedData: [{
+    data: {
+      output: {
+        content: JSON.stringify({
+          items: [{
+            id: "waffle_from_custom_function",
+            productId: "prod_waffle_tradicional",
+            producto: "Waffle Tradicional",
+            quantity: 1
+          }],
+          reply: "validated reply"
+        })
+      }
+    }
+  }]
+});
+assert(
+  Array.isArray(extracted.items) && extracted.items.length === 1,
+  "validated Custom Function items must override stale top-level state"
+);
 
 env.TURN_DECISION_OWNER = "agents";
 const mirrored = conversations.updateConversationState(conversation.id, {
