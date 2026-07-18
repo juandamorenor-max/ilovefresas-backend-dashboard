@@ -647,6 +647,7 @@ export class AgentFlowTurnService {
       overrideConfig: {
         vars: {
           ...vars,
+          available_catalog: JSON.stringify(input.catalogoDisponible),
           catalogo_disponible: JSON.stringify(input.catalogoDisponible)
         }
       }
