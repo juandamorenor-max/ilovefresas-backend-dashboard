@@ -160,12 +160,16 @@ export class AgentFlowTurnService {
     }
 
     if (
-      !agentsOwnDecisions &&
       conversation.conversationState.next_expected === "confirmacion" &&
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       !this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
     ) {
-      const order = this.botIntegrationService.createOrderForReview(conversation.id);
+      const confirmedOrderInput = agentsOwnDecisions
+        ? this.botIntegrationService.getConfirmedOrderInput(conversation.id)
+        : null;
+      const order = agentsOwnDecisions && confirmedOrderInput
+        ? this.botQuoteService.confirmOrder(confirmedOrderInput)
+        : this.botIntegrationService.createOrderForReview(conversation.id);
       const responseText = order
         ? "Listo 😊 Tu pedido quedó en revisión con el equipo. Te confirmamos antes de prepararlo 🍓"
         : "Antes de pasarlo a revisión necesito que completemos los datos pendientes del pedido.";
@@ -194,7 +198,6 @@ export class AgentFlowTurnService {
     }
 
     if (
-      !agentsOwnDecisions &&
       conversation.conversationState.next_expected === "confirmacion" &&
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
