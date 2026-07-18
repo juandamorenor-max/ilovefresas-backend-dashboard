@@ -218,6 +218,12 @@ export interface Conversation extends Timestamped {
   draftOrder: OrderDraft | null;
   activeOrderId: string | null;
   activeQuoteId?: string | null;
+  agentFlowState?: {
+    stage: string;
+    pendingAction: string;
+    targetItemId: string;
+    targetOptionKey: string;
+  };
   botPausedUntil: string | null;
   botPausedReason: string | null;
   postOrderEvents?: PostOrderEvent[];

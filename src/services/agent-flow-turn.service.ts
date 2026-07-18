@@ -650,6 +650,10 @@ export class AgentFlowTurnService {
         JSON.stringify(input.catalogoDisponible),
         "</available_catalog>",
         "",
+        "<conversation_state>",
+        JSON.stringify(input.conversationState),
+        "</conversation_state>",
+        "",
         "<contexto_externo_n8n_backend>",
         ...Object.entries(input.conversationState).map(
           ([key, value]) => `${key}: ${this.stringifyVar(value)}`
@@ -664,6 +668,16 @@ export class AgentFlowTurnService {
       overrideConfig: {
         vars: {
           ...vars,
+          conversation_context: JSON.stringify(input.conversationState),
+          order_draft: this.stringifyVar(input.conversationState.items ?? "[]"),
+          current_stage: this.stringifyVar(
+            input.conversationState.stage ?? input.conversationState.next_expected ?? "pedido"
+          ),
+          pending_selection: JSON.stringify({
+            action: input.conversationState.pending_action ?? "",
+            targetItemId: input.conversationState.target_item_id ?? "",
+            targetOptionKey: input.conversationState.target_option_key ?? ""
+          }),
           available_catalog: JSON.stringify(input.catalogoDisponible),
           catalogo_disponible: JSON.stringify(input.catalogoDisponible)
         }

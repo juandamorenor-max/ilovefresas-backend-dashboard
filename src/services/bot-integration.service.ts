@@ -45,6 +45,11 @@ interface BotConversationStatePatch {
   ultimo_agente?: string;
   ultima_pregunta_bot?: string;
   next_expected?: string;
+  stage?: string;
+  action?: string;
+  pending_action?: string;
+  target_item_id?: string | null;
+  target_option_key?: string | null;
   mensaje_cliente?: string;
   customerMessage?: string;
   botMessage?: string;
@@ -391,6 +396,7 @@ export class BotIntegrationService {
     }
     this.captureMessages(conversation, safePatch);
     this.captureMemory(conversation, safePatch);
+    this.captureAgentFlowState(conversation, safePatch);
 
     conversation.draftOrder = this.orderService.refreshDraft(conversation.draftOrder);
     conversation.state = this.nextConversationState(conversation, safePatch);
@@ -589,6 +595,12 @@ export class BotIntegrationService {
       draftOrder: this.orderService.createEmptyDraft(business.id, this.customerPhone(channel, chatId)),
       activeOrderId: null,
       activeQuoteId: null,
+      agentFlowState: {
+        stage: "pedido",
+        pendingAction: "",
+        targetItemId: "",
+        targetOptionKey: ""
+      },
       botPausedUntil: null,
       botPausedReason: null,
       postOrderEvents: [],
@@ -1119,6 +1131,30 @@ export class BotIntegrationService {
     }
   }
 
+  private captureAgentFlowState(conversation: Conversation, patch: BotConversationStatePatch) {
+    if (env.TURN_DECISION_OWNER !== "agents") return;
+
+    const current = conversation.agentFlowState ?? {
+      stage: "pedido",
+      pendingAction: "",
+      targetItemId: "",
+      targetOptionKey: ""
+    };
+    const pendingAction = patch.pending_action ?? patch.action;
+    conversation.agentFlowState = {
+      stage: patch.stage?.trim() || patch.next_expected?.trim() || current.stage,
+      pendingAction: pendingAction?.trim() || current.pendingAction,
+      targetItemId:
+        patch.target_item_id === null
+          ? ""
+          : patch.target_item_id?.trim() ?? current.targetItemId,
+      targetOptionKey:
+        patch.target_option_key === null
+          ? ""
+          : patch.target_option_key?.trim() ?? current.targetOptionKey
+    };
+  }
+
   private saveMessage(conversation: Conversation, role: Message["role"], text: string) {
     const messageText = text.trim();
     if (!messageText) {
@@ -1254,7 +1290,11 @@ export class BotIntegrationService {
       conversationState: {
         items: JSON.stringify(
           draft?.items.map((item) => ({
+            id: item.id,
+            productId: item.productId,
+            productName: item.productName,
             producto: item.productName,
+            quantity: item.quantity,
             cantidad: item.quantity,
             precio_unitario: item.unitBasePrice,
             toppings: item.components
@@ -1277,7 +1317,11 @@ export class BotIntegrationService {
         modalidad_entrega: draft?.fulfillmentType === "pickup" ? "recoger" : "domicilio",
         pedido_en_progreso: Boolean(draft?.items.length),
         ultima_pregunta_bot: this.extractLastBotQuestion(conversation),
-        next_expected: this.toNextExpected(conversation)
+        next_expected: this.toNextExpected(conversation),
+        stage: conversation.agentFlowState?.stage ?? this.toNextExpected(conversation),
+        pending_action: conversation.agentFlowState?.pendingAction ?? "",
+        target_item_id: conversation.agentFlowState?.targetItemId ?? "",
+        target_option_key: conversation.agentFlowState?.targetOptionKey ?? ""
       },
       draftOrder: draft
     };
@@ -1288,11 +1332,14 @@ export class BotIntegrationService {
   }
 
   private toNextExpected(conversation: Conversation) {
+    if (conversation.state === "collecting_items") return "pedido";
     if (conversation.state === "collecting_delivery_details") return "datos";
     if (conversation.state === "awaiting_payment_proof") return "comprobante_pago";
     if (conversation.state === "confirming_order") return "confirmacion";
     if (conversation.state === "pending_human") return "humano";
-    return conversation.draftOrder?.items.length ? "datos" : "pedido";
+    if (conversation.state === "completed") return "postventa";
+    if (conversation.state === "post_order_closed") return "cerrado";
+    return "pedido";
   }
 
   private normalizePaymentMethod(value: string) {

@@ -48,6 +48,11 @@ assert(
 env.TURN_DECISION_OWNER = "agents";
 const mirrored = conversations.updateConversationState(conversation.id, {
   customerMessage: "fresa",
+  stage: "pedido",
+  pending_action: "configure_item",
+  target_item_id: "waffle_1",
+  target_option_key: "iceCreamFlavor",
+  next_expected: "pedido",
   items: [
     {
       id: "waffle_1",
@@ -68,6 +73,17 @@ assert(mirrored.draftOrder.items[0]?.id === "waffle_1", "agent item IDs must rem
 assert(
   mirrored.draftOrder.items[0]?.selectedOptions?.fruit?.[0] === "Fresa",
   "a short required-option answer must be mirrored without repeating the product name"
+);
+const mirroredStateItems = JSON.parse(String(mirrored.conversationState.items));
+assert(mirroredStateItems[0]?.id === "waffle_1", "rehydrated state must include stable item IDs");
+assert(
+  mirrored.conversationState.next_expected === "pedido",
+  "incomplete agent-owned items must remain in pedido"
+);
+assert(
+  mirrored.conversationState.pending_action === "configure_item" &&
+    mirrored.conversationState.target_item_id === "waffle_1",
+  "agent focus must persist between Flowise executions"
 );
 
 const grouped = quotes.createQuote({
