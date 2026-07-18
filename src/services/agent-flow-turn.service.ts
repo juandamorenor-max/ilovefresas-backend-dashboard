@@ -477,23 +477,19 @@ export class AgentFlowTurnService {
         ? this.botQuoteService.createQuote(quoteRequest)
         : { quoteId: "", blockingErrors: ["conversation_draft_not_available"] };
       this.botIntegrationService.setActiveQuote(conversation.id, quote.quoteId || null);
-      rawFlowiseResponse = await this.callFlowise({
-        question: [
-          "<tool_result_quote>",
-          JSON.stringify(quote),
-          "</tool_result_quote>",
-          "Presenta el resumen validado o explica brevemente el bloqueo."
-        ].join("\n"),
-        sessionId,
-        conversationState: {
-          ...(updatedConversation?.conversationState ?? conversation.conversationState),
-          validated_quote: JSON.stringify(quote)
-        },
-        catalogoDisponible
-      });
-      const quotePatch = this.extractFlowisePatch(rawFlowiseResponse);
-      flowisePatch = { ...flowisePatch, ...quotePatch, validated_quote: JSON.stringify(quote) };
-      responseText = this.extractResponseText(rawFlowiseResponse, quotePatch);
+
+      // A quote is validated backend data. Do not make the order completion depend
+      // on a second Agentflow branch merely to render a deterministic summary.
+      const quotePatch = {
+        validated_quote: JSON.stringify(quote),
+        stage: "confirmacion",
+        next_expected: "confirmacion",
+        action: "await_confirmation"
+      };
+      flowisePatch = { ...flowisePatch, ...quotePatch };
+      responseText = quote.blockingErrors.length
+        ? "No pude cerrar la cotización todavía. Un operario revisará el pedido contigo."
+        : this.botIntegrationService.buildConfirmationSummary(conversation.id) ?? fallbackReply;
       updatedConversation = this.botIntegrationService.updateConversationState(conversation.id, {
         ...quotePatch,
         customerMessage: ""
