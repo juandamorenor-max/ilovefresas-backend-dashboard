@@ -458,6 +458,19 @@ export class AgentFlowTurnService {
       }
     );
 
+    if (agentsOwnDecisions) {
+      logger.info("Flowise agents patch applied", {
+        conversationId: conversation.id,
+        patchKeys: Object.keys(flowisePatch).sort(),
+        patchItemCount: Array.isArray(flowisePatch.items)
+          ? flowisePatch.items.length
+          : typeof flowisePatch.items,
+        persistedItemCount: updatedConversation?.draftOrder?.items.length ?? 0,
+        action: flowisePatch.action ?? null,
+        pendingAction: flowisePatch.pending_action ?? null
+      });
+    }
+
     if (agentsOwnDecisions && this.isAgentAction(flowisePatch, "request_quote")) {
       const quoteRequest = this.botIntegrationService.getQuoteRequest(conversation.id);
       const quote = quoteRequest
