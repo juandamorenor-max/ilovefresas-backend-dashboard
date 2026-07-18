@@ -667,6 +667,10 @@ export class AgentFlowTurnService {
         const output = this.getPath(node, ["data", "output"]);
         if (this.isRecord(output)) {
           this.mergeOutput(merged, output);
+          if (typeof output.content === "string") {
+            const parsedContent = this.parseJsonRecord(output.content);
+            if (parsedContent) this.mergeOutput(merged, parsedContent);
+          }
         } else if (typeof output === "string") {
           const parsedOutput = this.parseJsonRecord(output);
           if (parsedOutput) this.mergeOutput(merged, parsedOutput);
