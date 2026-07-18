@@ -5,6 +5,7 @@ import type {
   AdminUser,
   Business,
   BusinessHour,
+  BotQuote,
   ConversationTrace,
   Conversation,
   Customer,
@@ -99,6 +100,7 @@ export const demoStore: {
   conversationTraces: ConversationTrace[];
   messages: Message[];
   orders: Order[];
+  botQuotes: BotQuote[];
   adminUsers: AdminUser[];
 } = {
   businesses: [
@@ -1005,6 +1007,7 @@ export const demoStore: {
   conversationTraces: [],
   messages: [],
   orders: [],
+  botQuotes: [],
   adminUsers: [
     {
       id: createId("admin"),

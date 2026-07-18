@@ -4,6 +4,7 @@ import { logger } from "../utils/logger.js";
 import { BotIntegrationService } from "./bot-integration.service.js";
 import { PaymentProofValidationService } from "./payment-proof-validation.service.js";
 import { TelegramService } from "./telegram.service.js";
+import { BotQuoteService } from "./bot-quote.service.js";
 
 type BotChannel = "telegram" | "whatsapp";
 
@@ -36,12 +37,14 @@ export class AgentFlowTurnService {
   constructor(
     private readonly botIntegrationService = new BotIntegrationService(),
     private readonly paymentProofValidationService = new PaymentProofValidationService(),
-    private readonly telegramService = new TelegramService()
+    private readonly telegramService = new TelegramService(),
+    private readonly botQuoteService = new BotQuoteService()
   ) {}
 
   async handleTurn(input: BotTurnInput) {
     const text = input.text.trim();
     const hasAttachment = Boolean(input.hasAttachment || input.attachmentType || input.attachmentFileId);
+    const agentsOwnDecisions = env.TURN_DECISION_OWNER === "agents";
 
     if (this.isNewChatCommand(text)) {
       const conversation = this.botIntegrationService.startNewConversation(input.channel, input.chatId);
@@ -124,6 +127,7 @@ export class AgentFlowTurnService {
     }
 
     if (
+      !agentsOwnDecisions &&
       conversation.conversationState.next_expected === "confirmacion" &&
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot)
     ) {
@@ -156,6 +160,7 @@ export class AgentFlowTurnService {
     }
 
     if (
+      !agentsOwnDecisions &&
       conversation.conversationState.next_expected === "confirmacion" &&
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       !this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
@@ -189,6 +194,7 @@ export class AgentFlowTurnService {
     }
 
     if (
+      !agentsOwnDecisions &&
       conversation.conversationState.next_expected === "confirmacion" &&
       this.shouldProceedFromConfirmation(text, conversation.conversationState.ultima_pregunta_bot) &&
       this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)
@@ -253,8 +259,17 @@ export class AgentFlowTurnService {
         }
       );
 
+      const confirmedOrderInput = paymentProofReceived && agentsOwnDecisions
+        ? this.botIntegrationService.getConfirmedOrderInput(
+            conversation.id,
+            true,
+            this.buildPaymentProofNote(input, proofValidation)
+          )
+        : null;
       const order = paymentProofReceived
-        ? this.botIntegrationService.createOrderForReview(conversation.id)
+        ? agentsOwnDecisions && confirmedOrderInput
+          ? this.botQuoteService.confirmOrder(confirmedOrderInput)
+          : this.botIntegrationService.createOrderForReview(conversation.id)
         : null;
 
       return {
@@ -299,10 +314,9 @@ export class AgentFlowTurnService {
       };
     }
 
-    const directedModifierTurn = this.botIntegrationService.handleDirectedModifierTurn(
-      conversation.id,
-      text
-    );
+    const directedModifierTurn = agentsOwnDecisions
+      ? null
+      : this.botIntegrationService.handleDirectedModifierTurn(conversation.id, text);
     if (directedModifierTurn) {
       const updatedConversation = this.botIntegrationService.getOrCreateActiveConversation(
         input.channel,
@@ -321,10 +335,9 @@ export class AgentFlowTurnService {
       };
     }
 
-    const requiredOptionsTurn = this.botIntegrationService.handleRequiredOptionsTurn(
-      conversation.id,
-      text
-    );
+    const requiredOptionsTurn = agentsOwnDecisions
+      ? null
+      : this.botIntegrationService.handleRequiredOptionsTurn(conversation.id, text);
     if (requiredOptionsTurn) {
       const updatedConversation = this.botIntegrationService.getOrCreateActiveConversation(
         input.channel,
@@ -343,7 +356,9 @@ export class AgentFlowTurnService {
       };
     }
 
-    const unavailableMatches = this.botIntegrationService.findUnavailableCatalogMatches(text);
+    const unavailableMatches = agentsOwnDecisions
+      ? { products: [], modifiers: [] }
+      : this.botIntegrationService.findUnavailableCatalogMatches(text);
     if (unavailableMatches.products.length > 0 || unavailableMatches.modifiers.length > 0) {
       const responseText = this.botIntegrationService.buildUnavailableCatalogReply(unavailableMatches);
       const updatedConversation = this.botIntegrationService.updateConversationState(
@@ -367,7 +382,9 @@ export class AgentFlowTurnService {
       };
     }
 
-    const oneLineOrderPatch = this.botIntegrationService.buildOneLineOrderPatch(text);
+    const oneLineOrderPatch = agentsOwnDecisions
+      ? null
+      : this.botIntegrationService.buildOneLineOrderPatch(text);
     if (
       oneLineOrderPatch &&
       String(conversation.conversationState.items ?? "[]") === "[]"
@@ -400,7 +417,7 @@ export class AgentFlowTurnService {
       };
     }
 
-    if (this.isOutOfScopeQuestion(text)) {
+    if (!agentsOwnDecisions && this.isOutOfScopeQuestion(text)) {
       const responseText = this.buildOutOfScopeReply();
       const updatedConversation = this.botIntegrationService.updateConversationState(
         conversation.id,
@@ -425,15 +442,15 @@ export class AgentFlowTurnService {
 
     const catalogoDisponible = this.botIntegrationService.getAvailableCatalog();
     const sessionId = this.sessionId(input.channel, input.chatId, conversation.id);
-    const rawFlowiseResponse = await this.callFlowise({
+    let rawFlowiseResponse = await this.callFlowise({
       question: text,
       sessionId,
       conversationState: conversation.conversationState,
       catalogoDisponible
     });
-    const flowisePatch = this.extractFlowisePatch(rawFlowiseResponse);
-    const responseText = this.extractResponseText(rawFlowiseResponse, flowisePatch);
-    const updatedConversation = this.botIntegrationService.updateConversationState(
+    let flowisePatch = this.extractFlowisePatch(rawFlowiseResponse);
+    let responseText = this.extractResponseText(rawFlowiseResponse, flowisePatch);
+    let updatedConversation = this.botIntegrationService.updateConversationState(
       conversation.id,
       {
         ...flowisePatch,
@@ -441,19 +458,67 @@ export class AgentFlowTurnService {
       }
     );
 
-    let order = null;
+    if (agentsOwnDecisions && this.isAgentAction(flowisePatch, "request_quote")) {
+      const quoteRequest = this.botIntegrationService.getQuoteRequest(conversation.id);
+      const quote = quoteRequest
+        ? this.botQuoteService.createQuote(quoteRequest)
+        : { quoteId: "", blockingErrors: ["conversation_draft_not_available"] };
+      this.botIntegrationService.setActiveQuote(conversation.id, quote.quoteId || null);
+      rawFlowiseResponse = await this.callFlowise({
+        question: [
+          "<tool_result_quote>",
+          JSON.stringify(quote),
+          "</tool_result_quote>",
+          "Presenta el resumen validado o explica brevemente el bloqueo."
+        ].join("\n"),
+        sessionId,
+        conversationState: {
+          ...(updatedConversation?.conversationState ?? conversation.conversationState),
+          validated_quote: JSON.stringify(quote)
+        },
+        catalogoDisponible
+      });
+      const quotePatch = this.extractFlowisePatch(rawFlowiseResponse);
+      flowisePatch = { ...flowisePatch, ...quotePatch, validated_quote: JSON.stringify(quote) };
+      responseText = this.extractResponseText(rawFlowiseResponse, quotePatch);
+      updatedConversation = this.botIntegrationService.updateConversationState(conversation.id, {
+        ...quotePatch,
+        customerMessage: ""
+      });
+    }
+
+    let agentsOrder = null;
+    if (agentsOwnDecisions && this.isAgentAction(flowisePatch, "confirm_order")) {
+      if (this.botIntegrationService.requiresPaymentProofForConversation(conversation.id)) {
+        responseText =
+          this.botIntegrationService.buildPaymentInstructionsForConversation(conversation.id) ??
+          responseText;
+        flowisePatch.next_expected = "comprobante_pago";
+        updatedConversation = this.botIntegrationService.updateConversationState(conversation.id, {
+          next_expected: "comprobante_pago",
+          pedido_confirmado_por_cliente: true
+        });
+      } else {
+        const confirmedOrderInput = this.botIntegrationService.getConfirmedOrderInput(conversation.id);
+        if (confirmedOrderInput) agentsOrder = this.botQuoteService.confirmOrder(confirmedOrderInput);
+      }
+    }
+
+    let order = agentsOrder;
     let reviewReadiness = null;
-    if (this.shouldCreateReviewOrder(flowisePatch)) {
+    if (!agentsOwnDecisions && this.shouldCreateReviewOrder(flowisePatch)) {
       reviewReadiness = this.botIntegrationService.getOrderReviewReadiness(conversation.id);
       order = this.botIntegrationService.createOrderForReview(conversation.id);
     }
 
-    const guardedContinuation = this.buildBackendContinuationIfNeeded(
-      conversation.id,
-      text,
-      responseText,
-      String(updatedConversation?.conversationState?.next_expected ?? "")
-    );
+    const guardedContinuation = agentsOwnDecisions
+      ? null
+      : this.buildBackendContinuationIfNeeded(
+          conversation.id,
+          text,
+          responseText,
+          String(updatedConversation?.conversationState?.next_expected ?? "")
+        );
     const finalResponseText = guardedContinuation?.responseText ?? responseText;
     let finalConversation = updatedConversation;
     finalConversation = this.botIntegrationService.updateConversationState(conversation.id, {
@@ -467,7 +532,7 @@ export class AgentFlowTurnService {
       sessionId,
       responseText: finalResponseText,
       shouldSendReply: Boolean(finalResponseText.trim()),
-      source: guardedContinuation?.source ?? "flowise_agentflow",
+      source: guardedContinuation?.source ?? (agentsOwnDecisions ? "flowise_agentflow_agents" : "flowise_agentflow"),
       responseSourceField: this.extractResponseSource(rawFlowiseResponse, flowisePatch),
       state: finalConversation?.state ?? conversation.state,
       orderId: order?.id ?? finalConversation?.activeOrderId ?? null,
@@ -597,6 +662,9 @@ export class AgentFlowTurnService {
         const output = this.getPath(node, ["data", "output"]);
         if (this.isRecord(output)) {
           this.mergeOutput(merged, output);
+        } else if (typeof output === "string") {
+          const parsedOutput = this.parseJsonRecord(output);
+          if (parsedOutput) this.mergeOutput(merged, parsedOutput);
         }
       }
     }
@@ -634,9 +702,24 @@ export class AgentFlowTurnService {
     }
   }
 
+  private parseJsonRecord(value: string) {
+    try {
+      const parsed = JSON.parse(value);
+      return this.isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isAgentAction(patch: Record<string, unknown>, action: string) {
+    return patch.action === action || patch.tool_action === action;
+  }
+
   private extractResponseText(response: FlowisePredictionResponse, patch: Record<string, unknown>) {
     const candidates = [
       patch.mensaje_cliente,
+      patch.reply,
+      patch.reply_draft,
       patch.respuesta,
       response.text,
       response.answer,

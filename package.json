@@ -29,6 +29,7 @@
     "qa:dashboard-auth": "npm run build && node dist/qa/dashboard-auth.js",
     "qa:reset-conversations": "npm run build && node dist/qa/reset-conversations.js",
     "qa:realistic-waffle-orders": "npm run build && node dist/qa/realistic-waffle-orders.js",
+    "qa:bot-quote-contract": "npm run build && node dist/qa/bot-quote-contract.js",
     "qa:telegram-webhook": "npm run build && node dist/qa/telegram-webhook.js",
     "qa:backtest": "npm run build && node dist/qa/integral-backtest.js",
     "qa:catalog-matrix": "npm run build && node dist/qa/catalog-matrix.js",

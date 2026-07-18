@@ -51,6 +51,7 @@ const envSchema = z.object({
   FLOWISE_API_KEY: z.string().optional(),
   BOT_INTEGRATION_SECRET: z.string().optional(),
   BOT_TURN_INCLUDE_RAW: envBooleanDefault(false),
+  TURN_DECISION_OWNER: z.enum(["legacy", "agents"]).default("legacy"),
   DEFAULT_DELIVERY_FEE: z.coerce.number().int().nonnegative().default(5000),
   CATALOG_PATH: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().default("change-me"),

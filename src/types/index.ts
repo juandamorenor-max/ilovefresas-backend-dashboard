@@ -217,6 +217,7 @@ export interface Conversation extends Timestamped {
   aiUsageCount: number;
   draftOrder: OrderDraft | null;
   activeOrderId: string | null;
+  activeQuoteId?: string | null;
   botPausedUntil: string | null;
   botPausedReason: string | null;
   postOrderEvents?: PostOrderEvent[];
@@ -326,6 +327,18 @@ export interface Order extends Timestamped {
     | "completed"
     | "cancelled";
   internalNotes: string | null;
+}
+
+export interface BotQuote extends Timestamped {
+  businessId: string;
+  conversationId: string | null;
+  requestFingerprint: string;
+  fulfillmentType: "delivery" | "pickup";
+  neighborhood: string | null;
+  normalizedItems: OrderItem[];
+  pricing: PricingBreakdown;
+  expiresAt: string;
+  consumedAt: string | null;
 }
 
 export interface AdminUser extends Timestamped {

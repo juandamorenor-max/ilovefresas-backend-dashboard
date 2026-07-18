@@ -10,6 +10,8 @@ botIntegrationRouter.get("/bot/catalog/available", controller.getAvailableCatalo
 botIntegrationRouter.post("/bot/turn", (request, response, next) => {
   controller.handleTurn(request, response).catch(next);
 });
+botIntegrationRouter.post("/bot/quote", controller.createQuote.bind(controller));
+botIntegrationRouter.post("/bot/orders/confirmed", controller.confirmOrder.bind(controller));
 botIntegrationRouter.get(
   "/bot/conversations/:channel/:chatId/active",
   controller.getOrCreateActiveConversation.bind(controller)

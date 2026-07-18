@@ -5,11 +5,13 @@ import { env } from "../config/env.js";
 import { HttpError } from "../utils/http.js";
 import { AgentFlowTurnService } from "../services/agent-flow-turn.service.js";
 import { BotIntegrationService } from "../services/bot-integration.service.js";
+import { BotQuoteService } from "../services/bot-quote.service.js";
 
 export class BotIntegrationController {
   constructor(
     private readonly service = new BotIntegrationService(),
-    private readonly agentFlowTurnService = new AgentFlowTurnService()
+    private readonly agentFlowTurnService = new AgentFlowTurnService(),
+    private readonly botQuoteService = new BotQuoteService()
   ) {}
 
   getAvailableCatalog(request: Request, response: Response) {
@@ -89,6 +91,17 @@ export class BotIntegrationController {
         mimeType: this.getMimeType(request.body)
       })
     );
+  }
+
+  createQuote(request: Request, response: Response) {
+    this.assertBotSecret(request);
+    const result = this.botQuoteService.createQuote(request.body ?? {});
+    response.status(result.blockingErrors.length > 0 ? 422 : 201).json(result);
+  }
+
+  confirmOrder(request: Request, response: Response) {
+    this.assertBotSecret(request);
+    response.status(201).json(this.botQuoteService.confirmOrder(request.body ?? {}));
   }
 
   private getChannel(request: Request) {

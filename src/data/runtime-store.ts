@@ -17,6 +17,7 @@ const persistedKeys = [
   "conversationTraces",
   "messages",
   "orders",
+  "botQuotes",
   "adminUsers"
 ] as const;
 

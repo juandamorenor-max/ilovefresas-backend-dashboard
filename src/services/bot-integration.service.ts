@@ -1,4 +1,5 @@
 import { demoStore } from "../data/demoStore.js";
+import { env } from "../config/env.js";
 import { persistRuntimeStore } from "../data/runtime-store.js";
 import type { Conversation, Message, ModifierOption, OrderDraft, OrderItem, Product } from "../types/index.js";
 import { formatCurrency } from "../utils/http.js";
@@ -10,13 +11,18 @@ import { normalizePaymentMethodSetting, paymentMethodMatches } from "./payment-m
 type BotChannel = "telegram" | "whatsapp";
 
 interface FlowisePedidoItem {
+  id?: string;
+  productId?: string;
+  productName?: string;
   producto?: string;
+  quantity?: number;
   cantidad?: number;
   variante?: string;
   sabor?: string;
   selectedOptions?: Record<string, string[]>;
   toppings?: string[];
   adiciones?: string[];
+  modifierIds?: string[];
   observaciones?: string;
   precio_unitario?: number;
 }
@@ -367,9 +373,22 @@ export class BotIntegrationService {
     );
 
     const safePatch = this.sanitizePrematurePaymentProofPatch(conversation, patch);
+    if (
+      safePatch.items !== undefined ||
+      safePatch.nombre !== undefined ||
+      safePatch.direccion !== undefined ||
+      safePatch.barrio !== undefined ||
+      safePatch.referencia !== undefined ||
+      safePatch.metodo_pago !== undefined ||
+      safePatch.modalidad_entrega !== undefined
+    ) {
+      conversation.activeQuoteId = null;
+    }
     this.applyDraftPatch(conversation.draftOrder, safePatch);
-    this.recoverMentionedProducts(conversation.draftOrder, safePatch.customerMessage);
-    this.normalizeSingleProductHeladoMentions(conversation.draftOrder, safePatch.customerMessage);
+    if (env.TURN_DECISION_OWNER === "legacy") {
+      this.recoverMentionedProducts(conversation.draftOrder, safePatch.customerMessage);
+      this.normalizeSingleProductHeladoMentions(conversation.draftOrder, safePatch.customerMessage);
+    }
     this.captureMessages(conversation, safePatch);
     this.captureMemory(conversation, safePatch);
 
@@ -379,6 +398,62 @@ export class BotIntegrationService {
 
     persistRuntimeStore();
     return this.toBotConversation(conversation);
+  }
+
+  getQuoteRequest(conversationId: string) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!conversation || !draft) return null;
+    return {
+      conversationId,
+      fulfillmentType: draft.fulfillmentType,
+      neighborhood: draft.neighborhood ?? "",
+      items: draft.items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        selectedOptions: item.selectedOptions ?? {},
+        modifiers: item.components
+          .filter((component) => component.type === "added")
+          .map((component) => component.name),
+        notes: item.notes
+      }))
+    };
+  }
+
+  setActiveQuote(conversationId: string, quoteId: string | null) {
+    const conversation = this.findConversation(conversationId);
+    if (!conversation) return null;
+    conversation.activeQuoteId = quoteId;
+    conversation.updatedAt = nowIso();
+    persistRuntimeStore();
+    return conversation;
+  }
+
+  getConfirmedOrderInput(
+    conversationId: string,
+    paymentProofReceived = false,
+    paymentProofNote?: string
+  ) {
+    const conversation = this.findConversation(conversationId);
+    const draft = conversation?.draftOrder;
+    if (!conversation || !draft || !conversation.activeQuoteId) return null;
+    return {
+      quoteId: conversation.activeQuoteId,
+      conversationId,
+      customer: {
+        name: draft.customerName ?? "",
+        phone: conversation.customerPhone,
+        address: draft.address ?? "",
+        neighborhood: draft.neighborhood ?? "",
+        reference: draft.addressReference ?? ""
+      },
+      paymentMethod: draft.paymentMethod ?? "",
+      paymentProof: {
+        received: paymentProofReceived || draft.paymentProofReceived,
+        note: paymentProofNote ?? draft.paymentProofNote ?? undefined
+      }
+    };
   }
 
   getOrderReviewReadiness(conversationId: string) {
@@ -513,6 +588,7 @@ export class BotIntegrationService {
       aiUsageCount: 0,
       draftOrder: this.orderService.createEmptyDraft(business.id, this.customerPhone(channel, chatId)),
       activeOrderId: null,
+      activeQuoteId: null,
       botPausedUntil: null,
       botPausedReason: null,
       postOrderEvents: [],
@@ -530,7 +606,8 @@ export class BotIntegrationService {
 
   private applyDraftPatch(draft: OrderDraft, patch: BotConversationStatePatch) {
     const items = this.parseItems(patch.items);
-    if (items.length > 0 && this.shouldApplyItemsPatch(draft, patch)) {
+    const hasAgentItemsPatch = env.TURN_DECISION_OWNER === "agents" && patch.items !== undefined;
+    if ((items.length > 0 || hasAgentItemsPatch) && this.shouldApplyItemsPatch(draft, patch)) {
       const nextItems = items
         .map((item) => this.toOrderItem(item))
         .filter((item): item is OrderItem => Boolean(item));
@@ -612,20 +689,30 @@ export class BotIntegrationService {
   }
 
   private toOrderItem(item: FlowisePedidoItem): OrderItem | null {
-    const product = this.catalogService.findProductByNameOrAlias(item.producto ?? "");
+    const product = item.productId
+      ? this.catalogService.findProductById(item.productId)
+      : this.catalogService.findProductByNameOrAlias(item.productName ?? item.producto ?? "");
     if (!product) {
       return null;
     }
 
-    const modifiers = [...(item.toppings ?? []), ...(item.adiciones ?? [])]
-      .map((modifierName) => this.catalogService.findModifierOptionByNameOrAlias(modifierName))
+    const modifiers = [
+      ...(item.modifierIds ?? []),
+      ...(item.toppings ?? []),
+      ...(item.adiciones ?? [])
+    ]
+      .map(
+        (modifier) =>
+          this.catalogService.findModifierOptionById(modifier) ??
+          this.catalogService.findModifierOptionByNameOrAlias(modifier)
+      )
       .filter((modifier): modifier is ModifierOption => Boolean(modifier));
 
     return {
-      id: createId("item"),
+      id: item.id?.trim() || createId("item"),
       productId: product.id,
       productName: product.name,
-      quantity: Math.max(1, Number(item.cantidad ?? 1)),
+      quantity: Math.max(1, Number(item.quantity ?? item.cantidad ?? 1)),
       unitBasePrice: Number(item.precio_unitario ?? product.basePrice),
       components: [
         ...product.defaultComponents.map((name) => ({ name, type: "default" as const, priceDelta: 0 })),
@@ -641,6 +728,9 @@ export class BotIntegrationService {
   }
 
   private shouldApplyItemsPatch(draft: OrderDraft, patch: BotConversationStatePatch) {
+    if (env.TURN_DECISION_OWNER === "agents") {
+      return patch.items !== undefined;
+    }
     if (draft.items.length === 0) {
       return true;
     }
@@ -1054,6 +1144,19 @@ export class BotIntegrationService {
   }
 
   private nextConversationState(conversation: Conversation, patch: BotConversationStatePatch) {
+    if (env.TURN_DECISION_OWNER === "agents" && patch.next_expected) {
+      const agentOwnedState = {
+        pedido: "collecting_items",
+        datos: "collecting_delivery_details",
+        confirmacion: "confirming_order",
+        comprobante_pago: "awaiting_payment_proof",
+        humano: "pending_human",
+        postventa: "completed",
+        cerrado: "post_order_closed"
+      } as const;
+      const mapped = agentOwnedState[patch.next_expected as keyof typeof agentOwnedState];
+      if (mapped) return mapped;
+    }
     if (patch.comprobante_pago_recibido === true || patch.comprobante_pago_recibido === "true") {
       return "pending_human";
     }

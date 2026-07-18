@@ -401,7 +401,15 @@ export class CatalogService {
         ? "hidden"
         : product.isOutOfStock
           ? "out_of_stock"
-          : "available"
+          : "available",
+      requiredOptions: (product.requiredOptions ?? []).map((option) => ({
+        key: option.key,
+        label: option.label,
+        required: option.required,
+        minSelections: option.minSelections,
+        maxSelections: option.maxSelections,
+        options: option.options
+      }))
     };
   }
 

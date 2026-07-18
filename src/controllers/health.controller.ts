@@ -25,6 +25,7 @@ export class HealthController {
       },
       botIntegration: {
         secretEnabled: Boolean(env.BOT_INTEGRATION_SECRET),
+        turnDecisionOwner: env.TURN_DECISION_OWNER,
         includeRawFlowiseResponse: env.BOT_TURN_INCLUDE_RAW,
         defaultDeliveryFee: env.DEFAULT_DELIVERY_FEE
       },
