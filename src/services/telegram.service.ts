@@ -69,6 +69,17 @@ export class TelegramService {
     });
   }
 
+  async sendChatAction(
+    botToken: string,
+    chatId: string | number,
+    action: "typing" | "upload_photo" | "upload_document" = "typing"
+  ) {
+    return this.request<boolean>(botToken, "sendChatAction", {
+      chat_id: chatId,
+      action
+    });
+  }
+
   async answerCallbackQuery(botToken: string, callbackQueryId: string, text?: string) {
     return this.request<boolean>(botToken, "answerCallbackQuery", {
       callback_query_id: callbackQueryId,

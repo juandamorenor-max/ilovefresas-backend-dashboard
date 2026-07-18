@@ -176,6 +176,9 @@ Para usarlo crea dos bots con BotFather: uno para clientes y otro para admin. Pr
 
 - `GET /bot/catalog/available` con `x-bot-secret`
 - `POST /bot/turn` con `x-bot-secret`
+- `POST /bot/telegram/inbound` con `x-bot-secret`: entrada asincrona
+  con deduplicacion, agrupacion y procesamiento serial por chat. Railway envia
+  directamente la respuesta final a Telegram.
 - `GET /bot/conversations/:channel/:chatId/active` con `x-bot-secret`
 - `POST /bot/conversations/:channel/:chatId/new` con `x-bot-secret`
 - `PATCH /bot/conversations/:conversationId/state` con `x-bot-secret`
@@ -186,6 +189,10 @@ Para validar que dashboard, catalogo y bot estan conectados:
 ```bash
 npm run test:dashboard-operational
 ```
+
+La integracion Telegram productiva debe terminar en
+`POST /bot/telegram/inbound`. El adaptador n8n no debe enviar el texto de
+respuesta: Railway evita respuestas obsoletas y conserva el orden del chat.
 
 ## Persistencia operativa V1
 

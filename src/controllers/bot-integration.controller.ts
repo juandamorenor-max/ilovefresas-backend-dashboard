@@ -6,12 +6,14 @@ import { HttpError } from "../utils/http.js";
 import { AgentFlowTurnService } from "../services/agent-flow-turn.service.js";
 import { BotIntegrationService } from "../services/bot-integration.service.js";
 import { BotQuoteService } from "../services/bot-quote.service.js";
+import { TelegramInboundBufferService } from "../services/telegram-inbound-buffer.service.js";
 
 export class BotIntegrationController {
   constructor(
     private readonly service = new BotIntegrationService(),
     private readonly agentFlowTurnService = new AgentFlowTurnService(),
-    private readonly botQuoteService = new BotQuoteService()
+    private readonly botQuoteService = new BotQuoteService(),
+    private readonly telegramInboundBufferService = new TelegramInboundBufferService()
   ) {}
 
   getAvailableCatalog(request: Request, response: Response) {
@@ -91,6 +93,47 @@ export class BotIntegrationController {
         mimeType: this.getMimeType(request.body)
       })
     );
+  }
+
+  enqueueTelegramInbound(request: Request, response: Response) {
+    this.assertBotSecret(request);
+    const chatId = String(request.body.chatId ?? "").trim();
+    const externalMessageId = String(
+      request.body.externalMessageId ??
+      request.body.messageId ??
+      request.body.updateId ??
+      ""
+    ).trim();
+    const sequenceNumber = Number(
+      request.body.sequenceNumber ??
+      request.body.updateId ??
+      request.body.messageId
+    );
+
+    if (!chatId || !externalMessageId || !Number.isFinite(sequenceNumber)) {
+      throw new HttpError(
+        400,
+        "chatId, externalMessageId and sequenceNumber are required"
+      );
+    }
+
+    const result = this.telegramInboundBufferService.enqueue({
+      chatId,
+      externalMessageId,
+      sequenceNumber,
+      text: String(request.body.text ?? request.body.caption ?? ""),
+      appBaseUrl: this.getRequestBaseUrl(request),
+      hasAttachment: this.hasAttachment(request.body),
+      attachmentType: this.getAttachmentType(request.body),
+      attachmentFileId: this.getAttachmentFileId(request.body),
+      caption: this.getCaption(request.body),
+      mimeType: this.getMimeType(request.body),
+      receivedAt: typeof request.body.receivedAt === "string"
+        ? request.body.receivedAt
+        : undefined
+    });
+
+    response.status(202).json(result);
   }
 
   createQuote(request: Request, response: Response) {
