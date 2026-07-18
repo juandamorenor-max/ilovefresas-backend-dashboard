@@ -95,6 +95,18 @@ assert(
     askingMore.conversationState.stage === "pedido",
   "ask_more_products must remain in pedido even if a stale Flowise field says datos"
 );
+assert(
+  askingMore.conversationState.target_item_id === "" &&
+    askingMore.conversationState.target_option_key === "",
+  "ask_more_products must clear the required-option focus"
+);
+const messageOnly = conversations.updateConversationState(conversation.id, {
+  botMessage: "¿Quieres agregar otro producto?"
+});
+assert(
+  messageOnly?.conversationState.next_expected === "pedido",
+  "saving a bot message without a decision must preserve the previous stage"
+);
 
 const grouped = quotes.createQuote({
   conversationId: conversation.id,

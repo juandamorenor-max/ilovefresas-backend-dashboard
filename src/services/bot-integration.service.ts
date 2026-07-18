@@ -1138,10 +1138,23 @@ export class BotIntegrationService {
 
     const pendingAction = patch.pending_action ?? patch.action;
     if (["configure_item", "ask_more_products", "clarify"].includes(pendingAction ?? "")) {
-      return { ...patch, stage: "pedido", next_expected: "pedido" };
+      return {
+        ...patch,
+        stage: "pedido",
+        next_expected: "pedido",
+        ...(pendingAction === "ask_more_products"
+          ? { target_item_id: null, target_option_key: null }
+          : {})
+      };
     }
     if (pendingAction === "collect_data") {
-      return { ...patch, stage: "datos", next_expected: "datos" };
+      return {
+        ...patch,
+        stage: "datos",
+        next_expected: "datos",
+        target_item_id: null,
+        target_option_key: null
+      };
     }
     if (pendingAction === "request_quote") {
       return { ...patch, stage: "confirmacion", next_expected: "confirmacion" };
@@ -1201,6 +1214,18 @@ export class BotIntegrationService {
   }
 
   private nextConversationState(conversation: Conversation, patch: BotConversationStatePatch) {
+    if (
+      env.TURN_DECISION_OWNER === "agents" &&
+      patch.next_expected === undefined &&
+      patch.stage === undefined &&
+      patch.pending_action === undefined &&
+      patch.action === undefined &&
+      patch.needs_human === undefined &&
+      patch.comprobante_pago_recibido === undefined &&
+      patch.comprobante_pago_pendiente === undefined
+    ) {
+      return conversation.state;
+    }
     if (env.TURN_DECISION_OWNER === "agents" && patch.next_expected) {
       const agentOwnedState = {
         pedido: "collecting_items",
